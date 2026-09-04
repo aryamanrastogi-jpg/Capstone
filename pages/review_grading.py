@@ -18,6 +18,7 @@ from components.status_badges import (
 )
 from models import GradingResult, ReviewStatus
 from services import assessment_service as service
+from services import state as store
 from services.grading_service import (
     MOCK_ENGINE_NAME,
     apply_teacher_decision,
@@ -49,6 +50,13 @@ def _save_decision(
     apply_teacher_decision(result, status=status, score=score, feedback=feedback)
     service.save_grading_result(result)
 
+
+# Teacher-only page. Navigation already keeps students out; this is the second
+# line of defence if the page is reached directly.
+_viewer = store.get_current_user()
+if _viewer is None or not _viewer.is_teacher:
+    st.error("Sign in as a teacher to use this page.", icon=":material/error:")
+    st.stop()
 
 page_header(
     "Review Grading",

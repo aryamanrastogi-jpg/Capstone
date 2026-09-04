@@ -9,10 +9,18 @@ from components.layout import empty_state, page_header, privacy_notice
 from components.navigation import goto
 from services import assessment_service as service
 from services import document_service
+from services import state as store
 from services.grading_service import grade_submission
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 EXTRACTED_KEY = "upload_extracted"
+
+# Teacher-only page. Navigation already keeps students out; this is the second
+# line of defence if the page is reached directly.
+_viewer = store.get_current_user()
+if _viewer is None or not _viewer.is_teacher:
+    st.error("Sign in as a teacher to use this page.", icon=":material/error:")
+    st.stop()
 
 page_header(
     "Upload Responses",
@@ -61,14 +69,29 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Student identifier and response
 # ---------------------------------------------------------------------------
+teacher = store.get_current_user()
+roster = service.list_students_for_teacher(teacher.id) if teacher else []
+
 id_col, mode_col = st.columns([1, 1])
 with id_col:
-    student_identifier = st.text_input(
-        "Anonymous student identifier *",
-        placeholder="e.g. S-8201",
-        max_chars=40,
-        help="A code you can map back to a student privately. Never a real name.",
-    )
+    if roster:
+        # Picking from the roster links the submission to a student account, so
+        # it shows up in their own progress view as well as yours.
+        codes = {u.display_name: u.id for u in roster}
+        student_identifier = st.selectbox(
+            "Student *",
+            options=list(codes.keys()),
+            help="Anonymous codes only. Picking a student links this to their progress.",
+        )
+        selected_student_id = codes.get(student_identifier)
+    else:
+        student_identifier = st.text_input(
+            "Anonymous student identifier *",
+            placeholder="e.g. S-8201",
+            max_chars=40,
+            help="A code you can map back to a student privately. Never a real name.",
+        )
+        selected_student_id = None
 with mode_col:
     input_mode = st.radio(
         "How is the response being provided?",
@@ -150,6 +173,7 @@ if st.button("Confirm submission", type="primary"):
                 student_identifier=student_identifier,
                 submission_text=response_text,
                 uploaded_filename=uploaded_name,
+                student_id=selected_student_id,
             )
             service.save_submission(submission)
         except PydanticValidationError as exc:

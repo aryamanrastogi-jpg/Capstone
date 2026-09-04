@@ -34,79 +34,126 @@ def flagged_results(results: Iterable[GradingResult]) -> List[GradingResult]:
     return [r for r in results if r.review_status == ReviewStatus.FLAGGED]
 
 
+FRAME_COLUMNS = [
+    "submission_id",
+    "student_id",
+    "student_identifier",
+    "assessment_id",
+    "assessment_title",
+    "assessment_type",
+    "topic",
+    "grade_level",
+    "submitted_at",
+    "question_id",
+    "question_text",
+    "max_marks",
+    "suggested_score",
+    "final_score",
+    "score",
+    "percentage",
+    "confidence",
+    "review_status",
+    "is_official",
+    "accepted_unedited",
+    "error_types",
+]
+
+
 def results_dataframe(
     results: Sequence[GradingResult],
     assessments: Sequence[Assessment],
     submissions: Sequence[Submission],
+    include_estimates: bool = False,
 ) -> pd.DataFrame:
-    """Flatten approved results into a tidy DataFrame for charting.
+    """Flatten grading results into a tidy DataFrame for charting.
+
+    By default only teacher-finalised results are included - that is the
+    teacher's view, where a score is an official mark.
+
+    With `include_estimates=True` the AI's own suggestions are included too,
+    scored on `suggested_score` and marked `is_official=False`. That is the
+    student's view of their own work: useful for spotting weak topics, never
+    presented as a real grade. Flagged results are excluded either way.
 
     Returns an empty DataFrame with the right columns when there is no data, so
     downstream callers never need to special-case the schema.
     """
-    columns = [
-        "submission_id",
-        "student_identifier",
-        "assessment_id",
-        "assessment_title",
-        "topic",
-        "grade_level",
-        "question_id",
-        "question_text",
-        "max_marks",
-        "suggested_score",
-        "final_score",
-        "percentage",
-        "confidence",
-        "review_status",
-        "accepted_unedited",
-        "error_types",
-    ]
-    approved = approved_results(results)
-    if not approved:
-        return pd.DataFrame(columns=columns)
+    if include_estimates:
+        usable = [r for r in results if r.review_status is not ReviewStatus.FLAGGED]
+    else:
+        usable = approved_results(results)
+
+    if not usable:
+        return pd.DataFrame(columns=FRAME_COLUMNS)
 
     submissions_by_id = {s.id: s for s in submissions}
     assessments_by_id = {a.id: a for a in assessments}
-    question_lookup = {
-        q.id: (a, q) for a in assessments for q in a.questions
-    }
+    question_lookup = {q.id: (a, q) for a in assessments for q in a.questions}
 
     rows: List[Dict[str, object]] = []
-    for result in approved:
+    for result in usable:
         submission = submissions_by_id.get(result.submission_id)
         assessment, question = question_lookup.get(result.question_id, (None, None))
         if assessment is None and submission is not None:
             assessment = assessments_by_id.get(submission.assessment_id)
 
         final = result.final_score
-        if final is None:
+        score = final if final is not None else result.suggested_score
+        if score is None:
             continue
 
         rows.append(
             {
                 "submission_id": result.submission_id,
+                "student_id": submission.student_id if submission else None,
                 "student_identifier": submission.student_identifier if submission else "unknown",
                 "assessment_id": assessment.id if assessment else "unknown",
                 "assessment_title": assessment.title if assessment else "Unknown assessment",
+                "assessment_type": (
+                    assessment.assessment_type.label if assessment else "Unknown"
+                ),
                 "topic": assessment.topic if assessment else "Unknown topic",
                 "grade_level": assessment.grade_level if assessment else None,
+                "submitted_at": submission.submitted_at if submission else None,
                 "question_id": result.question_id,
-                "question_text": _shorten(question.question_text) if question else result.question_id,
+                "question_text": (
+                    _shorten(question.question_text) if question else result.question_id
+                ),
                 "max_marks": result.max_marks,
                 "suggested_score": result.suggested_score,
                 "final_score": final,
-                "percentage": round(100 * final / result.max_marks, 1) if result.max_marks else 0.0,
+                "score": score,
+                "percentage": (
+                    round(100 * score / result.max_marks, 1) if result.max_marks else 0.0
+                ),
                 "confidence": result.confidence,
                 "review_status": result.review_status.value,
+                "is_official": result.is_finalised,
                 "accepted_unedited": result.review_status == ReviewStatus.APPROVED,
                 "error_types": [e.error_type.value for e in result.errors],
             }
         )
 
     if not rows:
-        return pd.DataFrame(columns=columns)
-    return pd.DataFrame(rows, columns=columns)
+        return pd.DataFrame(columns=FRAME_COLUMNS)
+    return pd.DataFrame(rows, columns=FRAME_COLUMNS)
+
+
+def student_dataframe(
+    student_id: str,
+    results: Sequence[GradingResult],
+    assessments: Sequence[Assessment],
+    submissions: Sequence[Submission],
+) -> pd.DataFrame:
+    """One student's own history, including AI estimates.
+
+    Scoped by `student_id` rather than filtered in the page, so a student can
+    never be shown another student's work by accident.
+    """
+    own = [s for s in submissions if s.student_id == student_id]
+    own_ids = {s.id for s in own}
+    own_results = [r for r in results if r.submission_id in own_ids]
+    return results_dataframe(own_results, assessments, own, include_estimates=True)
 
 
 def _shorten(text: str, limit: int = 60) -> str:
@@ -226,13 +273,167 @@ def score_distribution(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({"band": bands, "count": counts.to_list()})
 
 
+# --------------------------------------------------------------------------
+# Longitudinal views - the point of the product
+# --------------------------------------------------------------------------
+def topic_trend(frame: pd.DataFrame, freq: str = "W") -> pd.DataFrame:
+    """Average percentage per topic over time.
+
+    This is what turns a pile of past homework into a story: whether a topic is
+    improving, flat, or getting worse across the term.
+
+    Columns: period, topic, avg_percentage, responses.
+    """
+    columns = ["period", "topic", "avg_percentage", "responses"]
+    if frame.empty or "submitted_at" not in frame:
+        return pd.DataFrame(columns=columns)
+
+    working = frame.dropna(subset=["submitted_at"]).copy()
+    if working.empty:
+        return pd.DataFrame(columns=columns)
+
+    working["submitted_at"] = pd.to_datetime(working["submitted_at"])
+    working["period"] = working["submitted_at"].dt.to_period(freq).dt.start_time
+
+    grouped = (
+        working.groupby(["period", "topic"], as_index=False)
+        .agg(avg_percentage=("percentage", "mean"), responses=("percentage", "size"))
+        .sort_values(["topic", "period"], ignore_index=True)
+    )
+    grouped["avg_percentage"] = grouped["avg_percentage"].round(1)
+    return grouped[columns]
+
+
+def overall_trend(frame: pd.DataFrame, freq: str = "W") -> pd.DataFrame:
+    """Average percentage across all topics over time. Columns: period, avg_percentage."""
+    columns = ["period", "avg_percentage", "responses"]
+    trend = topic_trend(frame, freq=freq)
+    if trend.empty:
+        return pd.DataFrame(columns=columns)
+    grouped = (
+        trend.groupby("period", as_index=False)
+        .agg(avg_percentage=("avg_percentage", "mean"), responses=("responses", "sum"))
+        .sort_values("period", ignore_index=True)
+    )
+    grouped["avg_percentage"] = grouped["avg_percentage"].round(1)
+    return grouped[columns]
+
+
+def weakest_topics(frame: pd.DataFrame, limit: int = 3, ceiling: float = 100.0) -> List[str]:
+    """The topics to revise first, weakest first.
+
+    `ceiling` lets a caller ask only for topics below a threshold, e.g. 70.0 to
+    ignore topics the student is already comfortable with.
+    """
+    performance = topic_performance(frame)
+    if performance.empty:
+        return []
+    eligible = performance[performance["avg_percentage"] <= ceiling]
+    return eligible.head(limit)["topic"].tolist()
+
+
+def topic_strength(frame: pd.DataFrame) -> pd.DataFrame:
+    """Every topic with an average and a plain-language band, weakest first."""
+    performance = topic_performance(frame)
+    if performance.empty:
+        return pd.DataFrame(columns=["topic", "avg_percentage", "responses", "band"])
+    performance["band"] = performance["avg_percentage"].apply(_band)
+    return performance
+
+
+def _band(percentage: float) -> str:
+    if percentage >= 80:
+        return "Secure"
+    if percentage >= 65:
+        return "Developing"
+    if percentage >= 50:
+        return "Needs work"
+    return "Priority"
+
+
+def mark_mismatches(
+    submissions: Sequence[Submission],
+    results: Sequence[GradingResult],
+    assessments: Sequence[Assessment],
+    threshold_pct: float = 15.0,
+) -> pd.DataFrame:
+    """Where the AI estimate and the teacher's own mark disagree.
+
+    A second pair of eyes: if the student recorded 6/10 from their teacher but
+    the AI reads the work as 9/10, that is worth the teacher re-checking. It is
+    a prompt to look again, never an assertion that the teacher was wrong.
+
+    Columns: submission_id, student_identifier, assessment_title,
+             teacher_pct, ai_pct, gap, direction.
+    """
+    columns = [
+        "submission_id",
+        "student_identifier",
+        "assessment_title",
+        "teacher_score",
+        "ai_score",
+        "max_marks",
+        "teacher_pct",
+        "ai_pct",
+        "gap",
+        "direction",
+    ]
+    assessments_by_id = {a.id: a for a in assessments}
+    results_by_submission: Dict[str, List[GradingResult]] = {}
+    for result in results:
+        results_by_submission.setdefault(result.submission_id, []).append(result)
+
+    rows: List[Dict[str, object]] = []
+    for submission in submissions:
+        if submission.teacher_awarded_score is None:
+            continue
+        own = results_by_submission.get(submission.id) or []
+        if not own:
+            continue
+
+        available = sum(r.max_marks for r in own)
+        if not available:
+            continue
+
+        ai_total = sum(r.suggested_score for r in own)
+        teacher_total = float(submission.teacher_awarded_score)
+        ai_pct = round(100 * ai_total / available, 1)
+        teacher_pct = round(100 * teacher_total / available, 1)
+        gap = round(ai_pct - teacher_pct, 1)
+
+        if abs(gap) < threshold_pct:
+            continue
+
+        assessment = assessments_by_id.get(submission.assessment_id)
+        rows.append(
+            {
+                "submission_id": submission.id,
+                "student_identifier": submission.student_identifier,
+                "assessment_title": assessment.title if assessment else "Unknown assessment",
+                "teacher_score": teacher_total,
+                "ai_score": round(ai_total, 2),
+                "max_marks": available,
+                "teacher_pct": teacher_pct,
+                "ai_pct": ai_pct,
+                "gap": gap,
+                "direction": "AI scored higher" if gap > 0 else "AI scored lower",
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows, columns=columns).sort_values(
+        "gap", key=lambda s: s.abs(), ascending=False, ignore_index=True
+    )
+
+
 def submission_scores(frame: pd.DataFrame) -> pd.DataFrame:
     """Per-student totals across approved questions."""
     if frame.empty:
         return pd.DataFrame(columns=["student_identifier", "awarded", "available", "percentage"])
     grouped = (
         frame.groupby("student_identifier", as_index=False)
-        .agg(awarded=("final_score", "sum"), available=("max_marks", "sum"))
+        .agg(awarded=("score", "sum"), available=("max_marks", "sum"))
     )
     grouped["percentage"] = (100 * grouped["awarded"] / grouped["available"]).round(1)
     return grouped.sort_values("percentage", ascending=False, ignore_index=True)

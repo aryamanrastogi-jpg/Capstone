@@ -29,6 +29,21 @@ class Submission(BaseModel):
     submitted_at: datetime = Field(default_factory=datetime.now)
     status: SubmissionStatus = SubmissionStatus.PENDING
 
+    # --- Ownership -------------------------------------------------------
+    # Which user this belongs to. Set for everything a student uploads, so
+    # one student can never be shown another student's work.
+    student_id: Optional[str] = None
+
+    # True when a student uploaded their own past work to study from, rather
+    # than a teacher collecting it for marking. Self-study results are AI
+    # estimates and never become official marks.
+    is_self_study: bool = False
+
+    # The mark the teacher actually wrote on the paper, if the student knows
+    # it. Comparing this against the AI estimate is what surfaces a possible
+    # marking mismatch for the teacher to re-check.
+    teacher_awarded_score: Optional[float] = Field(default=None, ge=0)
+
     @field_validator("student_identifier")
     @classmethod
     def _anonymous_identifier(cls, value: str) -> str:

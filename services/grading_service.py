@@ -444,6 +444,65 @@ def apply_teacher_decision(
     return result
 
 
+def student_safe_view(result: GradingResult, question: Question) -> dict:
+    """What a student is allowed to see about their own answer.
+
+    Academic integrity is a product requirement here, not a footnote: the app
+    must not become a way to obtain homework answers. So a student gets the
+    score, the error categories and *pointers* - never the model answer, never
+    the marking scheme, and never a correct-elements list that quotes the
+    expected values back at them.
+
+    Teachers see everything; that is what `GradingResult` itself carries.
+    """
+    expected_values = set(_numbers(question.model_answer))
+
+    def _leaks(text: str) -> bool:
+        return bool(expected_values.intersection(_numbers(text)))
+
+    return {
+        "question_text": question.question_text,
+        "max_marks": result.max_marks,
+        "score": result.suggested_score,
+        "confidence": result.confidence,
+        "is_estimate": not result.is_finalised,
+        # Keep only praise that does not restate the expected numbers.
+        "strengths": [
+            item for item in result.correct_elements if not _leaks(item)
+        ] or ["You made a genuine attempt at this question."],
+        "error_labels": [e.error_type.label for e in result.errors],
+        "pointers": _pointers(result),
+    }
+
+
+def _pointers(result: GradingResult) -> List[str]:
+    """Next-step hints for a student, derived only from the error categories."""
+    tips = {
+        ErrorType.ARITHMETIC_ERROR: (
+            "Re-do each calculation line by line and compare the two attempts."
+        ),
+        ErrorType.INCORRECT_METHOD: (
+            "Ask yourself which method this type of question calls for before you start."
+        ),
+        ErrorType.CONCEPTUAL_ERROR: (
+            "Go back to the idea being tested and put it in your own words first."
+        ),
+        ErrorType.INCOMPLETE_ANSWER: (
+            "Re-read the question and check every part of it has been answered."
+        ),
+        ErrorType.MISSING_WORKING: (
+            "Write out your working - marks are given for the method, not just the answer."
+        ),
+        ErrorType.UNIT_ERROR: (
+            "Check what quantity you have found and finish with its unit."
+        ),
+    }
+    hints = [tips[e.error_type] for e in result.errors if e.error_type in tips]
+    if not hints:
+        hints.append("Nothing specific flagged - compare your working against your notes.")
+    return list(dict.fromkeys(hints))
+
+
 def grade_submission(
     questions: Sequence[Question],
     submission_text: str,

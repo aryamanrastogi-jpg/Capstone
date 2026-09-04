@@ -31,16 +31,49 @@ class Subject(str, Enum):
         return [member.value for member in cls]
 
 
-GRADE_LEVELS: List[int] = [7, 8, 9]
+class AssessmentType(str, Enum):
+    """What kind of work this is.
 
+    The type matters for the weakness analysis: a mock exam is stronger
+    evidence of exam readiness than a piece of homework, and being able to
+    separate them is what makes a term of history readable.
+    """
+
+    HOMEWORK = "homework"
+    EXERCISE = "exercise"
+    MOCK_EXAM = "mock_exam"
+    EXAM = "exam"
+
+    @property
+    def label(self) -> str:
+        return self.value.replace("_", " ").title()
+
+    @classmethod
+    def labels(cls) -> List[str]:
+        return [member.label for member in cls]
+
+    @classmethod
+    def from_label(cls, label: str) -> "AssessmentType":
+        for member in cls:
+            if member.label == label:
+                return member
+        raise ValueError(f"Unknown assessment type '{label}'.")
+
+
+GRADE_LEVELS: List[int] = [7, 8, 9, 10, 11]
+
+# Cambridge IGCSE is the focus curriculum; the others are here so the model
+# does not have to change when a second curriculum is added.
 CURRICULA: List[str] = [
+    "Cambridge IGCSE",
     "CBSE",
     "ICSE",
-    "Cambridge IGCSE",
     "IB MYP",
     "State Board",
     "Other",
 ]
+
+DEFAULT_CURRICULUM = "Cambridge IGCSE"
 
 
 class Question(BaseModel):
@@ -72,9 +105,10 @@ class Assessment(BaseModel):
     id: str = Field(default_factory=lambda: _new_id("as"))
     title: str = Field(min_length=1)
     subject: Subject = Subject.MATHEMATICS
-    curriculum: str = "CBSE"
-    grade_level: int = Field(ge=7, le=9)
+    curriculum: str = DEFAULT_CURRICULUM
+    grade_level: int = Field(ge=7, le=11)
     topic: str = Field(min_length=1)
+    assessment_type: AssessmentType = AssessmentType.HOMEWORK
     max_marks: float = Field(default=0, ge=0)
     created_at: datetime = Field(default_factory=datetime.now)
     questions: List[Question] = Field(default_factory=list)

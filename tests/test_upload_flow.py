@@ -48,9 +48,18 @@ def _image_only_pdf() -> bytes:
 
 @pytest.fixture
 def page() -> AppTest:
-    """The Upload Responses page, switched to the file-upload input mode."""
+    """The Upload Responses page, signed in as a teacher, in file-upload mode.
+
+    Upload Responses is a teacher page, and the app starts as a student, so the
+    identity has to be switched before the page exists in navigation.
+    """
     at = AppTest.from_file(APP, default_timeout=60)
     at.run()
+
+    teacher = next(u for u in at.session_state["users"] if u.is_teacher)
+    at.session_state["current_user_id"] = teacher.id
+    at.run()
+
     at.switch_page(UPLOAD_PAGE)
     at.run()
     assert not at.exception, at.exception
@@ -93,12 +102,21 @@ def test_digital_pdf_upload_previews_its_extracted_text(page):
     assert "3x = 15" in preview[0].value
 
 
+def _pick_student(at: AppTest, code: str) -> AppTest:
+    """Choose a student from the teacher's roster."""
+    picker = [s for s in at.selectbox if s.label == "Student *"]
+    assert picker, "the roster picker should be shown when the teacher has students"
+    picker[0].set_value(code)
+    at.run()
+    return at
+
+
 def test_digital_pdf_upload_creates_a_graded_submission(page):
     at = _upload(page, "typed_answers.pdf", _digital_pdf(), "application/pdf")
     submissions_before, results_before = _counts(at)
 
-    at.text_input[0].set_value("S-7788")
-    at.run()
+    code = at.session_state["users"][1].display_name
+    _pick_student(at, code)
     [b for b in at.button if b.label == "Confirm submission"][0].click()
     at.run()
 
@@ -108,9 +126,24 @@ def test_digital_pdf_upload_creates_a_graded_submission(page):
     assert results_after > results_before, "mock grading should have run"
 
     submission = at.session_state["submissions"][-1]
-    assert submission.student_identifier == "S-7788"
+    assert submission.student_identifier == code
     assert submission.uploaded_filename == "typed_answers.pdf"
     assert "3x = 15" in submission.submission_text
+
+
+def test_a_teacher_upload_is_linked_to_the_student_account(page):
+    """Linking means the work also shows up in that student's own progress."""
+    at = _upload(page, "typed_answers.pdf", _digital_pdf(), "application/pdf")
+
+    student = at.session_state["users"][1]
+    _pick_student(at, student.display_name)
+    [b for b in at.button if b.label == "Confirm submission"][0].click()
+    at.run()
+
+    assert not at.exception
+    submission = at.session_state["submissions"][-1]
+    assert submission.student_id == student.id
+    assert submission.is_self_study is False
 
     # Nothing the AI produced may be finalised without a teacher.
     new_results = [
@@ -201,8 +234,7 @@ def test_a_password_protected_pdf_is_reported(page):
 def test_uploaded_filenames_are_sanitised_before_being_stored(page):
     at = _upload(page, "../../etc/my answers.pdf", _digital_pdf(), "application/pdf")
 
-    at.text_input[0].set_value("S-7789")
-    at.run()
+    _pick_student(at, at.session_state["users"][1].display_name)
     [b for b in at.button if b.label == "Confirm submission"][0].click()
     at.run()
 
@@ -215,15 +247,17 @@ def test_uploaded_filenames_are_sanitised_before_being_stored(page):
 # ---------------------------------------------------------------------------
 # Guard rails on the confirm step
 # ---------------------------------------------------------------------------
-def test_confirming_without_a_student_identifier_is_blocked(page):
-    at = _upload(page, "typed_answers.pdf", _digital_pdf(), "application/pdf")
+def test_confirming_with_no_response_text_is_blocked(page):
+    """The uploader was never used, so there is nothing to grade."""
+    at = page
     before = _counts(at)
 
+    _pick_student(at, at.session_state["users"][1].display_name)
     [b for b in at.button if b.label == "Confirm submission"][0].click()
     at.run()
 
     assert not at.exception
     # The page shows a heading via st.error and the specific problems as bullets.
     assert "Please fix the following" in _messages(at.error)
-    assert "identifier is required" in _messages(at.markdown)
+    assert "response text is empty" in _messages(at.markdown)
     assert _counts(at) == before

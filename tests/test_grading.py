@@ -157,7 +157,7 @@ def test_digital_pdf_text_is_extracted():
 # Sample data and analytics
 # ---------------------------------------------------------------------------
 def test_sample_data_is_consistent():
-    assessments, submissions, results = build_sample_data()
+    assessments, submissions, results, _users = build_sample_data()
     assert assessments and submissions and results
 
     assessment_ids = {a.id: a for a in assessments}
@@ -175,19 +175,19 @@ def test_sample_data_is_consistent():
 
 
 def test_sample_data_uses_anonymous_identifiers():
-    _, submissions, _ = build_sample_data()
+    _, submissions, _, _ = build_sample_data()
     for submission in submissions:
         assert submission.student_identifier.startswith("S-")
 
 
 def test_sample_data_leaves_some_results_awaiting_review():
-    _, _, results = build_sample_data()
+    _, _, results, _ = build_sample_data()
     assert any(r.review_status is ReviewStatus.AWAITING_REVIEW for r in results)
     assert any(r.review_status is ReviewStatus.APPROVED for r in results)
 
 
 def test_analytics_only_counts_reviewed_results():
-    assessments, submissions, results = build_sample_data()
+    assessments, submissions, results, _users = build_sample_data()
     frame = analytics.results_dataframe(results, assessments, submissions)
     assert not frame.empty
     assert set(frame["review_status"]).issubset({"approved", "edited"})
@@ -205,7 +205,7 @@ def test_analytics_handles_an_empty_dataset():
 
 
 def test_acceptance_rate_is_a_percentage():
-    _, _, results = build_sample_data()
+    _, _, results, _ = build_sample_data()
     rate = analytics.acceptance_rate(results)
     assert rate is not None
     assert 0 <= rate <= 100

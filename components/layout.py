@@ -84,7 +84,7 @@ def page_header(title: str, subtitle: str = "", help_text: str = "") -> None:
 
 
 def sidebar_status() -> None:
-    """Backend status, teacher identity and the privacy notice in the sidebar."""
+    """Backend status, the demo identity switch and the privacy notice."""
     status = store.backend_status()
     with st.sidebar:
         st.markdown(f"### {APP_NAME}")
@@ -101,14 +101,51 @@ def sidebar_status() -> None:
             st.caption(status["message"])
 
         st.divider()
-        st.caption(f"Signed in as **{store.get_current_teacher()}**")
+        _identity_switcher()
 
-        if st.button("Reset demo data", width="stretch", help="Restore the seeded sample dataset."):
+        if st.button(
+            "Reset demo data",
+            width="stretch",
+            help="Restore the seeded sample dataset.",
+        ):
             store.reset_to_samples()
             st.rerun()
 
         st.divider()
         st.caption(PRIVACY_NOTICE)
+
+
+def _identity_switcher() -> None:
+    """Pick who you are signed in as. Demo only - not authentication.
+
+    Real sign-in belongs in Supabase Auth, where the role is stored server side
+    and cannot be chosen by the person using the app. Until that exists this is
+    a convenience for demoing both journeys, and it is labelled as such.
+    """
+    users = store.get_users()
+    if not users:
+        st.caption("No users loaded.")
+        return
+
+    current = store.get_current_user()
+    ordered = sorted(users, key=lambda u: (u.role.value, u.display_name))
+    labels = {u.id: f"{u.display_name} · {u.role.label}" for u in ordered}
+    index = next(
+        (i for i, u in enumerate(ordered) if current and u.id == current.id), 0
+    )
+
+    chosen = st.selectbox(
+        "Signed in as",
+        options=[u.id for u in ordered],
+        format_func=lambda uid: labels[uid],
+        index=index,
+        help="Demo identity switch. This is not real authentication.",
+    )
+    if current is None or chosen != current.id:
+        store.set_current_user(chosen)
+        st.rerun()
+
+    st.caption(":material/info: Demo switch, not a login.")
 
 
 def ai_disclaimer(extra: str = "") -> None:

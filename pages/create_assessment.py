@@ -8,8 +8,9 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.layout import page_header, privacy_notice
 from components.navigation import goto
-from models.assessment import CURRICULA, GRADE_LEVELS, Subject
+from models.assessment import CURRICULA, GRADE_LEVELS, AssessmentType, Subject
 from services import assessment_service as service
+from services import state as store
 from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "create_assessment_rows"
@@ -20,6 +21,13 @@ BLANK_ROWS = pd.DataFrame(
         for _ in range(3)
     ]
 )
+
+# Teacher-only page. Navigation already keeps students out; this is the second
+# line of defence if the page is reached directly.
+_viewer = store.get_current_user()
+if _viewer is None or not _viewer.is_teacher:
+    st.error("Sign in as a teacher to use this page.", icon=":material/error:")
+    st.stop()
 
 page_header(
     "Create Assessment",
@@ -58,7 +66,14 @@ with col_a:
     )
 with col_b:
     curriculum = st.selectbox("Curriculum *", CURRICULA, index=0, key="ca_curriculum")
-    grade_level = st.selectbox("Grade level *", GRADE_LEVELS, index=1, key="ca_grade")
+    grade_level = st.selectbox("Grade level *", GRADE_LEVELS, index=3, key="ca_grade")
+    assessment_type_label = st.selectbox(
+        "Type of work *",
+        AssessmentType.labels(),
+        index=0,
+        key="ca_type",
+        help="Used to separate homework from exam performance in the analytics.",
+    )
 
 st.divider()
 
@@ -135,6 +150,7 @@ if save_clicked:
                 grade_level=grade_level,
                 topic=topic,
                 rows=rows,
+                assessment_type=AssessmentType.from_label(assessment_type_label),
             )
             service.save_assessment(assessment)
         except PydanticValidationError as exc:
@@ -170,6 +186,7 @@ else:
                 {
                     "Title": a.title,
                     "Subject": a.subject.value,
+                    "Type": a.assessment_type.label,
                     "Curriculum": a.curriculum,
                     "Grade": a.grade_level,
                     "Topic": a.topic,
