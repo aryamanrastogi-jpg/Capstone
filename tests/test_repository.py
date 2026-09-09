@@ -500,10 +500,10 @@ def test_repository_falls_back_to_session_state_when_signed_out(
     in user would read nothing and silently discard every write - worse than
     demo mode, and far harder to diagnose.
     """
+    import services.auth_service as auth_module
     import services.repository as repository_module
-    import services.supabase_client as client_module
 
-    monkeypatch.setattr(client_module, "get_authenticated_client", lambda: None)
+    monkeypatch.setattr(auth_module, "authenticated_client", lambda: None)
     repository_module.set_repository(None)
     try:
         assert isinstance(repository_module.get_repository(), SessionRepository)
@@ -514,11 +514,11 @@ def test_repository_falls_back_to_session_state_when_signed_out(
 def test_repository_uses_supabase_when_a_session_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import services.auth_service as auth_module
     import services.repository as repository_module
-    import services.supabase_client as client_module
 
     fake = FakeSupabase()
-    monkeypatch.setattr(client_module, "get_authenticated_client", lambda: fake)
+    monkeypatch.setattr(auth_module, "authenticated_client", lambda: fake)
     repository_module.set_repository(None)
     try:
         active = repository_module.get_repository()
