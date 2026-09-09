@@ -421,7 +421,11 @@ def test_the_sign_in_page_renders_and_offers_no_role_choice(
     at.run()
 
     assert not at.exception, at.exception
-    assert [t.value for t in at.title] == ["Sign in to AssessAI"]
+    # The heading comes from the shared `page_header`, so it lands in markdown
+    # rather than in st.title.
+    body = " ".join(m.value for m in at.markdown)
+    assert "Sign In" in body
+    assert "Sign in to AssessAI" in body
     assert [b.label for b in at.button] == ["Sign in", "Create account"]
 
     labels = " ".join(
