@@ -24,16 +24,12 @@ from components.navigation import goto
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
+from utils import palette
 
-NAVY = "#0F2D52"
-TEAL = "#0F766E"
-SEQUENCE = ["#0F766E", "#0F2D52", "#2563EB", "#0891B2", "#7C3AED", "#B45309"]
-BAND_COLOURS = {
-    "Secure": "#16A34A",
-    "Developing": "#0F766E",
-    "Needs work": "#D97706",
-    "Priority": "#DC2626",
-}
+NAVY = palette.PRIMARY_DARK
+TEAL = palette.PRIMARY
+SEQUENCE = palette.CHART_SEQUENCE
+BAND_COLOURS = palette.BAND_COLOURS
 
 student = store.get_current_user()
 if student is None or not student.is_student:

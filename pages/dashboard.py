@@ -22,6 +22,7 @@ from components.status_badges import submission_status_label
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
+from utils import palette
 
 teacher = store.get_current_user()
 if teacher is None or not teacher.is_teacher:
@@ -196,6 +197,6 @@ with right:
     if errors.empty:
         empty_state("No graded responses yet.")
     else:
-        st.bar_chart(errors.set_index("label")["count"], height=300, color="#0F766E")
+        st.bar_chart(errors.set_index("label")["count"], height=300, color=palette.PRIMARY)
 
 privacy_notice()

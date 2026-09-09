@@ -10,10 +10,11 @@ from components.navigation import goto
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
+from utils import palette
 
-NAVY = "#0F2D52"
-TEAL = "#0F766E"
-SEQUENCE = ["#0F766E", "#0F2D52", "#2563EB", "#0891B2", "#7C3AED", "#B45309"]
+NAVY = palette.PRIMARY_DARK
+TEAL = palette.PRIMARY
+SEQUENCE = palette.CHART_SEQUENCE
 
 # Teacher-only page. Navigation already keeps students out; this is the second
 # line of defence if the page is reached directly.

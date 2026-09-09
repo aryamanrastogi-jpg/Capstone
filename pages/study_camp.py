@@ -24,9 +24,10 @@ from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
 from services import study_camp_service as camps
+from utils import palette
 
-TEAL = "#0F766E"
-NAVY = "#0F2D52"
+TEAL = palette.PRIMARY
+NAVY = palette.PRIMARY_DARK
 
 student = store.get_current_user()
 if student is None or not student.is_student:
