@@ -5,6 +5,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 
+from components import charts
 from components.layout import empty_state, metric_row, page_header, privacy_notice
 from components.navigation import goto
 from services import analytics_service as analytics
@@ -90,12 +91,9 @@ with dist_col:
         labels={"band": "Score band (%)", "count": "Results"},
         color_discrete_sequence=[TEAL],
     )
-    figure.update_layout(
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=330,
-        yaxis=dict(dtick=1) if distribution["count"].max() <= 8 else {},
-    )
-    st.plotly_chart(figure, width="stretch")
+    if distribution["count"].max() <= 8:
+        figure.update_layout(yaxis=dict(dtick=1))
+    charts.render(figure, height=330, legend=False)
 
 with error_col:
     st.subheader("Most frequent error categories")
@@ -112,12 +110,8 @@ with error_col:
             labels={"count": "Occurrences", "label": ""},
             color_discrete_sequence=[NAVY],
         )
-        figure.update_layout(
-            margin=dict(l=10, r=10, t=10, b=10),
-            height=330,
-            yaxis=dict(autorange="reversed"),
-        )
-        st.plotly_chart(figure, width="stretch")
+        figure.update_layout(yaxis=dict(autorange="reversed"))
+        charts.render(figure, height=330, legend=False)
 
 st.divider()
 
@@ -141,12 +135,10 @@ else:
         color_discrete_sequence=[TEAL],
     )
     figure.update_layout(
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=max(280, 60 * min(len(difficulty), 8)),
         xaxis=dict(range=[0, 100]),
         yaxis=dict(autorange="reversed"),
     )
-    st.plotly_chart(figure, width="stretch")
+    charts.render(figure, height=max(280, 60 * min(len(difficulty), 8)), legend=False)
 
 st.divider()
 

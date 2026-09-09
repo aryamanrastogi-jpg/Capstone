@@ -18,6 +18,7 @@ from __future__ import annotations
 import plotly.graph_objects as go
 import streamlit as st
 
+from components import charts
 from components.layout import empty_state, metric_row, page_header, privacy_notice
 from components.navigation import goto
 from services import analytics_service as analytics
@@ -206,13 +207,8 @@ if latest is not None:
         text=[f"{summary['baseline']}%", f"{latest}%"],
         textposition="outside",
     )
-    figure.update_layout(
-        margin=dict(l=10, r=10, t=20, b=10),
-        height=280,
-        yaxis=dict(range=[0, 105], title="Average score (%)"),
-        showlegend=False,
-    )
-    st.plotly_chart(figure, width="stretch")
+    figure.update_layout(yaxis=dict(range=[0, 105], title="Average score (%)"))
+    charts.render(figure, height=280, legend=False)
 
 st.divider()
 

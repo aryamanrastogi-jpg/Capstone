@@ -19,6 +19,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 
+from components import charts
 from components.layout import empty_state, metric_row, page_header, privacy_notice
 from components.navigation import goto
 from services import analytics_service as analytics
@@ -117,13 +118,8 @@ else:
         },
         color_discrete_sequence=SEQUENCE,
     )
-    figure.update_layout(
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=360,
-        yaxis=dict(range=[0, 100]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    )
-    st.plotly_chart(figure, width="stretch")
+    figure.update_layout(yaxis=dict(range=[0, 100]))
+    charts.render(figure, height=360, legend=show_topics)
 
 st.divider()
 
@@ -145,13 +141,10 @@ with left:
         hover_data={"responses": True},
     )
     figure.update_layout(
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=max(280, 55 * len(strength)),
         xaxis=dict(range=[0, 100]),
         yaxis=dict(autorange="reversed"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
-    st.plotly_chart(figure, width="stretch")
+    charts.render(figure, height=max(280, 55 * len(strength)))
 
 with right:
     st.dataframe(
@@ -201,12 +194,8 @@ with error_col:
             labels={"count": "Times", "label": ""},
             color_discrete_sequence=[NAVY],
         )
-        figure.update_layout(
-            margin=dict(l=10, r=10, t=10, b=10),
-            height=300,
-            yaxis=dict(autorange="reversed"),
-        )
-        st.plotly_chart(figure, width="stretch")
+        figure.update_layout(yaxis=dict(autorange="reversed"))
+        charts.render(figure, height=300, legend=False)
 
 with type_col:
     st.markdown("**By type of work**")

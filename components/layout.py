@@ -168,7 +168,9 @@ _STYLES = f"""
       font-size: clamp(1.15rem, 0.9rem + 0.9vw, 1.6rem);
       line-height: 1.2;
       white-space: normal;
-      overflow-wrap: anywhere;
+      /* `break-word`, not `anywhere`: `anywhere` also shrinks the tile's
+         min-content width, which collapses the column to nothing. */
+      overflow-wrap: break-word;
   }}
   [data-testid="stMetricValue"] > div,
   [data-testid="stMetricValue"] p {{
