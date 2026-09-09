@@ -24,12 +24,16 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components.layout import page_header
 from services import auth_service
 from services.supabase_client import get_connection_status
-from utils.config import APP_NAME, APP_TAGLINE, PRIVACY_NOTICE
+from utils.config import APP_NAME, PRIVACY_NOTICE
 
-st.title(f"Sign in to {APP_NAME}")
-st.caption(APP_TAGLINE)
+page_header(
+    "Sign In",
+    f"Sign in to {APP_NAME} to work on your own saved data instead of the "
+    "shared sample set.",
+)
 
 status = get_connection_status()
 

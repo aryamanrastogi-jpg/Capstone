@@ -24,7 +24,7 @@ if _viewer is None or not _viewer.is_teacher:
     st.stop()
 
 page_header(
-    "Analytics",
+    "Class Analytics",
     "Where the class is strong, and what needs revisiting.",
     "Only results you have approved or edited are counted. Anything still awaiting "
     "review, or flagged, is excluded.",

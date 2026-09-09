@@ -1,10 +1,81 @@
+# AssessAI theme.
+#
+# Everything visual that Streamlit can express natively lives here rather than
+# in CSS: colours, radii, type scale and the chart sequence. The colour values
+# are the ones in utils/palette.py - if you change a colour, change it in both
+# places, and nowhere else.
+#
+# The semantic families (red/green/orange/blue/gray) are what st.info,
+# st.success, st.warning, st.error and coloured markdown draw from, so pointing
+# them at the palette keeps alerts on-brand without any custom styling.
+
 [theme]
 base = "light"
-primaryColor = "#1B2CC1"
+
+primaryColor = "#1B2CC1"           # palette.PRIMARY
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F1F5F9"
-textColor = "#0F172A"
-font = "sans serif"
+secondaryBackgroundColor = "#F4F6FB"
+textColor = "#0F172A"              # palette.INK
+linkColor = "#1B2CC1"
+linkUnderline = false
+borderColor = "#E2E8F0"            # palette.BORDER
+dataframeBorderColor = "#E2E8F0"
+dataframeHeaderBackgroundColor = "#F1F5F9"
+
+# Type. No webfont is loaded on purpose: the app has to look right offline and
+# on a school network, so it uses the platform UI face (Segoe UI Variable on
+# Windows, SF Pro on macOS, Roboto on Android) with a fixed fallback stack.
+font = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+headingFont = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+codeFont = "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace"
+baseFontSize = 15
+headingFontSizes = ["2rem", "1.45rem", "1.15rem", "1rem", "0.95rem", "0.9rem"]
+headingFontWeights = [700, 700, 650, 600, 600, 600]
+metricValueFontSize = "1.65rem"
+metricValueFontWeight = 700
+
+# Shape. One radius for surfaces, a slightly tighter one for controls.
+baseRadius = "0.7rem"
+buttonRadius = "0.6rem"
+showWidgetBorder = true
+showSidebarBorder = true
+
+# Semantic families, mapped onto the palette.
+blueColor = "#1B2CC1"
+blueBackgroundColor = "#E9EBFA"
+blueTextColor = "#16218F"
+greenColor = "#76C457"
+greenBackgroundColor = "#EAF6E3"
+greenTextColor = "#3B7A22"
+redColor = "#DF301C"
+redBackgroundColor = "#FCE6E3"
+redTextColor = "#96200F"
+orangeColor = "#FF9100"
+orangeBackgroundColor = "#FFF1DE"
+orangeTextColor = "#8A4E00"
+yellowColor = "#FF9100"
+yellowBackgroundColor = "#FFF6E5"
+yellowTextColor = "#8A4E00"
+violetColor = "#2F39A9"
+violetBackgroundColor = "#ECEEFA"
+violetTextColor = "#232C82"
+grayColor = "#475569"
+grayBackgroundColor = "#F1F5F9"
+grayTextColor = "#334155"
+
+# Charts read from the same six colours as the rest of the UI. Green and red
+# come last so a two-series chart never accidentally implies correct/incorrect.
+chartCategoricalColors = ["#1B2CC1", "#1DCED8", "#2F39A9", "#FF9100", "#76C457", "#DF301C"]
+chartSequentialColors = [
+  "#EEF0FC", "#D6DAF6", "#B6BDEE", "#8F9AE3", "#6874D6",
+  "#4553CA", "#2F39A9", "#252D89", "#1B2168", "#121647",
+]
+
+
+[theme.sidebar]
+backgroundColor = "#F7F9FC"
+secondaryBackgroundColor = "#EDF1F8"
+borderColor = "#E2E8F0"
 
 [server]
 maxUploadSize = 5

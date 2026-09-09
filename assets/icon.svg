@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="AssessAI">
+  <rect x="2" y="2" width="28" height="28" rx="8" fill="#1B2CC1"/>
+  <path d="M9 23 16 9l7 14" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11.4 18.4h9.2" fill="none" stroke="#1DCED8" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

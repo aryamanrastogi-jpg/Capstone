@@ -20,7 +20,13 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.attempts import attempt_comparison
 from components.guidance import guidance_list
-from components.layout import empty_state, metric_row, page_header, privacy_notice
+from components.layout import (
+    badge_row,
+    empty_state,
+    metric_row,
+    page_header,
+    privacy_notice,
+)
 from components.navigation import goto
 from components.status_badges import confidence_badge, error_chip
 from services import analytics_service as analytics
@@ -458,9 +464,9 @@ for submission in recent:
                     st.markdown(f"- {item}")
                 if view["error_labels"]:
                     st.markdown("*What to look at*")
-                    st.markdown(
-                        " ".join(error_chip(label, render=False) for label in view["error_labels"]),
-                        unsafe_allow_html=True,
+                    badge_row(
+                        error_chip(label, render=False)
+                        for label in view["error_labels"]
                     )
                 st.markdown("*Next steps*")
                 for pointer in view["pointers"]:

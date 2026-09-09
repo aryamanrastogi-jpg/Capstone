@@ -25,18 +25,31 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from components.layout import sidebar_status  # noqa: E402
+from components.layout import inject_styles, sidebar_status  # noqa: E402
 from components.navigation import build_navigation  # noqa: E402
 from services.state import get_current_role, init_session_state  # noqa: E402
 from utils.config import APP_NAME, APP_TAGLINE  # noqa: E402
 
 st.set_page_config(
     page_title=APP_NAME,
-    page_icon=":material/school:",
+    page_icon=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
     layout="wide",
-    initial_sidebar_state="expanded",
+    # "auto", not "expanded": on a phone an expanded sidebar covers the page,
+    # and the student has to dismiss it before they can read anything.
+    initial_sidebar_state="auto",
     menu_items={"about": f"{APP_NAME} - {APP_TAGLINE}"},
 )
+
+# The wordmark sits above the navigation, where a brand belongs; the square
+# mark is what shows once the sidebar is collapsed.
+st.logo(
+    os.path.join(PROJECT_ROOT, "assets", "logo.svg"),
+    icon_image=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
+    size="large",
+)
+
+# One style block per rerun, before anything draws.
+inject_styles()
 
 # Seed assessments, submissions, grading results, users and demo-mode flag.
 init_session_state()
