@@ -385,19 +385,39 @@ def test_signing_out_returns_the_app_to_sample_data(
     assert isinstance(repository_module.get_repository(), SessionRepository)
 
 
-def test_the_sign_in_page_renders_and_offers_no_role_choice() -> None:
+def _sign_in_page() -> str:
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parent.parent / "pages" / "sign_in.py")
+
+
+def test_the_sign_in_page_renders_and_offers_no_role_choice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The form must never grow a "sign up as a teacher" control.
 
     Rendering the page is the cheap half; the assertion that matters is the
     absence of any widget offering a role. A selector here would let anybody
     claim the teacher role, and every read policy downstream would believe it.
-    """
-    from pathlib import Path
 
+    The connection status is forced rather than read from the environment. The
+    page stops early when there is nothing to sign in to, so without this the
+    test would pass only on a machine that happens to have a .env file - and
+    quietly assert nothing anywhere else.
+    """
+    import services.supabase_client as client_module
     from streamlit.testing.v1 import AppTest
 
-    page = str(Path(__file__).resolve().parent.parent / "pages" / "sign_in.py")
-    at = AppTest.from_file(page, default_timeout=60)
+    monkeypatch.setattr(
+        client_module,
+        "get_connection_status",
+        lambda: client_module.ConnectionStatus(
+            connected=True, demo_mode=True, signed_out=True, message="Connected."
+        ),
+    )
+    monkeypatch.setattr(auth_service, "current_user", lambda: None)
+
+    at = AppTest.from_file(_sign_in_page(), default_timeout=60)
     at.run()
 
     assert not at.exception, at.exception
@@ -411,6 +431,29 @@ def test_the_sign_in_page_renders_and_offers_no_role_choice() -> None:
     ).lower()
     assert "role" not in labels
     assert "teacher" not in labels
+
+
+def test_the_sign_in_page_says_so_when_there_is_nothing_to_sign_in_to(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no credentials the page must explain, not offer a dead form."""
+    import services.supabase_client as client_module
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setattr(
+        client_module,
+        "get_connection_status",
+        lambda: client_module.ConnectionStatus(
+            connected=False, demo_mode=True, message="Demo mode."
+        ),
+    )
+
+    at = AppTest.from_file(_sign_in_page(), default_timeout=60)
+    at.run()
+
+    assert not at.exception, at.exception
+    assert at.button.len == 0
+    assert any("not connected to Supabase" in i.value for i in at.info)
 
 
 def test_the_backend_is_not_cached_across_runs(
