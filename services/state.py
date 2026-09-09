@@ -20,6 +20,7 @@ SUBMISSIONS = "submissions"
 GRADING_RESULTS = "grading_results"
 USERS = "users"
 STUDY_CAMPS = "study_camps"
+CLASS_CODES = "class_codes"
 CURRENT_USER_ID = "current_user_id"
 DEMO_MODE = "demo_mode"
 BACKEND_MESSAGE = "backend_message"
@@ -81,6 +82,16 @@ def get_users() -> List[User]:
 
 def get_study_camps() -> List[StudyCamp]:
     return st.session_state.setdefault(STUDY_CAMPS, [])
+
+
+def get_class_codes() -> Dict[str, str]:
+    """Live class codes in demo mode, keyed by teacher id.
+
+    The Supabase backend keeps these in `class_invites`, where a code can be
+    revoked and the history is kept. Demo mode has no history to keep: one
+    teacher, one current code, gone when the session ends.
+    """
+    return st.session_state.setdefault(CLASS_CODES, {})
 
 
 def get_current_user() -> Optional[User]:

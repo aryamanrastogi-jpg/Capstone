@@ -16,6 +16,7 @@ Run them in order, in the Supabase SQL editor. Each is idempotent.
 |---|---|
 | `001_shared_library.sql` | Adds `is_shared` and `copied_from_id` to `assessments` for the shared question library |
 | `002_auth_profiles.sql` | Creates a profile automatically when someone signs up, and pins the role to `student` |
+| `003_roster.sql` | Class join codes, and the functions that let a student join a class without `teacher_id` becoming writable |
 
 ## Checking what you have applied
 
