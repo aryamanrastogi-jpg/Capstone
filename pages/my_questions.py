@@ -238,13 +238,13 @@ st.subheader("Your saved sets")
 
 mine = service.list_assessments_owned_by(student.id)
 if not mine:
+    # No early stop: the shared library below is exactly what a student with
+    # nothing of their own should be looking at.
     empty_state(
         "You have not saved any question sets yet.",
-        "Add one above and it will appear here, ready to work through.",
+        "Add one above, or take a copy of someone else's from the library below.",
         icon=":material/inbox:",
     )
-    privacy_notice()
-    st.stop()
 
 for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
     with st.container(border=True):
@@ -265,10 +265,75 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
                     f":material/info: {missing} question(s) have no answer, so "
                     "this set cannot be scored yet."
                 )
+            if assessment.is_copy:
+                st.caption(":material/content_copy: Copied from the shared library.")
+
+            # Sharing is always a deliberate act, and always reversible.
+            shared = st.toggle(
+                "Share with other students",
+                value=assessment.is_shared,
+                key=f"share_{assessment.id}",
+                help="Puts the questions in the shared library so anyone can take "
+                "a copy. Your answers and your scores are never shared.",
+            )
+            if shared != assessment.is_shared:
+                service.set_shared(assessment.id, shared)
+                st.rerun()
         with action_col:
             if st.button("Delete", key=f"delete_{assessment.id}", width="stretch"):
                 service.delete_assessment(assessment.id)
                 st.rerun()
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# The shared library
+# ---------------------------------------------------------------------------
+st.subheader("Shared library")
+st.caption(
+    "Question sets other students have shared. Take a copy and it becomes yours "
+    "— your own attempts, your own progress, and nothing you do touches theirs."
+)
+
+library = service.list_shared_library(exclude_owner_id=student.id)
+if not library:
+    empty_state(
+        "Nobody has shared a question set yet.",
+        "Share one of yours above and it will show up here for everyone else.",
+        icon=":material/library_books:",
+    )
+else:
+    for assessment in library:
+        with st.container(border=True):
+            detail_col, action_col = st.columns([4, 1])
+            with detail_col:
+                st.markdown(f"**{assessment.title}**")
+                st.caption(
+                    f"{assessment.topic} · {assessment.assessment_type.label} · "
+                    f"{assessment.question_count} question(s) · "
+                    f"{assessment.max_marks:g} marks"
+                )
+                if not assessment.is_gradable:
+                    st.caption(
+                        ":material/info: No answers on this set, so a copy will "
+                        "give you guidance rather than a score."
+                    )
+                with st.expander("See the questions"):
+                    for index, question in enumerate(assessment.questions, start=1):
+                        st.markdown(
+                            f"**Q{index}. ({question.max_marks:g} marks)** "
+                            f"{question.question_text}"
+                        )
+            with action_col:
+                if st.button(
+                    "Take a copy", key=f"copy_{assessment.id}", width="stretch"
+                ):
+                    copy = service.copy_assessment_to(assessment, student.id)
+                    st.success(
+                        f"Copied **{copy.title}** into your sets.",
+                        icon=":material/check_circle:",
+                    )
+                    st.rerun()
 
 if st.button("Go to My Work", type="primary"):
     goto("My Work")

@@ -9,6 +9,8 @@ from models.assessment import (
     Question,
     Subject,
 )
+from models.attempt import AttemptState, QuestionStanding
+from models.guidance import GENERIC_SHAPE, Guidance
 from models.grading import ErrorItem, ErrorType, GradingResult, ReviewStatus
 from models.study_plan import StudyCamp, StudySession
 from models.submission import Submission, SubmissionStatus
@@ -19,6 +21,10 @@ __all__ = [
     "AssessmentType",
     "Question",
     "Subject",
+    "Guidance",
+    "GENERIC_SHAPE",
+    "AttemptState",
+    "QuestionStanding",
     "CURRICULA",
     "DEFAULT_CURRICULUM",
     "GRADE_LEVELS",

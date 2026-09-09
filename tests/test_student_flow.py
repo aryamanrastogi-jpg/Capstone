@@ -479,3 +479,88 @@ def test_teacher_listings_exclude_student_created_sets(monkeypatch):
 
     assert [a.id for a in service.list_assessments_for_teacher()] == [class_set.id]
     assert [a.id for a in service.list_assessments_owned_by("usr_me")] == [mine.id]
+
+
+# ---------------------------------------------------------------------------
+# 5. The shared question library
+#
+# Sharing is deliberate, a copy is a copy, and nothing about *how you did* ever
+# travels with a shared set.
+# ---------------------------------------------------------------------------
+def test_a_set_is_private_until_its_owner_shares_it():
+    assessment = _student_set("usr_me")
+    assert not assessment.is_shared
+
+
+def test_the_library_lists_only_shared_student_sets(monkeypatch):
+    from services import assessment_service as service
+    from services.repository import get_repository
+
+    shared = _student_set("usr_them", with_answers=True)
+    shared.is_shared = True
+    private = _student_set("usr_them")
+    mine = _student_set("usr_me", with_answers=True)
+    mine.is_shared = True
+    class_set = Assessment(
+        title="Class homework",
+        grade_level=9,
+        topic="Algebra",
+        questions=[
+            Question(question_text="Solve 3x = 9.", model_answer="x = 3.", max_marks=2)
+        ],
+    )
+
+    monkeypatch.setattr(
+        type(get_repository()),
+        "list_assessments",
+        lambda self: [shared, private, mine, class_set],
+    )
+
+    listed = {a.id for a in service.list_shared_library(exclude_owner_id="usr_me")}
+    assert shared.id in listed
+    assert private.id not in listed, "unshared sets stay private"
+    assert mine.id not in listed, "your own sets are not shown back to you"
+    assert class_set.id not in listed, "teacher sets are not library items"
+
+
+def test_taking_a_copy_gives_the_new_owner_their_own_ids(monkeypatch):
+    from services import assessment_service as service
+
+    saved = []
+    monkeypatch.setattr(service, "save_assessment", lambda a: (saved.append(a), a)[1])
+
+    original = _student_set("usr_them", with_answers=True)
+    original.is_shared = True
+
+    copy = service.copy_assessment_to(original, "usr_me")
+
+    assert copy.owner_id == "usr_me"
+    assert copy.id != original.id
+    assert copy.copied_from_id == original.id
+    assert copy.is_copy
+    assert copy.student_created
+    assert not copy.is_shared, "a copy is private until its new owner shares it"
+
+    # Fresh question ids, so two students' attempt histories cannot collide.
+    original_ids = {q.id for q in original.questions}
+    assert not original_ids.intersection(q.id for q in copy.questions)
+
+    # The questions themselves come across intact.
+    assert [q.question_text for q in copy.questions] == [
+        q.question_text for q in original.questions
+    ]
+
+
+def test_editing_a_copy_does_not_touch_the_original(monkeypatch):
+    from services import assessment_service as service
+
+    monkeypatch.setattr(service, "save_assessment", lambda a: a)
+
+    original = _student_set("usr_them", with_answers=True)
+    copy = service.copy_assessment_to(original, "usr_me")
+
+    copy.title = "Renamed"
+    copy.questions[0].model_answer = "changed"
+
+    assert original.title == "My worksheet"
+    assert original.questions[0].model_answer != "changed"

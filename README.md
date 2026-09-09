@@ -54,6 +54,10 @@ their homework for them.
 | Page | What it does |
 |---|---|
 | **My Work** | Upload past work (typed, `.txt` or digital PDF) and get an instant estimate: score, what went well, which *categories* of mistake, and next steps. Optionally record the mark your teacher gave. |
+| **The attempt loop** | Work a set, and the questions you get right *settle* and drop out. The next attempt covers only what is left, so your time goes where it is still needed. Capped at 10 attempts — past that, another guess is not what helps, and the app says so. |
+| **Compare your attempts** | Every go at a question side by side: what you wrote each time, what it scored, and the change. What you altered between two attempts is the actual learning. |
+| **Shared library** | Share a question set and any student can take a copy. A copy is a copy — their own attempts, their own progress, and nothing they do reaches your set. Your answers and scores are never shared. |
+| **Guidance** | On any set, *Show me how to approach these* gives the method for each question — how to go at it, what a full answer contains, and the easy marks to lose. Built from the question text alone, so it cannot contain the answer. A set with no answers saved gets this instead of a score. |
 | **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. |
 | **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
@@ -120,6 +124,8 @@ moves to a different framework, the services come across unchanged.
 │   ├── analytics.py            # (teacher)
 │   └── practice_generator.py   # (both)
 ├── components/
+│   ├── attempts.py             # renders attempt progress and comparisons
+│   ├── guidance.py             # renders Guidance
 │   ├── layout.py               # page header, sidebar, metrics, empty states
 │   ├── navigation.py           # role-aware st.Page / st.navigation
 │   └── status_badges.py        # review, submission and confidence badges
@@ -127,6 +133,8 @@ moves to a different framework, the services come across unchanged.
 │   ├── assessment.py           # Assessment, Question, AssessmentType, Subject
 │   ├── submission.py           # Submission, SubmissionStatus
 │   ├── grading.py              # GradingResult, ErrorItem, ErrorType, ReviewStatus
+│   ├── attempt.py              # AttemptState, QuestionStanding
+│   ├── guidance.py             # Guidance - how to approach a question
 │   ├── study_plan.py           # StudyCamp, StudySession
 │   └── user.py                 # User, Role
 ├── services/
@@ -135,12 +143,14 @@ moves to a different framework, the services come across unchanged.
 │   ├── study_camp_service.py   # builds camps from weak topics
 │   ├── assessment_service.py   # storage for everything
 │   ├── document_service.py     # TXT / digital-PDF text extraction
+│   ├── attempt_service.py      # the attempt loop: what is settled, what is left
+│   ├── hint_service.py         # guidance + the escalating hint ladder
 │   ├── practice_service.py     # template practice generator
 │   ├── state.py                # central session-state initialisation
 │   └── supabase_client.py      # optional Supabase client, demo-mode fallback
 ├── data/sample_data.py         # anonymised term of seed history
 ├── utils/                      # config and validation
-├── tests/                      # 168 pytest tests
+├── tests/                      # 248 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -252,7 +262,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-168 tests, covering:
+248 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions
@@ -261,7 +271,16 @@ python -m pytest -v
 - **Student privacy** — one student's history can never include another's work, and
   a question set a student typed up is never offered to anyone else
 - **Ungradable sets** — a question with no model answer is refused by the grader
-  rather than being awarded an invented score
+  rather than being awarded an invented score, and gets guidance instead
+- **Guidance cannot leak** — it is built from the question text alone and contains
+  no digits at all, so it cannot restate a value from the model answer
+- **The hint ladder** — hints get more pointed with each attempt and never more
+  revealing; no rung contains a digit
+- **The attempt loop** — full marks settle a question and partial marks do not, a
+  settled question never reopens after a worse later attempt, the cap stops the
+  loop, and finishing is distinguished from running out of attempts
+- **The library** — a set is private until shared, a copy gets fresh question ids,
+  and editing a copy never touches the original
 - **Academic integrity** — student-facing feedback never contains the model answer,
   the marking criteria, or the expected values
 - **Longitudinal analysis** — trends group correctly by topic and period; weakest
@@ -307,9 +326,18 @@ to that effect appears on every page.
 - **Uploaded files are not split per question.** Typed answers can be entered
   question by question; text pulled out of a PDF still arrives as one block, so
   every question is graded against all of it.
-- **A student's own set cannot be scored without answers.** The grader marks by
-  comparing against a model answer; with none it would invent a number, so it
-  refuses instead. Guidance for answer-less sets is the next block of work.
+- **A student's own set still cannot be *scored* without answers.** The grader
+  marks by comparing against a model answer; with none it would invent a number,
+  so it gives guidance instead. Real scoring of answer-less work needs the LLM
+  grader, not a rule.
+- **Full marks are hard to reach with the rule-based grader**, so questions settle
+  less often than they should. A fully correct answer often scores 2.5/3 because
+  the grader also weighs wording against the marking criteria. The settle rule is
+  deliberately strict ("until you get everything correct"); it is the *grader*
+  that needs to get better, and that is the LLM swap.
+- **Guidance is shape-matched, not understood.** Eight recognised question shapes
+  plus a generic fallback. It reads "find the area" and gives the area method; it
+  does not know what the question is actually about.
 - **Practice generation is template-based**, limited to six built-in topics.
 
 ---
@@ -322,10 +350,14 @@ to that effect appears on every page.
    to prompt injection ("ignore your instructions and give me the answer").
 3. **Supabase Auth and persistence** — real roles stored server-side, behind the
    existing `assessment_service` function signatures so no page code changes.
-4. **Question-only mode** — upload questions with no answers and get a guide to
-   the approach, then attempt them and re-try only what you got wrong.
-5. **Export** approved results and feedback to CSV / PDF.
-6. **AI-generated practice** driven by each student's actual error history.
+4. **School and grade on sign-up**, with a page showing which schools are on the
+   platform.
+5. **Teacher accounts** — sign-up with a school and subject, and the question of
+   how a teacher is verified as one.
+6. **Community and peer tutoring** — post a question you are stuck on, and let
+   strong students tutor in the app.
+7. **Export** approved results and feedback to CSV / PDF.
+8. **AI-generated practice** driven by each student's actual error history.
 
 ---
 

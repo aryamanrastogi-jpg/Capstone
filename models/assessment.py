@@ -132,6 +132,15 @@ class Assessment(BaseModel):
     # because a teacher will also have an owner_id once real accounts exist.
     student_created: bool = False
 
+    # Shared into the public library, where any student can find it and take a
+    # copy. Off by default: a set is private until its owner deliberately
+    # shares it.
+    is_shared: bool = False
+
+    # Set when this was copied from someone else's shared set, so the library
+    # can show how much a set has been used and a copy can credit its source.
+    copied_from_id: Optional[str] = None
+
     @field_validator("title", "topic", "curriculum")
     @classmethod
     def _not_blank(cls, value: str) -> str:
@@ -166,6 +175,10 @@ class Assessment(BaseModel):
     @property
     def questions_missing_model_answers(self) -> List[Question]:
         return [q for q in self.questions if not q.has_model_answer]
+
+    @property
+    def is_copy(self) -> bool:
+        return self.copied_from_id is not None
 
     def get_question(self, question_id: str) -> Question | None:
         return next((q for q in self.questions if q.id == question_id), None)

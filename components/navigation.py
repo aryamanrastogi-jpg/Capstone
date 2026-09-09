@@ -102,6 +102,16 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "roles": [STUDENT, TEACHER],
         "default": False,
     },
+    # Listed last and in its own section: signing in is not part of either
+    # journey, it is how you leave the sample data behind.
+    {
+        "path": "pages/sign_in.py",
+        "title": "Sign In",
+        "icon": ":material/login:",
+        "section": "Account",
+        "roles": [STUDENT, TEACHER],
+        "default": False,
+    },
 ]
 
 

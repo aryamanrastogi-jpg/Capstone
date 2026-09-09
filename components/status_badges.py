@@ -11,19 +11,20 @@ from typing import Tuple
 import streamlit as st
 
 from models import ReviewStatus, SubmissionStatus
+from utils import palette
 
 # status -> (background, text colour, label, icon)
 _REVIEW_STYLES = {
-    ReviewStatus.AWAITING_REVIEW: ("#FEF3C7", "#92400E", "Awaiting review", "⏳"),
-    ReviewStatus.APPROVED: ("#DCFCE7", "#166534", "Approved", "✓"),
-    ReviewStatus.EDITED: ("#DBEAFE", "#1E40AF", "Edited by teacher", "✎"),
-    ReviewStatus.FLAGGED: ("#FEE2E2", "#991B1B", "Flagged", "⚑"),
+    ReviewStatus.AWAITING_REVIEW: (*palette.TINT_WARNING, "Awaiting review", "⏳"),
+    ReviewStatus.APPROVED: (*palette.TINT_CORRECT, "Approved", "✓"),
+    ReviewStatus.EDITED: (*palette.TINT_PRIMARY, "Edited by teacher", "✎"),
+    ReviewStatus.FLAGGED: (*palette.TINT_INCORRECT, "Flagged", "⚑"),
 }
 
 _SUBMISSION_STYLES = {
-    SubmissionStatus.PENDING: ("#F1F5F9", "#334155", "Not graded", "•"),
-    SubmissionStatus.GRADED: ("#FEF3C7", "#92400E", "Awaiting review", "⏳"),
-    SubmissionStatus.REVIEWED: ("#DCFCE7", "#166534", "Reviewed", "✓"),
+    SubmissionStatus.PENDING: (*palette.TINT_NEUTRAL, "Not graded", "•"),
+    SubmissionStatus.GRADED: (*palette.TINT_WARNING, "Awaiting review", "⏳"),
+    SubmissionStatus.REVIEWED: (*palette.TINT_CORRECT, "Reviewed", "✓"),
 }
 
 
@@ -60,10 +61,10 @@ def confidence_badge(confidence: float, render: bool = True) -> str:
 
 def _confidence_style(confidence: float) -> Tuple[str, str, str]:
     if confidence >= 0.75:
-        return "#DCFCE7", "#166534", "High"
+        return (*palette.TINT_CORRECT, "High")
     if confidence >= 0.5:
-        return "#FEF3C7", "#92400E", "Moderate"
-    return "#FEE2E2", "#991B1B", "Low"
+        return (*palette.TINT_WARNING, "Moderate")
+    return (*palette.TINT_INCORRECT, "Low")
 
 
 def review_status_label(status: ReviewStatus) -> str:
@@ -75,8 +76,24 @@ def submission_status_label(status: SubmissionStatus) -> str:
     return _SUBMISSION_STYLES[status][2]
 
 
+def outcome_badge(is_settled: bool, render: bool = True) -> str:
+    """Green when a question is settled, red while it still needs another go.
+
+    Only ever a verdict on this attempt - the wording carries no part of the
+    model answer, so showing it to a student is safe.
+    """
+    background, colour, text = (
+        (*palette.TINT_CORRECT, "✓ Settled") if is_settled
+        else (*palette.TINT_INCORRECT, "↺ Another go")
+    )
+    html = _badge_html(background, colour, text)
+    if render:
+        st.markdown(html, unsafe_allow_html=True)
+    return html
+
+
 def error_chip(label: str, render: bool = True) -> str:
-    html = _badge_html("#FEE2E2", "#991B1B", label)
+    html = _badge_html(*palette.TINT_INCORRECT, label)
     if render:
         st.markdown(html, unsafe_allow_html=True)
     return html

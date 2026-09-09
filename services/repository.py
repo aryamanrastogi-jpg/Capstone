@@ -459,11 +459,11 @@ class SupabaseRepository(Repository):
 # --------------------------------------------------------------------------
 # Which backend is in use
 # --------------------------------------------------------------------------
-_repository: Optional[Repository] = None
+_forced: Optional[Repository] = None
 
 
 def get_repository() -> Repository:
-    """The active backend.
+    """The active backend, decided per run.
 
     Supabase is used only when it is configured AND somebody is signed in.
     Credentials alone are not enough: db/policies.sql grants to `authenticated`,
@@ -471,21 +471,24 @@ def get_repository() -> Repository:
     a Supabase repository in that state would produce an app that silently loses
     every write, which is worse than demo mode and much harder to diagnose.
 
-    So the check is for a session, not for a key, and the answer is reported in
-    the sidebar rather than guessed at.
+    NOTHING IS CACHED ACROSS RUNS HERE, DELIBERATELY
+      The answer depends on who is signed in, and that is a property of the
+      browser session, not of the server process. One Streamlit process serves
+      every connected browser, so a module-level cache would hand the second
+      person to sign in the first person's client - and with it, the first
+      person's rows. The client itself is cached, in `st.session_state`, which
+      is per session; what is rebuilt each run is only the thin wrapper.
     """
-    global _repository
-    if _repository is None:
-        from services.supabase_client import get_authenticated_client
+    if _forced is not None:
+        return _forced
 
-        client = get_authenticated_client()
-        _repository = (
-            SupabaseRepository(client) if client is not None else SessionRepository()
-        )
-    return _repository
+    from services.auth_service import authenticated_client
+
+    client = authenticated_client()
+    return SupabaseRepository(client) if client is not None else SessionRepository()
 
 
 def set_repository(repository: Optional[Repository]) -> None:
-    """Test hook: force a backend, or pass None to re-detect."""
-    global _repository
-    _repository = repository
+    """Test hook: force a backend, or pass None to go back to detecting it."""
+    global _forced
+    _forced = repository

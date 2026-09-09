@@ -11,28 +11,29 @@ from typing import Optional, Sequence
 import streamlit as st
 
 from services import state as store
+from utils import palette
 from utils.config import AI_DISCLAIMER, APP_NAME, APP_TAGLINE, PRIVACY_NOTICE
 
-NAVY = "#0F2D52"
-TEAL = "#0F766E"
+HEADING = palette.PRIMARY_DARK
+ACCENT = palette.PRIMARY
 
 _STYLES = f"""
 <style>
   .assessai-title {{
-      color: {NAVY};
+      color: {HEADING};
       font-size: 1.9rem;
       font-weight: 700;
       margin: 0 0 0.15rem 0;
       line-height: 1.2;
   }}
   .assessai-subtitle {{
-      color: #475569;
+      color: {palette.MUTED};
       font-size: 0.95rem;
       margin: 0 0 0.35rem 0;
   }}
   .assessai-rule {{
       border: none;
-      border-top: 3px solid {TEAL};
+      border-top: 3px solid {ACCENT};
       width: 72px;
       margin: 0 0 1.1rem 0;
   }}
@@ -46,22 +47,32 @@ _STYLES = f"""
       white-space: nowrap;
   }}
   .assessai-card {{
-      border: 1px solid #E2E8F0;
-      border-left: 4px solid {TEAL};
+      border: 1px solid {palette.BORDER};
+      border-left: 4px solid {ACCENT};
       border-radius: 8px;
       padding: 0.85rem 1rem;
       margin-bottom: 0.6rem;
-      background: #FFFFFF;
+      background: {palette.SURFACE};
   }}
   .assessai-card h4 {{
-      color: {NAVY};
+      color: {HEADING};
       margin: 0 0 0.2rem 0;
       font-size: 1rem;
   }}
   .assessai-card p {{
       margin: 0;
-      color: #475569;
+      color: {palette.MUTED};
       font-size: 0.86rem;
+  }}
+  .assessai-hint {{
+      border-left: 4px solid {palette.HINT};
+      background: {palette.TINT_HINT[0]};
+      color: {palette.TINT_HINT[1]};
+      border-radius: 0 6px 6px 0;
+      padding: 0.5rem 0.8rem;
+      margin: 0.4rem 0 0.6rem 0;
+      font-size: 0.88rem;
+      font-weight: 600;
   }}
 </style>
 """
@@ -103,7 +114,10 @@ def sidebar_status() -> None:
         st.divider()
         _identity_switcher()
 
-        if st.button(
+        # Only meaningful while the sample data IS the data. Offering it to a
+        # signed-in user would imply it resets their saved work, which it does
+        # not touch.
+        if status["demo_mode"] and st.button(
             "Reset demo data",
             width="stretch",
             help="Restore the seeded sample dataset.",
@@ -118,10 +132,21 @@ def sidebar_status() -> None:
 def _identity_switcher() -> None:
     """Pick who you are signed in as. Demo only - not authentication.
 
-    Real sign-in belongs in Supabase Auth, where the role is stored server side
-    and cannot be chosen by the person using the app. Until that exists this is
-    a convenience for demoing both journeys, and it is labelled as such.
+    Hidden entirely once somebody is really signed in: the role then comes from
+    their profile row, and offering a control that appears to change it would be
+    a lie about what the app can do.
     """
+    from services import auth_service
+
+    signed_in = auth_service.current_user()
+    if signed_in is not None:
+        st.markdown(f"**{signed_in.display_name}**")
+        st.caption(f"{signed_in.role.label} · signed in")
+        if st.button("Sign out", width="stretch"):
+            auth_service.sign_out()
+            st.rerun()
+        return
+
     users = store.get_users()
     if not users:
         st.caption("No users loaded.")
@@ -173,6 +198,16 @@ def info_card(title: str, body: str) -> None:
         f'<div class="assessai-card"><h4>{title}</h4><p>{body}</p></div>',
         unsafe_allow_html=True,
     )
+
+
+def hint_note(text: str) -> None:
+    """A hint heading, in the hint colour.
+
+    Hints get their own colour so a student can tell at a glance that what
+    follows is a nudge, not a verdict on their answer.
+    """
+    inject_styles()
+    st.markdown(f'<div class="assessai-hint">{text}</div>', unsafe_allow_html=True)
 
 
 def empty_state(message: str, hint: str = "", icon: str = ":material/info:") -> None:

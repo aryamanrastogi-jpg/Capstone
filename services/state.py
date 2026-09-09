@@ -84,6 +84,20 @@ def get_study_camps() -> List[StudyCamp]:
 
 
 def get_current_user() -> Optional[User]:
+    """Who the app is acting as.
+
+    A real signed-in profile always wins. The demo dropdown only decides
+    anything when nobody is signed in - otherwise a signed-in student could
+    select the teacher from it and the whole point of authenticating would be
+    lost. The dropdown is hidden in that state too, but the precedence is
+    settled here rather than relying on the sidebar to hide it.
+    """
+    from services.auth_service import current_user as authenticated_user
+
+    signed_in = authenticated_user()
+    if signed_in is not None:
+        return signed_in
+
     user_id = st.session_state.get(CURRENT_USER_ID)
     return next((u for u in get_users() if u.id == user_id), None)
 

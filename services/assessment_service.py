@@ -1,8 +1,15 @@
 """Assessment and submission storage service.
 
-Phase 1 stores everything in Streamlit session state. Every read/write goes
-through this module so that a Supabase-backed implementation can be dropped in
-behind the same function signatures in Phase 2.
+Every read and write in the application goes through this module. What it does
+NOT do any more is decide where the data lives - that is `services.repository`,
+which offers one interface over session state (demo mode) and Supabase.
+
+WHAT CHANGED IN THE PORT, AND WHY IT MATTERS TO CALLERS
+  The session-state store handed back live references: mutating a returned model
+  mutated the store, so a page could change a field and the change simply stuck.
+  A database cannot behave that way - a row does not update because a Python
+  object did. Anything that mutates now saves explicitly, and the functions
+  below do that on the caller's behalf.
 
 The pure helpers (`build_assessment`, `build_submission`) contain no Streamlit
 dependency and are unit-testable on their own.
@@ -24,8 +31,7 @@ from models import (
     User,
     students_of,
 )
-from services import state as store
-from services.supabase_client import get_supabase_client
+from services.repository import get_repository
 from utils.validation import usable_question_rows
 
 
@@ -91,6 +97,7 @@ def build_submission(
     teacher_awarded_score: Optional[float] = None,
     answers: Optional[Dict[str, str]] = None,
     questions: Optional[Sequence[Question]] = None,
+    attempt_number: int = 1,
 ) -> Submission:
     """Build a validated Submission.
 
@@ -111,6 +118,7 @@ def build_submission(
         student_id=student_id,
         is_self_study=is_self_study,
         teacher_awarded_score=teacher_awarded_score,
+        attempt_number=attempt_number,
     )
 
 
@@ -140,7 +148,7 @@ def compose_submission_text(
 # --------------------------------------------------------------------------
 def list_assessments() -> List[Assessment]:
     """Every assessment, unscoped. Prefer one of the scoped listings below."""
-    return list(store.get_assessments())
+    return get_repository().list_assessments()
 
 
 def list_assessments_for_student(student_id: str) -> List[Assessment]:
@@ -149,10 +157,14 @@ def list_assessments_for_student(student_id: str) -> List[Assessment]:
     Their teacher's assessments, plus the question sets they typed up
     themselves - and nobody else's. The scoping lives here rather than in the
     page so a student's own worksheet can never appear in another's list.
+
+    On the Supabase backend `assessments_select` in db/policies.sql enforces the
+    same rule, so the database would not return the rows either. The filter is
+    kept because it is the only thing enforcing it in demo mode.
     """
     return [
         a
-        for a in store.get_assessments()
+        for a in get_repository().list_assessments()
         if not a.student_created or a.owner_id == student_id
     ]
 
@@ -163,37 +175,83 @@ def list_assessments_for_teacher() -> List[Assessment]:
     Student-created question sets are left out: they have no model answers and
     no marks to sign off, so they would only clutter the review queue.
     """
-    return [a for a in store.get_assessments() if not a.student_created]
+    return [a for a in get_repository().list_assessments() if not a.student_created]
 
 
 def list_assessments_owned_by(owner_id: str) -> List[Assessment]:
     """Only the question sets this user created themselves."""
-    return [a for a in store.get_assessments() if a.owner_id == owner_id]
+    return [a for a in get_repository().list_assessments() if a.owner_id == owner_id]
+
+
+def list_shared_library(exclude_owner_id: Optional[str] = None) -> List[Assessment]:
+    """Question sets other students have shared publicly, newest first.
+
+    Pass `exclude_owner_id` to leave out the viewer's own sets - they already
+    have those on My Questions, and repeating them in the library is noise.
+    """
+    shared = [
+        a
+        for a in get_repository().list_assessments()
+        if a.is_shared and a.student_created and a.owner_id != exclude_owner_id
+    ]
+    return sorted(shared, key=lambda a: a.created_at, reverse=True)
+
+
+def set_shared(assessment_id: str, shared: bool) -> Optional[Assessment]:
+    """Share a set into the public library, or take it back out."""
+    assessment = get_assessment(assessment_id)
+    if assessment is None:
+        return None
+    assessment.is_shared = bool(shared)
+    return save_assessment(assessment)
+
+
+def copy_assessment_to(assessment: Assessment, owner_id: str) -> Assessment:
+    """Take a copy of a shared set for another student to work through.
+
+    A copy, not a reference. Two reasons, and both matter:
+
+      * The new owner gets their own attempt history. Question ids are minted
+        fresh so two students' progress can never collide on a shared id.
+      * Editing the copy - adding the answers, fixing a typo - must not reach
+        back into someone else's set.
+
+    The copy is private. Sharing it on is the new owner's decision.
+    """
+    duplicate = Assessment(
+        title=assessment.title,
+        subject=assessment.subject,
+        curriculum=assessment.curriculum,
+        grade_level=assessment.grade_level,
+        topic=assessment.topic,
+        assessment_type=assessment.assessment_type,
+        questions=[
+            Question(
+                question_text=q.question_text,
+                model_answer=q.model_answer,
+                marking_criteria=q.marking_criteria,
+                max_marks=q.max_marks,
+            )
+            for q in assessment.questions
+        ],
+        owner_id=owner_id,
+        student_created=True,
+        is_shared=False,
+        copied_from_id=assessment.id,
+    )
+    return save_assessment(duplicate)
 
 
 def get_assessment(assessment_id: str) -> Optional[Assessment]:
-    return next((a for a in store.get_assessments() if a.id == assessment_id), None)
+    return get_repository().get_assessment(assessment_id)
 
 
 def save_assessment(assessment: Assessment) -> Assessment:
-    """Persist an assessment. Session state today, Supabase later."""
-    _ = get_supabase_client()  # Phase 2 hook; returns None in demo mode.
-    assessments = store.get_assessments()
-    for index, existing in enumerate(assessments):
-        if existing.id == assessment.id:
-            assessments[index] = assessment
-            return assessment
-    assessments.append(assessment)
-    return assessment
+    return get_repository().save_assessment(assessment)
 
 
 def delete_assessment(assessment_id: str) -> bool:
-    assessments = store.get_assessments()
-    for index, existing in enumerate(assessments):
-        if existing.id == assessment_id:
-            assessments.pop(index)
-            return True
-    return False
+    return get_repository().delete_assessment(assessment_id)
 
 
 # --------------------------------------------------------------------------
@@ -208,33 +266,21 @@ def list_submissions(
     Pass `student_id` for anything a student sees: scoping here rather than in
     the page means one student's work can never leak into another's view.
     """
-    subs = list(store.get_submissions())
-    if assessment_id:
-        subs = [s for s in subs if s.assessment_id == assessment_id]
-    if student_id:
-        subs = [s for s in subs if s.student_id == student_id]
-    return subs
+    return get_repository().list_submissions(
+        assessment_id=assessment_id, student_id=student_id
+    )
 
 
 def get_submission(submission_id: str) -> Optional[Submission]:
-    return next((s for s in store.get_submissions() if s.id == submission_id), None)
+    return get_repository().get_submission(submission_id)
 
 
 def save_submission(submission: Submission) -> Submission:
-    _ = get_supabase_client()
-    submissions = store.get_submissions()
-    for index, existing in enumerate(submissions):
-        if existing.id == submission.id:
-            submissions[index] = submission
-            return submission
-    submissions.append(submission)
-    return submission
+    return get_repository().save_submission(submission)
 
 
 def set_submission_status(submission_id: str, status: SubmissionStatus) -> None:
-    submission = get_submission(submission_id)
-    if submission is not None:
-        submission.status = status
+    get_repository().set_submission_status(submission_id, status)
 
 
 # --------------------------------------------------------------------------
@@ -245,46 +291,78 @@ def list_grading_results(
     student_id: Optional[str] = None,
 ) -> List[GradingResult]:
     """Grading results, optionally scoped to a submission and/or one student."""
-    results = list(store.get_grading_results())
-    if submission_id:
-        results = [r for r in results if r.submission_id == submission_id]
+    results = get_repository().list_grading_results(submission_id=submission_id)
     if student_id:
         owned = {s.id for s in list_submissions(student_id=student_id)}
         results = [r for r in results if r.submission_id in owned]
     return results
 
 
+def get_grading_result(submission_id: str, question_id: str) -> Optional[GradingResult]:
+    return next(
+        (
+            r
+            for r in get_repository().list_grading_results(submission_id=submission_id)
+            if r.question_id == question_id
+        ),
+        None,
+    )
+
+
+def save_grading_result(result: GradingResult) -> GradingResult:
+    saved = get_repository().save_grading_result(result)
+    _refresh_submission_status(result.submission_id)
+    return saved
+
+
+def _refresh_submission_status(submission_id: str) -> None:
+    """Keep a submission's status in step with its grading results.
+
+    The status is written through the repository rather than assigned on the
+    model. Under session state those were the same thing; against a database
+    they are not, and assigning would have left the column stale.
+    """
+    repository = get_repository()
+    submission = repository.get_submission(submission_id)
+    if submission is None:
+        return
+
+    results = repository.list_grading_results(submission_id=submission_id)
+    if not results:
+        status = SubmissionStatus.PENDING
+    elif all(r.is_finalised for r in results):
+        # Flagged results are not finalised, so a submission holding one stays
+        # in the "awaiting review" state until the teacher settles it.
+        status = SubmissionStatus.REVIEWED
+    else:
+        status = SubmissionStatus.GRADED
+
+    if submission.status is not status:
+        repository.set_submission_status(submission_id, status)
+
+
 # --------------------------------------------------------------------------
 # Users, rosters and study camps
 # --------------------------------------------------------------------------
 def list_users() -> List[User]:
-    return list(store.get_users())
+    return get_repository().list_users()
 
 
 def get_user(user_id: str) -> Optional[User]:
-    return next((u for u in store.get_users() if u.id == user_id), None)
+    return next((u for u in get_repository().list_users() if u.id == user_id), None)
 
 
 def list_students_for_teacher(teacher_id: str) -> List[User]:
     """Every student on one teacher's roster."""
-    return students_of(store.get_users(), teacher_id)
+    return students_of(get_repository().list_users(), teacher_id)
 
 
 def save_user(user: User) -> User:
-    users = store.get_users()
-    for index, existing in enumerate(users):
-        if existing.id == user.id:
-            users[index] = user
-            return user
-    users.append(user)
-    return user
+    return get_repository().save_user(user)
 
 
 def list_study_camps(student_id: Optional[str] = None) -> List[StudyCamp]:
-    camps = list(store.get_study_camps())
-    if student_id:
-        camps = [c for c in camps if c.student_id == student_id]
-    return camps
+    return get_repository().list_study_camps(student_id=student_id)
 
 
 def active_camp_for(student_id: str) -> Optional[StudyCamp]:
@@ -296,63 +374,8 @@ def active_camp_for(student_id: str) -> Optional[StudyCamp]:
 
 
 def save_study_camp(camp: StudyCamp) -> StudyCamp:
-    _ = get_supabase_client()
-    camps = store.get_study_camps()
-    for index, existing in enumerate(camps):
-        if existing.id == camp.id:
-            camps[index] = camp
-            return camp
-    camps.append(camp)
-    return camp
+    return get_repository().save_study_camp(camp)
 
 
 def delete_study_camp(camp_id: str) -> bool:
-    camps = store.get_study_camps()
-    for index, existing in enumerate(camps):
-        if existing.id == camp_id:
-            camps.pop(index)
-            return True
-    return False
-
-
-def get_grading_result(submission_id: str, question_id: str) -> Optional[GradingResult]:
-    return next(
-        (
-            r
-            for r in store.get_grading_results()
-            if r.submission_id == submission_id and r.question_id == question_id
-        ),
-        None,
-    )
-
-
-def save_grading_result(result: GradingResult) -> GradingResult:
-    _ = get_supabase_client()
-    results = store.get_grading_results()
-    for index, existing in enumerate(results):
-        if (
-            existing.submission_id == result.submission_id
-            and existing.question_id == result.question_id
-        ):
-            results[index] = result
-            _refresh_submission_status(result.submission_id)
-            return result
-    results.append(result)
-    _refresh_submission_status(result.submission_id)
-    return result
-
-
-def _refresh_submission_status(submission_id: str) -> None:
-    """Keep a submission's status in step with its grading results."""
-    submission = get_submission(submission_id)
-    if submission is None:
-        return
-    results = list_grading_results(submission_id)
-    if not results:
-        submission.status = SubmissionStatus.PENDING
-    elif all(r.is_finalised for r in results):
-        # Flagged results are not finalised, so a submission holding one stays
-        # in the "awaiting review" state until the teacher settles it.
-        submission.status = SubmissionStatus.REVIEWED
-    else:
-        submission.status = SubmissionStatus.GRADED
+    return get_repository().delete_study_camp(camp_id)

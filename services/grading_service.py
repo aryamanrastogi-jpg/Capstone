@@ -17,7 +17,8 @@ import hashlib
 import re
 from typing import Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
-from models import ErrorItem, ErrorType, GradingResult, Question, ReviewStatus
+from models import ErrorItem, ErrorType, GradingResult, Question, ReviewStatus, Subject
+from services import hint_service
 
 MOCK_ENGINE_NAME = "Rule-based mock grader v1 (no LLM)"
 
@@ -457,7 +458,12 @@ def apply_teacher_decision(
     return result
 
 
-def student_safe_view(result: GradingResult, question: Question) -> dict:
+def student_safe_view(
+    result: GradingResult,
+    question: Question,
+    subject: Optional[Subject] = None,
+    hint_level: Optional[int] = None,
+) -> dict:
     """What a student is allowed to see about their own answer.
 
     Academic integrity is a product requirement here, not a footnote: the app
@@ -467,6 +473,12 @@ def student_safe_view(result: GradingResult, question: Question) -> dict:
     expected values back at them.
 
     Teachers see everything; that is what `GradingResult` itself carries.
+
+    Pass `hint_level` (and the `subject`) to get pointers from the escalating
+    ladder in `hint_service` instead of the flat error-category tips: a student
+    on their third go at the same question needs something more pointed than
+    one who has just missed it once. The ladder still never contains a value -
+    it is built from the question text alone.
     """
     expected_values = set(_numbers(question.model_answer))
 
@@ -484,7 +496,16 @@ def student_safe_view(result: GradingResult, question: Question) -> dict:
             item for item in result.correct_elements if not _leaks(item)
         ] or ["You made a genuine attempt at this question."],
         "error_labels": [e.error_type.label for e in result.errors],
-        "pointers": _pointers(result),
+        "pointers": (
+            _pointers(result)
+            if hint_level is None
+            else hint_service.escalating_pointers(
+                question,
+                [e.error_type for e in result.errors],
+                subject or Subject.MATHEMATICS,
+                hint_level,
+            )
+        ),
     }
 
 

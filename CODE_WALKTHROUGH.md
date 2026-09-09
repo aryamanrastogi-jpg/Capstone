@@ -156,6 +156,63 @@ should trust.
 
 ---
 
+## 3b. Guidance: the other half of the grader
+
+`grading_service` answers "how did your attempt score?". `hint_service` answers
+"how do I go at this?" - and it runs *before* there is an attempt, for a set
+that has no model answers at all.
+
+That timing is what makes its one rule non-negotiable. `guidance_for` is handed
+a `Question` and reads `question_text` **only** - never `model_answer`, never
+`marking_criteria`. There is no answer inside the function to leak.
+
+Two tests hold that line. One feeds it a question whose model answer is `x = 5`
+and checks nothing from the answer comes back. The other is blunter: guidance
+must contain **no digits at all**. Method never needs a number - "substitute
+your values into the formula" is a hint, "put 15 into the formula" is the
+answer - so any digit appearing is a bug by definition.
+
+The matching itself is deliberately dumb: `_SHAPES` is an ordered list of
+(matcher, template) pairs and the first match wins, so narrow shapes are listed
+before broad ones. Adding a shape means writing a matcher and a template. This
+is the same trade as the mock grader - transparent and repeatable now, an LLM
+call later behind the same signature.
+
+---
+
+## 3c. The attempt loop
+
+`services/attempt_service.py` is the piece a general chatbot cannot copy,
+because it needs memory of every previous attempt at the same question.
+
+`build_state` turns a student's submissions and results into an `AttemptState`:
+one `QuestionStanding` per question, carrying the best score reached and which
+attempt reached it. From that everything else falls out - what is outstanding,
+whether the set is finished, whether the attempts have run out.
+
+Three decisions in there are worth understanding, because each one is a rule
+somebody could reasonably have written differently:
+
+1. **A question settles at full marks, not most of them.** The loop exists to
+   run "until you get everything correct". A 2.5-out-of-3 quietly counting as
+   done would leave exactly the gap the student came to close.
+2. **Best result wins, not latest.** A student who got it right and then
+   fumbled a re-run has still shown they can do it, so the question does not
+   reopen.
+3. **Ten attempts, then stop.** Past that, another guess at the same question
+   is grinding rather than learning. `is_exhausted` and `is_complete` are
+   deliberately separate: running out and finishing are different endings and
+   the page says different things.
+
+The hint ladder in `hint_service.escalating_pointers` rides on top: more goes
+at the same question earns a *more pointed* hint, never more of the answer. The
+maths rungs go formula, then where the values belong, then how to check - which
+is Aryaman's own line, that the formula is a hint and the numbers are the
+answer. Written subjects get points, then reasons, then your own example. Every
+rung is covered by the same no-digits test as the guidance.
+
+---
+
 ## 4. The bit that makes this more than a chatbot
 
 A student can already paste one question into ChatGPT. What they can't do is ask
@@ -195,12 +252,17 @@ Small changes, in rough order of difficulty. Run `python -m pytest` after each.
    `grading_service._assess()` and add a rule for it. What else breaks? (Hint:
    the pointers dictionary.)
 
-5. **Add a practice topic.** In `services/practice_service.py`, write a builder
+5. **Add a question shape.** In `services/hint_service.py`, write a `_Template`
+   for simultaneous equations and register it in `_SHAPES`. Mind where you put
+   it in the list - order decides which shape wins. Then try sneaking a number
+   into one of your steps and watch which test catches it.
+
+6. **Add a practice topic.** In `services/practice_service.py`, write a builder
    function for a new topic and register it in `_TEMPLATES`. There's a test that
    will check your questions have clean whole-number answers — see if you can
    make it pass first time.
 
-6. **Break something on purpose.** In `models/grading.py`, delete the
+7. **Break something on purpose.** In `models/grading.py`, delete the
    `_scores_within_bounds` validator and run the tests. Read the failures. That
    tells you what that one function was protecting.
 

@@ -36,6 +36,11 @@ class Submission(BaseModel):
 
     uploaded_filename: Optional[str] = None
     submitted_at: datetime = Field(default_factory=datetime.now)
+
+    # Which go at this question set this is. 1 for a first attempt. A later
+    # attempt normally covers only the questions still outstanding - see
+    # `services/attempt_service.py`.
+    attempt_number: int = Field(default=1, ge=1)
     status: SubmissionStatus = SubmissionStatus.PENDING
 
     # --- Ownership -------------------------------------------------------

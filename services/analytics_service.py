@@ -98,7 +98,7 @@ def results_dataframe(
             assessment = assessments_by_id.get(submission.assessment_id)
 
         final = result.final_score
-        score = final if final is not None else result.suggested_score
+        score = result.effective_score
         if score is None:
             continue
 

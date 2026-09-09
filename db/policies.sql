@@ -126,8 +126,13 @@ grant update (display_name, year_group) on public.profiles to authenticated;
 -- assessments
 -- ---------------------------------------------------------------------------
 -- A student sees: their own typed-up sets, plus the teacher-authored sets
--- belonging to the teacher whose roster they are on, plus the unowned seed set.
+-- belonging to the teacher whose roster they are on, plus the unowned seed set,
+-- plus anything a student has deliberately shared into the public library.
 -- A teacher sees: their own, plus anything their students created.
+--
+-- Note what the shared clause does NOT do: it grants select only. Update and
+-- delete stay owner-only below, so a shared set can be read and copied by
+-- anyone but changed by nobody except the person who wrote it.
 drop policy if exists assessments_select on public.assessments;
 create policy assessments_select on public.assessments
     for select to authenticated
@@ -136,6 +141,7 @@ create policy assessments_select on public.assessments
         or (not student_created and owner_id is null)
         or (not student_created and owner_id = public.app_my_teacher_id())
         or public.app_teaches(owner_id)
+        or (is_shared and student_created)
     );
 
 -- Anyone signed in can author a set, but only as themselves, and a student

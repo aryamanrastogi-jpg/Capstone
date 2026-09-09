@@ -35,10 +35,36 @@ _status: Optional[ConnectionStatus] = None
 
 
 def get_connection_status() -> ConnectionStatus:
-    """Describe the current backend without leaking any credential values."""
+    """Describe the current backend without leaking any credential values.
+
+    Whether the CREDENTIALS work is a property of the process and is worked out
+    once. Whether anyone is SIGNED IN is a property of the browser session and
+    is re-checked on every call - memoising it would mean one visitor signing in
+    changed what the sidebar said for everybody else on the same server.
+    """
     if _status is None:
         get_supabase_client()
-    return _status  # type: ignore[return-value]
+    status = _status  # type: ignore[assignment]
+
+    if not status.connected:
+        return status
+
+    if _has_session(_client):
+        return ConnectionStatus(
+            connected=True,
+            demo_mode=False,
+            message="Connected to Supabase.",
+        )
+    return ConnectionStatus(
+        connected=True,
+        demo_mode=True,
+        signed_out=True,
+        message=(
+            "Connected to Supabase, but you are not signed in - running on "
+            "local sample data. Row Level Security allows no reads or writes "
+            "until you authenticate."
+        ),
+    )
 
 
 def get_supabase_client() -> Optional[Any]:
@@ -87,23 +113,16 @@ def get_supabase_client() -> Optional[Any]:
         # signs in this connection can read nothing and write nothing. Saying
         # "Connected" here would be true and useless; the app would appear to
         # be persisting and would in fact be discarding every write.
-        if _has_session(_client):
-            _status = ConnectionStatus(
-                connected=True,
-                demo_mode=False,
-                message="Connected to Supabase.",
-            )
-        else:
-            _status = ConnectionStatus(
-                connected=True,
-                demo_mode=True,
-                signed_out=True,
-                message=(
-                    "Connected to Supabase, but nobody is signed in - running on "
-                    "local sample data. Row Level Security allows no reads or "
-                    "writes until a user authenticates."
-                ),
-            )
+        #
+        # The signed-in half of that judgement is made per call in
+        # get_connection_status, because it varies by browser session. What is
+        # settled here, once, is only that the credentials themselves work.
+        _status = ConnectionStatus(
+            connected=True,
+            demo_mode=True,
+            signed_out=True,
+            message="Connected to Supabase.",
+        )
     except Exception as exc:  # noqa: BLE001 - reported to the user, not hidden
         _client = None
         _status = ConnectionStatus(
@@ -119,32 +138,31 @@ def get_supabase_client() -> Optional[Any]:
     return _client
 
 
-def _has_session(client: Any) -> bool:
-    """Is there a signed-in user on this client?
+def _has_session(_client: Any) -> bool:
+    """Is there a signed-in user in THIS browser session?
 
-    Wrapped in a try because gotrue raises rather than returning None when no
-    session has ever been stored, and "no session" is a normal state here, not
-    a failure worth surfacing.
+    Note the client argument is ignored. Sign-in happens on the per-session
+    client in `services.auth_service`, not on the module-level one this file
+    builds to probe connectivity - so asking that client would always answer
+    "signed out", however many people were actually signed in.
     """
     try:
-        return client.auth.get_session() is not None
+        from services.auth_service import is_signed_in
+
+        return is_signed_in()
     except Exception:  # noqa: BLE001 - absence of a session is not an error
         return False
 
 
 def get_authenticated_client() -> Optional[Any]:
-    """A Supabase client that can actually do something, or None.
+    """Deprecated: use `services.auth_service.authenticated_client()`.
 
-    This is what `services.repository` asks for. It returns None both when there
-    are no credentials and when there is no signed-in user, because those two
-    states have the same consequence: the Supabase backend would be useless, so
-    the app should stay on session state and say so.
+    Kept as a thin forwarder because the per-session client is the only correct
+    answer now, and two ways of asking would eventually disagree.
     """
-    client = get_supabase_client()
-    if client is None:
-        return None
-    status = get_connection_status()
-    return client if not status.demo_mode else None
+    from services.auth_service import authenticated_client
+
+    return authenticated_client()
 
 
 def reset_client_cache() -> None:

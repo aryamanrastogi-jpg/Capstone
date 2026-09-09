@@ -63,11 +63,22 @@ create table if not exists public.assessments (
 
     -- Null for the seeded demo set, which belongs to nobody.
     owner_id        text references public.profiles (id) on delete cascade,
-    student_created boolean not null default false
+    student_created boolean not null default false,
+
+    -- Shared into the public library, where any student can take a copy.
+    -- Private by default: sharing is always a deliberate act by the owner.
+    is_shared       boolean not null default false,
+
+    -- Set when this set was copied out of the library. `on delete set null`
+    -- so deleting an original never removes anybody's working copy.
+    copied_from_id  text references public.assessments (id) on delete set null
 );
 
 create index if not exists assessments_owner_id_idx on public.assessments (owner_id);
 create index if not exists assessments_topic_idx on public.assessments (topic);
+-- The library listing filters on both columns together.
+create index if not exists assessments_shared_idx
+    on public.assessments (is_shared, student_created);
 
 -- ---------------------------------------------------------------------------
 -- questions

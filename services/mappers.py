@@ -161,6 +161,8 @@ def assessment_to_rows(assessment: Assessment) -> Tuple[Row, List[Row]]:
         "created_at": assessment.created_at.isoformat(),
         "owner_id": assessment.owner_id,
         "student_created": assessment.student_created,
+        "is_shared": assessment.is_shared,
+        "copied_from_id": assessment.copied_from_id,
     }
     question_rows = [
         question_to_row(question, assessment.id, position)
@@ -190,6 +192,8 @@ def assessment_from_rows(row: Row, question_rows: Sequence[Row]) -> Assessment:
         questions=[question_from_row(q) for q in ordered],
         owner_id=row.get("owner_id"),
         student_created=bool(row.get("student_created")),
+        is_shared=bool(row.get("is_shared")),
+        copied_from_id=row.get("copied_from_id"),
     )
 
 

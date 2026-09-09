@@ -99,5 +99,17 @@ class GradingResult(BaseModel):
         return self.suggested_score
 
     @property
+    def effective_score(self) -> float:
+        """The score to reason with: the teacher's if they have settled one.
+
+        Distinct from `final_score`, which is None until a teacher acts. Use
+        this wherever a number is needed regardless of review state - progress
+        tracking, trends - and `final_score` wherever the *absence* of a
+        teacher decision has to stay visible.
+        """
+        final = self.final_score
+        return final if final is not None else self.suggested_score
+
+    @property
     def final_feedback(self) -> str:
         return self.teacher_approved_feedback or self.student_feedback

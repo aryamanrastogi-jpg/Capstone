@@ -187,8 +187,8 @@ def _add_student_set(at, owner_id, *, with_answers):
     return assessment
 
 
-def test_my_work_refuses_to_score_a_set_with_no_answers():
-    """The honest branch: say it cannot be marked rather than invent a score."""
+def test_my_work_gives_guidance_instead_of_a_score_when_there_are_no_answers():
+    """The honest branch: guide the student rather than invent a score."""
     at = _app_as("student")
     student_id = at.session_state["current_user_id"]
 
@@ -200,8 +200,14 @@ def test_my_work_refuses_to_score_a_set_with_no_answers():
     at.run()
 
     assert not at.exception, at.exception
-    warnings = " ".join(w.value for w in at.warning)
-    assert "cannot be scored yet" in warnings
+    notices = " ".join(i.value for i in at.info)
+    assert "cannot score it" in notices
+
+    body = " ".join(m.value for m in at.markdown)
+    assert "How to go at it" in body, "guidance should be rendered, not a dead end"
+
+    # And it must still not offer to mark anything.
+    assert "Get my estimate" not in [b.label for b in at.button]
 
 
 def test_my_work_accepts_a_student_set_that_has_answers():
