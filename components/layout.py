@@ -33,6 +33,12 @@ ACCENT = palette.PRIMARY
 _STACK_BREAKPOINT = "720px"
 _WRAP_BREAKPOINT = "1100px"
 
+# Everything rendered through `st.markdown(..., unsafe_allow_html=True)` lands
+# inside this container, and Streamlit's own rule for the paragraphs in it is
+# more specific than a bare class. Prefixing our selectors with it is what makes
+# a heading actually render as a heading.
+_IN = '[data-testid="stMarkdownContainer"]'
+
 _STYLES = f"""
 <style>
   :root {{
@@ -59,8 +65,8 @@ _STYLES = f"""
   }}
 
   /* --- Page header ----------------------------------------------------- */
-  .assessai-header {{ margin: 0 0 1.15rem 0; }}
-  .assessai-eyebrow {{
+  {_IN} .assessai-header {{ margin: 0 0 1.15rem 0; }}
+  {_IN} .assessai-eyebrow {{
       display: inline-block;
       color: {palette.TINT_PRIMARY[1]};
       background: {palette.TINT_PRIMARY[0]};
@@ -72,7 +78,7 @@ _STYLES = f"""
       text-transform: uppercase;
       margin-bottom: 0.5rem;
   }}
-  .assessai-title {{
+  {_IN} .assessai-title {{
       color: {HEADING};
       font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2.05rem);
       font-weight: 700;
@@ -80,13 +86,13 @@ _STYLES = f"""
       margin: 0 0 0.2rem 0;
       line-height: 1.15;
   }}
-  .assessai-subtitle {{
+  {_IN} .assessai-subtitle {{
       color: {palette.MUTED};
       font-size: 0.95rem;
       margin: 0;
       max-width: 62ch;
   }}
-  .assessai-rule {{
+  {_IN} .assessai-rule {{
       border: none;
       border-top: 3px solid {ACCENT};
       border-radius: 3px;
@@ -95,7 +101,7 @@ _STYLES = f"""
   }}
 
   /* --- Badges ---------------------------------------------------------- */
-  .assessai-badge {{
+  {_IN} .assessai-badge {{
       display: inline-block;
       padding: 0.15rem 0.6rem;
       border-radius: 999px;
@@ -106,7 +112,7 @@ _STYLES = f"""
   }}
   /* Badges are laid out by the browser, not by st.columns: any number of them
      wraps onto the next line instead of overflowing a fixed column. */
-  .assessai-badges {{
+  {_IN} .assessai-badges {{
       display: flex;
       flex-wrap: wrap;
       gap: 0.35rem;
@@ -114,7 +120,7 @@ _STYLES = f"""
   }}
 
   /* --- Cards ----------------------------------------------------------- */
-  .assessai-card {{
+  {_IN} .assessai-card {{
       border: 1px solid {palette.BORDER};
       border-left: 4px solid {ACCENT};
       border-radius: var(--aa-radius);
@@ -123,20 +129,20 @@ _STYLES = f"""
       background: {palette.SURFACE};
       box-shadow: var(--aa-shadow);
   }}
-  .assessai-card h4 {{
+  {_IN} .assessai-card h4 {{
       color: {HEADING};
       margin: 0 0 0.25rem 0;
       font-size: 1rem;
       font-weight: 650;
   }}
-  .assessai-card p {{
+  {_IN} .assessai-card p {{
       margin: 0;
       color: {palette.MUTED};
       font-size: 0.86rem;
       line-height: 1.5;
   }}
 
-  .assessai-hint {{
+  {_IN} .assessai-hint {{
       border-left: 4px solid {palette.HINT};
       background: {palette.TINT_HINT[0]};
       color: {palette.TINT_HINT[1]};
@@ -164,7 +170,8 @@ _STYLES = f"""
       white-space: normal;
       overflow-wrap: anywhere;
   }}
-  [data-testid="stMetricValue"] > div {{
+  [data-testid="stMetricValue"] > div,
+  [data-testid="stMetricValue"] p {{
       white-space: normal;
       overflow: visible;
       text-overflow: clip;
@@ -187,7 +194,7 @@ _STYLES = f"""
   /* --- Sidebar --------------------------------------------------------- */
   [data-testid="stSidebarNavLink"] {{ border-radius: 8px; }}
   [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
-  .assessai-brand {{
+  {_IN} .assessai-brand {{
       font-size: 0.78rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -228,7 +235,7 @@ _STYLES = f"""
           width: 100% !important;
       }}
       [data-testid="stMetric"] {{ padding: 0.65rem 0.8rem 0.75rem 0.8rem; }}
-      .assessai-subtitle {{ font-size: 0.9rem; }}
+      {_IN} .assessai-subtitle {{ font-size: 0.9rem; }}
   }}
 
   /* Wide tables scroll inside themselves rather than pushing the page
@@ -248,8 +255,10 @@ _STYLES = f"""
 def inject_styles() -> None:
     """Inject the shared style block.
 
-    Called from `app.py` on every rerun, and defensively from the helpers below
-    so a page that only draws a hint still gets the tokens it needs.
+    Called once from `app.py` before anything draws, and once from
+    `page_header` so that a page rendered on its own - as the tests do - is
+    still styled. Every other helper assumes the block is already there rather
+    than adding another copy of it to the DOM on each call.
     """
     st.markdown(_STYLES, unsafe_allow_html=True)
 
@@ -299,7 +308,6 @@ def sidebar_status() -> None:
     """Backend status, the demo identity switch and the privacy notice."""
     status = store.backend_status()
     with st.sidebar:
-        inject_styles()
         # The wordmark is drawn above the navigation by `st.logo` in app.py, so
         # all this block owes the reader is what the app is for and whether it
         # is talking to a real backend.
@@ -396,7 +404,6 @@ def metric_row(metrics: Sequence[tuple], per_row: int = 4) -> None:
     """
     if not metrics:
         return
-    inject_styles()
     items = list(metrics)
     per_row = max(1, per_row)
     for start in range(0, len(items), per_row):
@@ -419,12 +426,10 @@ def badge_row(badges: Iterable[str]) -> None:
     html = "".join(badges)
     if not html:
         return
-    inject_styles()
     st.markdown(f'<div class="assessai-badges">{html}</div>', unsafe_allow_html=True)
 
 
 def info_card(title: str, body: str) -> None:
-    inject_styles()
     st.markdown(
         f'<div class="assessai-card"><h4>{title}</h4><p>{body}</p></div>',
         unsafe_allow_html=True,
@@ -437,7 +442,6 @@ def hint_note(text: str) -> None:
     Hints get their own colour so a student can tell at a glance that what
     follows is a nudge, not a verdict on their answer.
     """
-    inject_styles()
     st.markdown(f'<div class="assessai-hint">{text}</div>', unsafe_allow_html=True)
 
 
