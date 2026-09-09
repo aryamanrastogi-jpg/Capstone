@@ -9,12 +9,15 @@ THE IDEA
   This module holds the *shape* of that state. `services/attempt_service.py`
   computes it from the submissions and grading results.
 
-WHY A QUESTION "SETTLES" AT FULL MARKS
-  The rule is deliberately strict: a question is settled when the student has
-  scored full marks on it, not most of them. The whole point of the loop is to
-  keep going "until you get everything correct", and a 2.5-out-of-3 that
-  quietly counted as done would leave exactly the gap the student came here to
-  close.
+WHEN A QUESTION "SETTLES"
+  At `SETTLE_FRACTION` of the marks - 80%, not 100%. The loop is meant to run
+  until a student has each question right, but insisting on the very last half
+  mark turns it into a grind against the grader's phrasing rather than against
+  the maths: the rule-based grader gives 2.5 out of 3 for a fully correct
+  answer, and at full marks that never settled.
+
+  The value is chosen around how the marks round rather than picked for being
+  a round number - see the comment on the constant.
 """
 
 from __future__ import annotations
@@ -22,6 +25,15 @@ from __future__ import annotations
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
+
+# What fraction of the marks counts as having got a question right.
+#
+# Set to 80% rather than 90% because of how the marks round. Scores come back
+# to the nearest half mark, so at 90% a 3-mark question needs 2.7 - and the
+# only score at or above that is 3.0, which is full marks by another name.
+# At 80% the threshold is 2.4, so 2.5 out of 3 settles, which is what a
+# correct-but-differently-worded answer actually scores.
+SETTLE_FRACTION = 0.80
 
 
 class QuestionStanding(BaseModel):
@@ -42,8 +54,10 @@ class QuestionStanding(BaseModel):
 
     @property
     def is_settled(self) -> bool:
-        """Full marks reached. Settled questions drop out of the next attempt."""
-        return self.best_score is not None and self.best_score >= self.max_marks
+        """Got it right. Settled questions drop out of the next attempt."""
+        if self.best_score is None:
+            return False
+        return is_settling_score(self.best_score, self.max_marks)
 
     @property
     def has_been_attempted(self) -> bool:
@@ -122,3 +136,14 @@ class AttemptState(BaseModel):
         if not self.standings:
             return 0.0
         return len(self.settled) / len(self.standings)
+
+
+def is_settling_score(score: float, max_marks: float) -> bool:
+    """Is this score good enough to count the question as done?
+
+    The single definition of settling. `attempt_service` reads it too, so a
+    per-attempt result and the standing built from it can never disagree.
+    """
+    if not max_marks:
+        return False
+    return score >= SETTLE_FRACTION * max_marks

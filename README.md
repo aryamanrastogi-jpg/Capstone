@@ -54,7 +54,7 @@ their homework for them.
 | Page | What it does |
 |---|---|
 | **My Work** | Upload past work (typed, `.txt` or digital PDF) and get an instant estimate: score, what went well, which *categories* of mistake, and next steps. Optionally record the mark your teacher gave. |
-| **The attempt loop** | Work a set, and the questions you get right *settle* and drop out. The next attempt covers only what is left, so your time goes where it is still needed. Capped at 10 attempts — past that, another guess is not what helps, and the app says so. |
+| **The attempt loop** | Work a set, and the questions you get right — 80% of the marks or better — *settle* and drop out. The next attempt covers only what is left, so your time goes where it is still needed. Capped at 10 attempts — past that, another guess is not what helps, and the app says so. |
 | **Compare your attempts** | Every go at a question side by side: what you wrote each time, what it scored, and the change. What you altered between two attempts is the actual learning. |
 | **Shared library** | Share a question set and any student can take a copy. A copy is a copy — their own attempts, their own progress, and nothing they do reaches your set. Your answers and scores are never shared. |
 | **Guidance** | On any set, *Show me how to approach these* gives the method for each question — how to go at it, what a full answer contains, and the easy marks to lose. Built from the question text alone, so it cannot contain the answer. A set with no answers saved gets this instead of a score. |
@@ -276,7 +276,7 @@ python -m pytest -v
   no digits at all, so it cannot restate a value from the model answer
 - **The hint ladder** — hints get more pointed with each attempt and never more
   revealing; no rung contains a digit
-- **The attempt loop** — full marks settle a question and partial marks do not, a
+- **The attempt loop** — 80% of the marks settles a question and less does not, a
   settled question never reopens after a worse later attempt, the cap stops the
   loop, and finishing is distinguished from running out of attempts
 - **The library** — a set is private until shared, a copy gets fresh question ids,
@@ -330,11 +330,12 @@ to that effect appears on every page.
   marks by comparing against a model answer; with none it would invent a number,
   so it gives guidance instead. Real scoring of answer-less work needs the LLM
   grader, not a rule.
-- **Full marks are hard to reach with the rule-based grader**, so questions settle
-  less often than they should. A fully correct answer often scores 2.5/3 because
-  the grader also weighs wording against the marking criteria. The settle rule is
-  deliberately strict ("until you get everything correct"); it is the *grader*
-  that needs to get better, and that is the LLM swap.
+- **The settle threshold is a workaround for the grader, not a judgement about
+  learning.** A question settles at 80% of its marks (`SETTLE_FRACTION` in
+  `models/attempt.py`) because the rule-based grader gives 2.5/3 for a fully
+  correct answer — it weighs wording against the marking criteria as well as the
+  numbers. Once the LLM grader scores accurately, this should go back up.
+  Note half-mark rounding: on a 2-mark question 80% still means full marks.
 - **Guidance is shape-matched, not understood.** Eight recognised question shapes
   plus a generic fallback. It reads "find the area" and gives the area method; it
   does not know what the question is actually about.

@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Dict, Iterable, List, Sequence
 
 from models import Assessment, GradingResult, Question, Submission
-from models.attempt import AttemptState, QuestionStanding
+from models.attempt import AttemptState, QuestionStanding, is_settling_score
 
 # Ten attempts per question set. See the module docstring for why.
 MAX_ATTEMPTS = 10
@@ -138,7 +138,7 @@ def attempt_history(
                 "answer": submission.answer_for(question_id),
                 "score": result.effective_score,
                 "max_marks": result.max_marks,
-                "is_settled": result.effective_score >= result.max_marks,
+                "is_settled": is_settling_score(result.effective_score, result.max_marks),
                 "result": result,
             }
         )

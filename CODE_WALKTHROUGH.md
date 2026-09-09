@@ -193,9 +193,13 @@ whether the set is finished, whether the attempts have run out.
 Three decisions in there are worth understanding, because each one is a rule
 somebody could reasonably have written differently:
 
-1. **A question settles at full marks, not most of them.** The loop exists to
-   run "until you get everything correct". A 2.5-out-of-3 quietly counting as
-   done would leave exactly the gap the student came to close.
+1. **A question settles at 80% of its marks** (`SETTLE_FRACTION`). That number
+   is not a view about how much of a question you need to understand — it is
+   compensation for the grader. The mock grader gives 2.5 out of 3 for a fully
+   correct answer, so at full marks the loop could never finish. Note the
+   rounding, too: scores come back to the nearest half mark, so 90% would have
+   needed 2.7 on a 3-mark question, meaning 3.0 — no looser than full marks at
+   all. When the LLM grader scores properly, put this back up.
 2. **Best result wins, not latest.** A student who got it right and then
    fumbled a re-run has still shown they can do it, so the question does not
    reopen.
