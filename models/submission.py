@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -25,6 +25,15 @@ class Submission(BaseModel):
     assessment_id: str
     student_identifier: str = Field(min_length=1, max_length=40)
     submission_text: str = Field(min_length=1)
+
+    # --- Per-question answers -------------------------------------------
+    # question_id -> that question's answer. Empty for a legacy submission,
+    # where `submission_text` is one block covering every question.
+    #
+    # This is what makes the attempt loop possible: to re-try only the
+    # questions you got wrong, an answer has to belong to *one* question.
+    answers: Dict[str, str] = Field(default_factory=dict)
+
     uploaded_filename: Optional[str] = None
     submitted_at: datetime = Field(default_factory=datetime.now)
     status: SubmissionStatus = SubmissionStatus.PENDING
@@ -59,3 +68,35 @@ class Submission(BaseModel):
         if not cleaned:
             raise ValueError("Submission text must not be empty.")
         return cleaned
+
+    @field_validator("answers")
+    @classmethod
+    def _clean_answers(cls, value: Dict[str, str]) -> Dict[str, str]:
+        """Strip every answer and drop entries with a blank question id.
+
+        A blank *answer* is kept deliberately: "this question was left blank"
+        is real information, and the grader already handles it.
+        """
+        cleaned: Dict[str, str] = {}
+        for question_id, answer in (value or {}).items():
+            key = (question_id or "").strip()
+            if not key:
+                raise ValueError("An answer must be attached to a question id.")
+            cleaned[key] = (answer or "").strip()
+        return cleaned
+
+    @property
+    def is_segmented(self) -> bool:
+        """True when answers are held per question rather than as one block."""
+        return bool(self.answers)
+
+    def answer_for(self, question_id: str) -> str:
+        """The answer to one question.
+
+        Segmented submission: the stored answer, or "" if that question was
+        left blank - a missing key means unanswered, not "use everything".
+        Legacy submission: the whole text, as every question shares it.
+        """
+        if self.is_segmented:
+            return self.answers.get(question_id, "")
+        return self.submission_text

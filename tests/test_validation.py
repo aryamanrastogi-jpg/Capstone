@@ -191,9 +191,32 @@ def test_question_marks_must_be_positive(marks):
         Question(question_text="Q", model_answer="A", max_marks=marks)
 
 
-def test_question_requires_a_model_answer():
+def test_a_question_may_have_no_model_answer():
+    """A student typing up their own worksheet does not have the answers."""
+    question = Question(question_text="Q", model_answer="   ", max_marks=2)
+    assert question.model_answer == ""
+    assert not question.has_model_answer
+
+
+def test_a_question_still_requires_its_text():
     with pytest.raises(ValidationError):
-        Question(question_text="Q", model_answer="   ", max_marks=2)
+        Question(question_text="   ", model_answer="A", max_marks=2)
+
+
+def test_draft_validation_can_waive_model_answers_for_a_student():
+    rows = [{"question_text": "Solve 2x = 8.", "model_answer": "", "max_marks": 2}]
+    strict = validate_assessment_draft(
+        title="T", topic="Algebra", curriculum="Cambridge IGCSE", questions=rows
+    )
+    lenient = validate_assessment_draft(
+        title="T",
+        topic="Algebra",
+        curriculum="Cambridge IGCSE",
+        questions=rows,
+        require_model_answers=False,
+    )
+    assert not strict.ok
+    assert lenient.ok
 
 
 def test_total_marks_helper_sums_only_usable_rows():
@@ -339,3 +362,55 @@ def test_submission_requires_non_empty_text():
 def test_submission_requires_an_identifier():
     with pytest.raises(ValidationError):
         Submission(assessment_id="as_1", student_identifier="", submission_text="x = 5")
+
+
+def test_submission_answers_are_stripped_and_keyed_by_question():
+    submission = Submission(
+        assessment_id="as_1",
+        student_identifier="S-1",
+        submission_text="Q1. x = 5",
+        answers={"q_1": "  x = 5  "},
+    )
+    assert submission.is_segmented
+    assert submission.answer_for("q_1") == "x = 5"
+
+
+def test_submission_answers_reject_a_blank_question_id():
+    with pytest.raises(ValidationError):
+        Submission(
+            assessment_id="as_1",
+            student_identifier="S-1",
+            submission_text="x = 5",
+            answers={"  ": "x = 5"},
+        )
+
+
+def test_an_unanswered_question_returns_blank_not_the_whole_response():
+    """The guard that stops one question's answer being reused for another."""
+    submission = Submission(
+        assessment_id="as_1",
+        student_identifier="S-1",
+        submission_text="Q1. x = 5",
+        answers={"q_1": "x = 5"},
+    )
+    assert submission.answer_for("q_2") == ""
+
+
+def test_a_submission_without_answers_shares_its_text_across_questions():
+    submission = Submission(
+        assessment_id="as_1",
+        student_identifier="S-1",
+        submission_text="x = 5",
+    )
+    assert not submission.is_segmented
+    assert submission.answer_for("q_anything") == "x = 5"
+
+
+def test_build_submission_composes_text_from_per_question_answers():
+    submission = assessment_service.build_submission(
+        assessment_id="as_1",
+        student_identifier="S-1",
+        answers={"q_1": "x = 5", "q_2": ""},
+    )
+    assert "Q1. x = 5" in submission.submission_text
+    assert "Q2. (left blank)" in submission.submission_text

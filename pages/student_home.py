@@ -51,7 +51,7 @@ st.info(
 # ---------------------------------------------------------------------------
 # Where the student currently stands
 # ---------------------------------------------------------------------------
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_student(student.id)
 my_submissions = service.list_submissions(student_id=student.id)
 my_results = service.list_grading_results(student_id=student.id)
 frame = analytics.student_dataframe(student.id, my_results, assessments, my_submissions)
@@ -100,15 +100,22 @@ st.subheader("Add a piece of work")
 
 if not assessments:
     empty_state(
-        "There are no assessments set up yet.",
-        "Your teacher needs to add one before you can upload against it.",
+        "There are no question sets to work from yet.",
+        "Type up the questions you have been set on My Questions, then come back "
+        "here to work through them.",
         icon=":material/assignment_late:",
     )
+    if st.button("Add my questions", type="primary"):
+        goto("My Questions")
     privacy_notice()
     st.stop()
 
 labels = {
-    a.id: f"{a.title} · {a.assessment_type.label} · {a.topic}" for a in assessments
+    a.id: (
+        f"{a.title} · {a.assessment_type.label} · {a.topic}"
+        + (" · mine" if a.student_created else "")
+    )
+    for a in assessments
 }
 selected_id = st.selectbox(
     "Which piece of work is this?",
@@ -120,20 +127,60 @@ if assessment is None:
     st.error("That assessment could not be found.", icon=":material/error:")
     st.stop()
 
+if not assessment.is_gradable:
+    # Scoring needs something to mark against. Rather than invent a number, say
+    # so - and point at the one thing that would fix it.
+    missing = len(assessment.questions_missing_model_answers)
+    st.warning(
+        f"**{assessment.title}** cannot be scored yet: {missing} question(s) have "
+        "no answer to mark against. Add the answers on My Questions when you have "
+        "the mark scheme.",
+        icon=":material/info:",
+    )
+    with st.expander("See the questions", expanded=True):
+        for index, question in enumerate(assessment.questions, start=1):
+            st.markdown(
+                f"**Q{index}. ({question.max_marks:g} marks)** {question.question_text}"
+            )
+    if st.button("Add the answers", type="primary"):
+        goto("My Questions")
+    privacy_notice()
+    st.stop()
+
 with st.expander("See the questions"):
     for index, question in enumerate(assessment.questions, start=1):
         st.markdown(f"**Q{index}. ({question.max_marks} marks)** {question.question_text}")
 
 mode = st.radio(
     "How do you want to add your answers?",
-    ["Type or paste", "Upload a file"],
+    ["Question by question", "One block of text", "Upload a file"],
     horizontal=True,
+    help="Answering question by question is better: it lets AssessAI tell you "
+    "exactly which questions to try again.",
 )
 
 response_text = ""
 uploaded_name = None
+# question_id -> answer. Stays None unless the student answers per question,
+# which is what tells the grader to mark each question on its own.
+answers: dict[str, str] | None = None
 
-if mode == "Type or paste":
+if mode == "Question by question":
+    st.session_state.pop(EXTRACTED_KEY, None)
+    st.caption(
+        "Leave a question blank if you did not attempt it — that is useful "
+        "information, not a problem."
+    )
+    answers = {}
+    for index, question in enumerate(assessment.questions, start=1):
+        answers[question.id] = st.text_area(
+            f"Q{index}. ({question.max_marks:g} marks) {question.question_text}",
+            height=120,
+            key=f"answer_{assessment.id}_{question.id}",
+            placeholder="Your answer, including your working.",
+        )
+    response_text = "\n".join(a for a in answers.values() if a.strip())
+elif mode == "One block of text":
     st.session_state.pop(EXTRACTED_KEY, None)
     response_text = st.text_area(
         "Your answers",
@@ -191,7 +238,11 @@ if st.button("Get my estimate", type="primary"):
             submission = service.build_submission(
                 assessment_id=assessment.id,
                 student_identifier=student.display_name,
-                submission_text=response_text,
+                # Left empty for a per-question submission so the service
+                # composes a properly numbered transcript from the answers.
+                submission_text="" if answers else response_text,
+                answers=answers,
+                questions=assessment.questions,
                 uploaded_filename=uploaded_name,
                 student_id=student.id,
                 is_self_study=True,
@@ -204,7 +255,10 @@ if st.button("Get my estimate", type="primary"):
                 st.markdown(f"- {issue['msg']}")
         else:
             for result in grade_submission(
-                assessment.questions, submission.submission_text, submission.id
+                assessment.questions,
+                submission.submission_text,
+                submission.id,
+                answers=submission.answers or None,
             ):
                 service.save_grading_result(result)
             st.session_state.pop(EXTRACTED_KEY, None)

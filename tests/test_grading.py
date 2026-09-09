@@ -381,3 +381,70 @@ def test_every_topic_generates_questions(topic):
     for q in questions:
         assert q.question_text.strip() and q.method_hint.strip()
         assert "{" not in q.question_text  # no unformatted placeholders
+
+
+# ---------------------------------------------------------------------------
+# Per-question answers
+#
+# These are the guarantees the attempt loop is built on: an answer belongs to
+# one question, and a question can be re-graded on its own.
+# ---------------------------------------------------------------------------
+def test_each_question_is_graded_against_its_own_answer(question):
+    second = Question(
+        question_text="Solve 2y = 10.",
+        model_answer="Divide both sides by 2 to get y = 5.",
+        max_marks=2,
+    )
+    results = grade_submission(
+        [question, second],
+        submission_text="",
+        submission_id="sub_split",
+        answers={question.id: STRONG_ANSWER, second.id: WEAK_ANSWER},
+    )
+    by_id = {r.question_id: r for r in results}
+    assert by_id[question.id].suggested_score > by_id[second.id].suggested_score
+
+
+def test_a_question_missing_from_the_answers_is_graded_as_blank(question):
+    second = Question(
+        question_text="Solve 2y = 10.",
+        model_answer="Divide both sides by 2 to get y = 5.",
+        max_marks=2,
+    )
+    # The strong answer is present, but only against the first question. The
+    # second must not be allowed to borrow it.
+    results = grade_submission(
+        [question, second],
+        submission_text=STRONG_ANSWER,
+        submission_id="sub_blank",
+        answers={question.id: STRONG_ANSWER},
+    )
+    blank = next(r for r in results if r.question_id == second.id)
+    assert blank.suggested_score == 0
+    assert any(e.error_type is ErrorType.INCOMPLETE_ANSWER for e in blank.errors)
+
+
+def test_only_question_ids_restricts_grading_to_those_questions(question):
+    second = Question(
+        question_text="Solve 2y = 10.",
+        model_answer="Divide both sides by 2 to get y = 5.",
+        max_marks=2,
+    )
+    results = grade_submission(
+        [question, second],
+        submission_text=STRONG_ANSWER,
+        submission_id="sub_retry",
+        only_question_ids=[second.id],
+    )
+    assert [r.question_id for r in results] == [second.id]
+
+
+def test_whole_text_grading_is_unchanged_when_no_answers_are_given(question):
+    second = Question(
+        question_text="Solve 2y = 10.",
+        model_answer="Divide both sides by 2 to get y = 5.",
+        max_marks=2,
+    )
+    shared = grade_submission([question, second], STRONG_ANSWER, "sub_legacy")
+    assert len(shared) == 2
+    assert all(r.suggested_score >= 0 for r in shared)

@@ -41,7 +41,7 @@ their homework for them.
 | | Students | Teachers |
 |---|---|---|
 | **Main job** | See where I'm weak, fix it before the exam | Keep an eye on the class, sign off marks |
-| **Pages** | My Work, My Progress, Study Camp | Class Overview, Create Assessment, Upload Responses, Review Grading, Class Analytics |
+| **Pages** | My Work, My Questions, My Progress, Study Camp | Class Overview, Create Assessment, Upload Responses, Review Grading, Class Analytics |
 | **Sees model answers?** | Never | Always |
 | **Scores are** | AI estimates until a teacher confirms | Official once approved |
 
@@ -54,6 +54,7 @@ their homework for them.
 | Page | What it does |
 |---|---|
 | **My Work** | Upload past work (typed, `.txt` or digital PDF) and get an instant estimate: score, what went well, which *categories* of mistake, and next steps. Optionally record the mark your teacher gave. |
+| **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. |
 | **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
 
@@ -109,6 +110,7 @@ moves to a different framework, the services come across unchanged.
 ├── app.py                      # entry point: page config, state init, navigation
 ├── pages/
 │   ├── student_home.py         # My Work        (student)
+│   ├── my_questions.py         # My Questions   (student)
 │   ├── my_progress.py          # My Progress    (student)
 │   ├── study_camp.py           # Study Camp     (student)
 │   ├── dashboard.py            # Class Overview (teacher)
@@ -138,7 +140,7 @@ moves to a different framework, the services come across unchanged.
 │   └── supabase_client.py      # optional Supabase client, demo-mode fallback
 ├── data/sample_data.py         # anonymised term of seed history
 ├── utils/                      # config and validation
-├── tests/                      # 147 pytest tests
+├── tests/                      # 168 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -250,13 +252,16 @@ python -m pytest
 python -m pytest -v
 ```
 
-147 tests, covering:
+168 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions
 - **The review gate** — AI output is never auto-approved; flagged results never
   yield a final score; an edit identical to the suggestion counts as an approval
-- **Student privacy** — one student's history can never include another's work
+- **Student privacy** — one student's history can never include another's work, and
+  a question set a student typed up is never offered to anyone else
+- **Ungradable sets** — a question with no model answer is refused by the grader
+  rather than being awarded an invented score
 - **Academic integrity** — student-facing feedback never contains the model answer,
   the marking criteria, or the expected values
 - **Longitudinal analysis** — trends group correctly by topic and period; weakest
@@ -264,6 +269,9 @@ python -m pytest -v
 - **Study camps** — the baseline is fixed at creation; progress tracks completion;
   impossible scores are rejected
 - **Mark mismatches** — real divergence is flagged, agreement is not
+- **Per-question answers** — each question is graded against its own answer; a
+  question left out of the answers is graded as blank rather than borrowing
+  another question's response; grading can be restricted to a subset of questions
 - **Uploads** — unsupported formats rejected, including files whose *contents*
   contradict their extension; filenames sanitised; image-only PDFs reported clearly
 - **Every page renders** in both roles, and neither role is routed to the other's pages
@@ -296,8 +304,12 @@ to that effect appears on every page.
 - **No mock exam mode yet.** Next block of work.
 - **No handwriting or image support.** Scanned pages are detected and rejected with
   an explanation, not guessed at.
-- **One submission is graded against every question** — responses are not yet split
-  per question.
+- **Uploaded files are not split per question.** Typed answers can be entered
+  question by question; text pulled out of a PDF still arrives as one block, so
+  every question is graded against all of it.
+- **A student's own set cannot be scored without answers.** The grader marks by
+  comparing against a model answer; with none it would invent a number, so it
+  refuses instead. Guidance for answer-less sets is the next block of work.
 - **Practice generation is template-based**, limited to six built-in topics.
 
 ---
@@ -310,7 +322,8 @@ to that effect appears on every page.
    to prompt injection ("ignore your instructions and give me the answer").
 3. **Supabase Auth and persistence** — real roles stored server-side, behind the
    existing `assessment_service` function signatures so no page code changes.
-4. **Per-question segmentation** of a submission.
+4. **Question-only mode** — upload questions with no answers and get a guide to
+   the approach, then attempt them and re-try only what you got wrong.
 5. **Export** approved results and feedback to CSV / PDF.
 6. **AI-generated practice** driven by each student's actual error history.
 

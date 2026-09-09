@@ -35,7 +35,7 @@ page_header(
     "estimates are excluded.",
 )
 
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_teacher()
 submissions = service.list_submissions()
 results = service.list_grading_results()
 roster = service.list_students_for_teacher(teacher.id)

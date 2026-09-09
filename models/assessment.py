@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -77,15 +77,22 @@ DEFAULT_CURRICULUM = "Cambridge IGCSE"
 
 
 class Question(BaseModel):
-    """A single question with its model answer and marking criteria."""
+    """A single question, with a model answer where one is known.
+
+    A teacher writing an assessment always supplies the model answer. A student
+    typing up their own worksheet usually cannot - they have the questions and
+    nothing else, which is the whole reason they are here. So `model_answer` is
+    optional, and `has_model_answer` is what the rest of the app checks before
+    trying to mark anything.
+    """
 
     id: str = Field(default_factory=lambda: _new_id("q"))
     question_text: str = Field(min_length=1)
-    model_answer: str = Field(min_length=1)
+    model_answer: str = ""
     marking_criteria: str = ""
     max_marks: float = Field(gt=0, le=100)
 
-    @field_validator("question_text", "model_answer")
+    @field_validator("question_text")
     @classmethod
     def _not_blank(cls, value: str) -> str:
         cleaned = value.strip()
@@ -93,14 +100,18 @@ class Question(BaseModel):
             raise ValueError("Field must not be blank.")
         return cleaned
 
-    @field_validator("marking_criteria")
+    @field_validator("model_answer", "marking_criteria")
     @classmethod
-    def _strip_criteria(cls, value: str) -> str:
-        return value.strip()
+    def _strip_optional(cls, value: str) -> str:
+        return (value or "").strip()
+
+    @property
+    def has_model_answer(self) -> bool:
+        return bool(self.model_answer.strip())
 
 
 class Assessment(BaseModel):
-    """A teacher-authored assessment made up of one or more questions."""
+    """A set of questions, authored by a teacher or by a student."""
 
     id: str = Field(default_factory=lambda: _new_id("as"))
     title: str = Field(min_length=1)
@@ -112,6 +123,14 @@ class Assessment(BaseModel):
     max_marks: float = Field(default=0, ge=0)
     created_at: datetime = Field(default_factory=datetime.now)
     questions: List[Question] = Field(default_factory=list)
+
+    # --- Ownership -------------------------------------------------------
+    # Who created this. None for the seeded demo set. Scoping reads this so a
+    # student only ever sees their own question sets alongside the class ones.
+    owner_id: Optional[str] = None
+    # Authored by a student rather than a teacher. Kept separate from owner_id
+    # because a teacher will also have an owner_id once real accounts exist.
+    student_created: bool = False
 
     @field_validator("title", "topic", "curriculum")
     @classmethod
@@ -133,6 +152,20 @@ class Assessment(BaseModel):
     @property
     def question_count(self) -> int:
         return len(self.questions)
+
+    @property
+    def is_gradable(self) -> bool:
+        """True when every question has a model answer to mark against.
+
+        A student-typed worksheet is usually not gradable: without a model
+        answer the grader has nothing to compare a response to, and a score it
+        invented anyway would be worse than no score at all.
+        """
+        return bool(self.questions) and all(q.has_model_answer for q in self.questions)
+
+    @property
+    def questions_missing_model_answers(self) -> List[Question]:
+        return [q for q in self.questions if not q.has_model_answer]
 
     def get_question(self, question_id: str) -> Question | None:
         return next((q for q in self.questions if q.id == question_id), None)

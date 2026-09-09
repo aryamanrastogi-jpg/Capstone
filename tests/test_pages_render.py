@@ -16,6 +16,7 @@ APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
 STUDENT_PAGES = [
     "pages/student_home.py",
+    "pages/my_questions.py",
     "pages/my_progress.py",
     "pages/study_camp.py",
     "pages/practice_generator.py",
@@ -114,7 +115,7 @@ def test_teacher_pages_refuse_a_student_who_reaches_them_directly(page):
     assert any("teacher" in e.value.lower() for e in at.error)
 
 
-@pytest.mark.parametrize("page", STUDENT_PAGES[:3])
+@pytest.mark.parametrize("page", STUDENT_PAGES[:4])
 def test_student_pages_refuse_a_teacher_who_reaches_them_directly(page):
     at = _app_as("student")
     at.switch_page(page)
@@ -159,3 +160,74 @@ def test_a_student_can_build_a_study_camp_from_seeded_data():
     camps = at.session_state["study_camps"]
     assert len(camps) == 1
     assert camps[0].sessions
+
+
+# ---------------------------------------------------------------------------
+# Student-authored question sets
+# ---------------------------------------------------------------------------
+def _add_student_set(at, owner_id, *, with_answers):
+    from models import Assessment, Question
+
+    assessment = Assessment(
+        title="My worksheet",
+        grade_level=9,
+        topic="Algebra",
+        owner_id=owner_id,
+        student_created=True,
+        questions=[
+            Question(
+                question_text="Solve 5x - 3 = 17.",
+                model_answer="Add 3 to both sides to get 5x = 20, then divide by 5 "
+                "to get x = 4." if with_answers else "",
+                max_marks=3,
+            )
+        ],
+    )
+    at.session_state["assessments"].append(assessment)
+    return assessment
+
+
+def test_my_work_refuses_to_score_a_set_with_no_answers():
+    """The honest branch: say it cannot be marked rather than invent a score."""
+    at = _app_as("student")
+    student_id = at.session_state["current_user_id"]
+
+    # Drop the seeded assessments so the student's own set is the only option.
+    at.session_state["assessments"] = []
+    _add_student_set(at, student_id, with_answers=False)
+
+    at.switch_page("pages/student_home.py")
+    at.run()
+
+    assert not at.exception, at.exception
+    warnings = " ".join(w.value for w in at.warning)
+    assert "cannot be scored yet" in warnings
+
+
+def test_my_work_accepts_a_student_set_that_has_answers():
+    at = _app_as("student")
+    student_id = at.session_state["current_user_id"]
+
+    at.session_state["assessments"] = []
+    _add_student_set(at, student_id, with_answers=True)
+
+    at.switch_page("pages/student_home.py")
+    at.run()
+
+    assert not at.exception, at.exception
+    warnings = " ".join(w.value for w in at.warning)
+    assert "cannot be scored yet" not in warnings
+
+
+def test_my_work_points_a_student_with_nothing_at_my_questions():
+    at = _app_as("student")
+    at.session_state["assessments"] = []
+
+    at.switch_page("pages/student_home.py")
+    at.run()
+
+    assert not at.exception, at.exception
+    labels = [b.label for b in at.button]
+    assert "Add my questions" in labels, (
+        "the empty state must offer a way out, not a dead end"
+    )

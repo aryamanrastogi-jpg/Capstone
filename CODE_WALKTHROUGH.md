@@ -131,6 +131,31 @@ The teacher, on `pages/review_grading.py`, sees the full `GradingResult`.
 
 ---
 
+## 3a. Who owns a question set
+
+A student brings their own questions — that is the product. So an `Assessment`
+carries `owner_id` and `student_created`, and three scoped listings in
+`assessment_service.py` read them:
+
+- `list_assessments_for_student(id)` — the class assessments plus *your own* sets
+- `list_assessments_for_teacher()` — the class assessments only
+- `list_assessments_owned_by(id)` — just what you created
+
+Like the submission scoping, this lives in the service and not in the pages, so
+one student's worksheet cannot reach another's screen whatever a page does.
+
+The awkward part is that a student usually has the questions and **not** the
+answers. So `Question.model_answer` is optional, and `Assessment.is_gradable`
+tells you whether there is anything to mark against.
+
+Why that matters more than it looks: with no model answer, `grade_answer`'s
+keyword coverage falls back to its no-evidence default of `0.5`, and the grader
+would hand back roughly half marks it had entirely made up. So `grade_answer`
+raises instead. A refusal a student can read is better than a number nobody
+should trust.
+
+---
+
 ## 4. The bit that makes this more than a chatbot
 
 A student can already paste one question into ChatGPT. What they can't do is ask
@@ -225,6 +250,8 @@ Honest list, so nothing here surprises you:
 - **A full page reload resets the demo data.** Session state lives per browser
   connection. Using the sidebar navigation keeps your data; pressing F5 reseeds
   it. This goes away once Supabase is connected.
-- **One submission is graded against every question.** The app doesn't yet split
-  a response into per-question answers.
+- **Uploaded files are not split per question.** A student typing their answers
+  can answer question by question, and each answer is then graded on its own.
+  Text extracted from a PDF still arrives as one block, so every question is
+  graded against all of it.
 - **The mock exam mode isn't built yet** — that's the next block of work.

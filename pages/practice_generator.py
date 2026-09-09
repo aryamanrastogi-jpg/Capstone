@@ -8,6 +8,7 @@ from components.layout import page_header, privacy_notice
 from models import ErrorType
 from services import assessment_service as service
 from services import practice_service
+from services import state as store
 
 page_header(
     "Practice Generator",
@@ -19,7 +20,14 @@ page_header(
 st.warning(practice_service.GENERATOR_LABEL, icon=":material/construction:")
 
 # Offer template topics first, plus any assessment topic that has templates.
-assessment_topics = [a.topic for a in service.list_assessments()]
+# Topics are scoped by role: a student must not see topic names drawn from
+# another student's private question sets.
+_viewer = store.get_current_user()
+if _viewer is not None and _viewer.is_student:
+    _visible = service.list_assessments_for_student(_viewer.id)
+else:
+    _visible = service.list_assessments_for_teacher()
+assessment_topics = [a.topic for a in _visible]
 topics = practice_service.available_topics(assessment_topics)
 
 col_a, col_b, col_c, col_d = st.columns(4)

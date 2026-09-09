@@ -55,8 +55,14 @@ def build_assessment(
     topic: str,
     rows: Sequence[Dict[str, Any]],
     assessment_type: str | AssessmentType = AssessmentType.HOMEWORK,
+    owner_id: Optional[str] = None,
+    student_created: bool = False,
 ) -> Assessment:
-    """Build a validated Assessment. Raises pydantic.ValidationError if invalid."""
+    """Build a validated Assessment. Raises pydantic.ValidationError if invalid.
+
+    Pass `owner_id` and `student_created=True` for a set a student typed up
+    themselves; that pair is what the scoped listings below read.
+    """
     if isinstance(assessment_type, str):
         try:
             assessment_type = AssessmentType(assessment_type)
@@ -70,22 +76,37 @@ def build_assessment(
         topic=topic,
         assessment_type=assessment_type,
         questions=build_questions(rows),
+        owner_id=owner_id,
+        student_created=student_created,
     )
 
 
 def build_submission(
     assessment_id: str,
     student_identifier: str,
-    submission_text: str,
+    submission_text: str = "",
     uploaded_filename: Optional[str] = None,
     student_id: Optional[str] = None,
     is_self_study: bool = False,
     teacher_awarded_score: Optional[float] = None,
+    answers: Optional[Dict[str, str]] = None,
+    questions: Optional[Sequence[Question]] = None,
 ) -> Submission:
+    """Build a validated Submission.
+
+    Pass `answers` (question_id -> answer) for a per-question submission. If
+    `submission_text` is then left empty it is composed from those answers, so
+    the review page and the analytics still have one readable block to show.
+    Pass `questions` alongside to get the numbering and order right.
+    """
+    answers = dict(answers or {})
+    if not (submission_text or "").strip() and answers:
+        submission_text = compose_submission_text(answers, questions)
     return Submission(
         assessment_id=assessment_id,
         student_identifier=student_identifier,
         submission_text=submission_text,
+        answers=answers,
         uploaded_filename=uploaded_filename,
         student_id=student_id,
         is_self_study=is_self_study,
@@ -93,11 +114,61 @@ def build_submission(
     )
 
 
+def compose_submission_text(
+    answers: Dict[str, str],
+    questions: Optional[Sequence[Question]] = None,
+) -> str:
+    """Readable transcript of a per-question submission.
+
+    Ordered by the assessment's questions when they are supplied, otherwise by
+    the order the answers were collected in.
+    """
+    if questions:
+        ordered = [(q.id, answers.get(q.id, "")) for q in questions if q.id in answers]
+    else:
+        ordered = list(answers.items())
+
+    blocks = [
+        f"Q{index}. {(answer or '').strip() or '(left blank)'}"
+        for index, (_, answer) in enumerate(ordered, start=1)
+    ]
+    return "\n\n".join(blocks)
+
+
 # --------------------------------------------------------------------------
 # Assessments
 # --------------------------------------------------------------------------
 def list_assessments() -> List[Assessment]:
+    """Every assessment, unscoped. Prefer one of the scoped listings below."""
     return list(store.get_assessments())
+
+
+def list_assessments_for_student(student_id: str) -> List[Assessment]:
+    """What one student is allowed to work from.
+
+    Their teacher's assessments, plus the question sets they typed up
+    themselves - and nobody else's. The scoping lives here rather than in the
+    page so a student's own worksheet can never appear in another's list.
+    """
+    return [
+        a
+        for a in store.get_assessments()
+        if not a.student_created or a.owner_id == student_id
+    ]
+
+
+def list_assessments_for_teacher() -> List[Assessment]:
+    """The teacher-authored set.
+
+    Student-created question sets are left out: they have no model answers and
+    no marks to sign off, so they would only clutter the review queue.
+    """
+    return [a for a in store.get_assessments() if not a.student_created]
+
+
+def list_assessments_owned_by(owner_id: str) -> List[Assessment]:
+    """Only the question sets this user created themselves."""
+    return [a for a in store.get_assessments() if a.owner_id == owner_id]
 
 
 def get_assessment(assessment_id: str) -> Optional[Assessment]:

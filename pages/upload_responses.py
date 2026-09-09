@@ -34,7 +34,7 @@ st.warning(
     icon=":material/privacy_tip:",
 )
 
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_teacher()
 if not assessments:
     empty_state(
         "You need an assessment before you can add responses.",
@@ -183,7 +183,10 @@ if st.button("Confirm submission", type="primary"):
         else:
             if grade_now:
                 for result in grade_submission(
-                    assessment.questions, submission.submission_text, submission.id
+                    assessment.questions,
+                    submission.submission_text,
+                    submission.id,
+                    answers=submission.answers or None,
                 ):
                     service.save_grading_result(result)
                 st.success(

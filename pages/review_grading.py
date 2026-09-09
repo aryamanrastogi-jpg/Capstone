@@ -67,7 +67,7 @@ page_header(
 
 ai_disclaimer(f"Grading engine: {MOCK_ENGINE_NAME}.")
 
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_teacher()
 submissions = service.list_submissions()
 
 if not assessments:
@@ -147,7 +147,10 @@ if not results:
     st.info("This submission has not been graded yet.", icon=":material/info:")
     if st.button("Run mock grading", type="primary"):
         for result in grade_submission(
-            assessment.questions, submission.submission_text, submission.id
+            assessment.questions,
+            submission.submission_text,
+            submission.id,
+            answers=submission.answers or None,
         ):
             service.save_grading_result(result)
         st.rerun()
@@ -169,7 +172,12 @@ with head_right:
     reviewed = sum(1 for r in results if r.is_reviewed)
     st.metric("Reviewed", f"{reviewed}/{len(results)}")
 
-with st.expander("Full student response", expanded=False):
+response_label = (
+    "Full student response (answered question by question)"
+    if submission.is_segmented
+    else "Full student response (one block covering every question)"
+)
+with st.expander(response_label, expanded=False):
     st.text(submission.submission_text)
 
 st.divider()
@@ -195,6 +203,14 @@ for index, result in enumerate(results, start=1):
             review_status_badge(result.review_status)
 
         st.markdown(f"**Question:** {question.question_text}")
+
+        if submission.is_segmented:
+            st.markdown("**Their answer to this question**")
+            answer = submission.answer_for(question.id)
+            if answer.strip():
+                st.text(answer)
+            else:
+                st.caption("Left blank.")
 
         ref_left, ref_right = st.columns(2)
         with ref_left:

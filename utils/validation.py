@@ -111,8 +111,14 @@ def validate_assessment_draft(
     topic: str,
     curriculum: str,
     questions: List[Dict[str, Any]],
+    require_model_answers: bool = True,
 ) -> ValidationResult:
-    """Validate the Create Assessment form before building Pydantic models."""
+    """Validate an assessment draft before building Pydantic models.
+
+    `require_model_answers` is True for a teacher, who is authoring the mark
+    scheme, and False for a student typing up a worksheet they have been set -
+    they have the questions and nothing else, which is the point.
+    """
     result = ValidationResult()
 
     if not str(title or "").strip():
@@ -130,7 +136,7 @@ def validate_assessment_draft(
     for index, row in enumerate(usable, start=1):
         if not str(row.get("question_text") or "").strip():
             result.add(f"Question {index}: question text is required.")
-        if not str(row.get("model_answer") or "").strip():
+        if require_model_answers and not str(row.get("model_answer") or "").strip():
             result.add(f"Question {index}: a model answer is required.")
         marks = row.get("max_marks")
         try:
@@ -147,10 +153,16 @@ def validate_assessment_draft(
 
 
 def _row_has_content(row: Dict[str, Any]) -> bool:
+    """Is this editor row worth keeping, or is it a leftover blank?
+
+    Marks alone do not count: every blank row arrives pre-filled with a default
+    mark value, so treating that as content would turn empty rows into
+    questions.
+    """
     return any(
         str(row.get(key) or "").strip()
         for key in ("question_text", "model_answer", "marking_criteria")
-    ) or bool(row.get("max_marks"))
+    )
 
 
 def usable_question_rows(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

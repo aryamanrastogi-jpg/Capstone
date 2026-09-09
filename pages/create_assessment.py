@@ -176,7 +176,7 @@ if save_clicked:
 st.divider()
 st.subheader("Your assessments")
 
-existing = service.list_assessments()
+existing = service.list_assessments_for_teacher()
 if not existing:
     st.info("No assessments saved yet.", icon=":material/info:")
 else:

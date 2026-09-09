@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from models import ErrorItem, ErrorType, GradingResult, Question, ReviewStatus
 
@@ -88,7 +88,20 @@ def grade_answer(
     student_answer: str,
     submission_id: str,
 ) -> GradingResult:
-    """Produce a GradingResult recommendation for one question."""
+    """Produce a GradingResult recommendation for one question.
+
+    Raises ValueError if the question has no model answer. That is deliberate:
+    with nothing to compare against, keyword coverage falls back to its
+    "no evidence" default and the grader would hand back roughly half marks it
+    has entirely invented. Refusing is the honest answer - see
+    `Assessment.is_gradable`, which is what callers should check first.
+    """
+    if not question.has_model_answer:
+        raise ValueError(
+            f"Question '{question.id}' has no model answer, so it cannot be "
+            "marked. Add a model answer, or use the guidance flow instead."
+        )
+
     student_answer = (student_answer or "").strip()
 
     if not student_answer:
@@ -507,11 +520,30 @@ def grade_submission(
     questions: Sequence[Question],
     submission_text: str,
     submission_id: str,
+    answers: Optional[Mapping[str, str]] = None,
+    only_question_ids: Optional[Iterable[str]] = None,
 ) -> List[GradingResult]:
-    """Grade a whole submission.
+    """Grade a submission, one GradingResult per question.
 
-    A submission is one block of text covering every question, so each question
-    is assessed against the same response. This mirrors the shape a real LLM
-    call would take and keeps the review UI honest.
+    Two shapes of input, and the difference matters:
+
+    * `answers` given - each question is graded against *its own* answer.
+      A question missing from the mapping was left blank, so it is graded as
+      blank rather than against everything the student wrote elsewhere.
+    * `answers` omitted - legacy behaviour: one block of text covering every
+      question, so each question is assessed against the same response.
+
+    `only_question_ids` restricts grading to a subset. That is what lets a
+    re-attempt look at just the questions the student got wrong, instead of
+    re-marking the ones they have already settled.
     """
-    return [grade_answer(q, submission_text, submission_id) for q in questions]
+    selected = list(questions)
+    if only_question_ids is not None:
+        wanted = set(only_question_ids)
+        selected = [q for q in selected if q.id in wanted]
+
+    if answers is None:
+        return [grade_answer(q, submission_text, submission_id) for q in selected]
+    return [
+        grade_answer(q, answers.get(q.id, ""), submission_id) for q in selected
+    ]

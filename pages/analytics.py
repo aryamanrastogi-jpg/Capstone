@@ -29,7 +29,7 @@ page_header(
     "review, or flagged, is excluded.",
 )
 
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_teacher()
 submissions = service.list_submissions()
 results = service.list_grading_results()
 

@@ -47,7 +47,7 @@ page_header(
     "reliable this gets.",
 )
 
-assessments = service.list_assessments()
+assessments = service.list_assessments_for_student(student.id)
 my_submissions = service.list_submissions(student_id=student.id)
 my_results = service.list_grading_results(student_id=student.id)
 frame = analytics.student_dataframe(student.id, my_results, assessments, my_submissions)

@@ -393,3 +393,89 @@ def test_seed_gives_every_student_some_history(seed):
             student.id, results, assessments, submissions
         )
         assert not frame.empty, f"{student.display_name} has no history to show"
+
+
+# ---------------------------------------------------------------------------
+# 4. Student-authored question sets
+#
+# A student brings their own questions - that is the point of the product. So
+# a set has an owner, and one student's worksheet must never reach another.
+# ---------------------------------------------------------------------------
+def _student_set(owner_id: str, *, with_answers: bool = False) -> Assessment:
+    return Assessment(
+        title="My worksheet",
+        grade_level=9,
+        topic="Algebra",
+        owner_id=owner_id,
+        student_created=True,
+        questions=[
+            Question(
+                question_text="Solve 2x = 8.",
+                model_answer="Divide both sides by 2 to get x = 4." if with_answers else "",
+                max_marks=2,
+            )
+        ],
+    )
+
+
+def test_a_set_without_answers_is_not_gradable():
+    assessment = _student_set("usr_a")
+    assert not assessment.is_gradable
+    assert len(assessment.questions_missing_model_answers) == 1
+
+
+def test_a_set_with_answers_is_gradable():
+    assert _student_set("usr_a", with_answers=True).is_gradable
+
+
+def test_the_grader_refuses_a_question_with_no_model_answer():
+    """It must not invent a score out of nothing.
+
+    Without a model answer, keyword coverage falls back to its no-evidence
+    default of 0.5 and the grader would quietly award roughly half marks.
+    """
+    question = _student_set("usr_a").questions[0]
+    with pytest.raises(ValueError, match="no model answer"):
+        grade_answer(question, "x = 4", "sub_ungradable")
+
+
+def test_one_students_question_set_is_never_offered_to_another(monkeypatch):
+    from services import assessment_service as service
+    from services import state as store
+
+    mine = _student_set("usr_me")
+    theirs = _student_set("usr_them")
+    class_set = Assessment(
+        title="Class homework",
+        grade_level=9,
+        topic="Algebra",
+        questions=[
+            Question(question_text="Solve 3x = 9.", model_answer="x = 3.", max_marks=2)
+        ],
+    )
+    monkeypatch.setattr(store, "get_assessments", lambda: [mine, theirs, class_set])
+
+    visible = service.list_assessments_for_student("usr_me")
+    ids = {a.id for a in visible}
+    assert mine.id in ids
+    assert class_set.id in ids, "the teacher's assessments stay available"
+    assert theirs.id not in ids
+
+
+def test_teacher_listings_exclude_student_created_sets(monkeypatch):
+    from services import assessment_service as service
+    from services import state as store
+
+    mine = _student_set("usr_me")
+    class_set = Assessment(
+        title="Class homework",
+        grade_level=9,
+        topic="Algebra",
+        questions=[
+            Question(question_text="Solve 3x = 9.", model_answer="x = 3.", max_marks=2)
+        ],
+    )
+    monkeypatch.setattr(store, "get_assessments", lambda: [mine, class_set])
+
+    assert [a.id for a in service.list_assessments_for_teacher()] == [class_set.id]
+    assert [a.id for a in service.list_assessments_owned_by("usr_me")] == [mine.id]
