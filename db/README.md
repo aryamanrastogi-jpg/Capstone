@@ -68,6 +68,20 @@ is the one rule enforced by convention rather than by the database.
 
 ---
 
+## What is not yet tested
+
+`tests/test_repository.py` drives `SupabaseRepository` against an in-memory fake
+client. That proves the repository writes the right rows, batches its reads, and
+replaces child rows instead of duplicating them — but it proves nothing about
+the SQL above.
+
+Whether these policies actually permit what they should, and refuse what they
+should, needs an integration test signed in as a real student and a real teacher
+against a live project. Until that exists, treat the policy file as reviewed but
+unexercised.
+
+---
+
 ## Keys
 
 The app needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the publishable key) in

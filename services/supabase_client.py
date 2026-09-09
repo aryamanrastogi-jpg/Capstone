@@ -24,6 +24,10 @@ class ConnectionStatus:
     demo_mode: bool
     message: str
     is_error: bool = False
+    # True when the credentials work but nobody has signed in. This is its own
+    # state on purpose: it is neither "no backend" nor "working backend", and
+    # conflating it with either produces a misleading sidebar.
+    signed_out: bool = False
 
 
 _client: Optional[Any] = None
@@ -78,11 +82,28 @@ def get_supabase_client() -> Optional[Any]:
 
     try:
         _client = create_client(settings.supabase_url, settings.supabase_anon_key)
-        _status = ConnectionStatus(
-            connected=True,
-            demo_mode=False,
-            message="Connected to Supabase.",
-        )
+        # Reaching Supabase is not the same as being able to use it. Every
+        # policy in db/policies.sql grants to `authenticated`, so until somebody
+        # signs in this connection can read nothing and write nothing. Saying
+        # "Connected" here would be true and useless; the app would appear to
+        # be persisting and would in fact be discarding every write.
+        if _has_session(_client):
+            _status = ConnectionStatus(
+                connected=True,
+                demo_mode=False,
+                message="Connected to Supabase.",
+            )
+        else:
+            _status = ConnectionStatus(
+                connected=True,
+                demo_mode=True,
+                signed_out=True,
+                message=(
+                    "Connected to Supabase, but nobody is signed in - running on "
+                    "local sample data. Row Level Security allows no reads or "
+                    "writes until a user authenticates."
+                ),
+            )
     except Exception as exc:  # noqa: BLE001 - reported to the user, not hidden
         _client = None
         _status = ConnectionStatus(
@@ -96,6 +117,34 @@ def get_supabase_client() -> Optional[Any]:
             is_error=True,
         )
     return _client
+
+
+def _has_session(client: Any) -> bool:
+    """Is there a signed-in user on this client?
+
+    Wrapped in a try because gotrue raises rather than returning None when no
+    session has ever been stored, and "no session" is a normal state here, not
+    a failure worth surfacing.
+    """
+    try:
+        return client.auth.get_session() is not None
+    except Exception:  # noqa: BLE001 - absence of a session is not an error
+        return False
+
+
+def get_authenticated_client() -> Optional[Any]:
+    """A Supabase client that can actually do something, or None.
+
+    This is what `services.repository` asks for. It returns None both when there
+    are no credentials and when there is no signed-in user, because those two
+    states have the same consequence: the Supabase backend would be useless, so
+    the app should stay on session state and say so.
+    """
+    client = get_supabase_client()
+    if client is None:
+        return None
+    status = get_connection_status()
+    return client if not status.demo_mode else None
 
 
 def reset_client_cache() -> None:
