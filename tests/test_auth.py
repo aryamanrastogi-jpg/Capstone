@@ -482,3 +482,102 @@ def test_the_backend_is_not_cached_across_runs(
     assert isinstance(first, SessionRepository)
     assert isinstance(second, SupabaseRepository)
     assert first is not second
+
+
+# --------------------------------------------------------------------------
+# Names at sign-up, the profile page, and what the menu offers
+# --------------------------------------------------------------------------
+def test_sign_up_sends_the_name_but_never_a_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: Dict[str, Any] = {}
+
+    class _RecordingClient(FakeAuthClient):
+        def __init__(self) -> None:
+            super().__init__()
+            outer = self
+
+            class _RecordingAuth(_FakeAuth):
+                def sign_up(self, credentials: Dict[str, Any]) -> _SignUpResponse:
+                    sent.update(credentials)
+                    return super().sign_up(credentials)
+
+            self.auth = _RecordingAuth(outer)
+
+    _install(monkeypatch, _RecordingClient())
+
+    auth_service.sign_up("new@example.com", "hunter22", "  Ada Lovelace ")
+
+    assert sent["options"] == {"data": {"full_name": "Ada Lovelace"}}
+    assert "role" not in str(sent)
+
+
+def test_updating_a_profile_writes_only_name_and_year(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    written: List[Dict[str, Any]] = []
+
+    class _UpdatingTable(_Table):
+        def update(self, changes: Dict[str, Any]) -> "_Table":
+            written.append(changes)
+            return self
+
+    class _Client(FakeAuthClient):
+        def table(self, name: str) -> _Table:
+            return _UpdatingTable(self.profiles)
+
+    client = _Client(
+        accounts={"s@example.com": "hunter22"}, profiles=[dict(STUDENT_PROFILE)]
+    )
+    _install(monkeypatch, client)
+    auth_service.sign_in("s@example.com", "hunter22")
+
+    outcome = auth_service.update_profile("Ada", 9)
+
+    assert outcome.ok, outcome.message
+    assert written == [{"display_name": "Ada", "year_group": 9}]
+
+
+def test_a_blank_name_is_refused_before_anything_is_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, FakeAuthClient())
+    assert auth_service.update_profile("   ", None).ok is False
+
+
+def test_a_photo_of_the_wrong_type_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, FakeAuthClient())
+    outcome = auth_service.upload_avatar(b"GIF89a", "cat.gif")
+    assert outcome.ok is False
+    assert "PNG" in outcome.message
+
+
+def test_the_menu_offers_profile_when_signed_in_and_sign_in_when_not() -> None:
+    from components.navigation import pages_for
+
+    signed_in = {spec["title"] for spec in pages_for(Role.STUDENT, True)}
+    signed_out = {spec["title"] for spec in pages_for(Role.STUDENT, False)}
+
+    assert "Profile" in signed_in and "Sign In" not in signed_in
+    assert "Sign In" in signed_out and "Profile" not in signed_out
+
+
+def test_the_sidebar_status_is_read_fresh_not_from_the_first_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Signing in after the session started must change what the sidebar says."""
+    import services.state as state_module
+    from services.supabase_client import ConnectionStatus
+
+    monkeypatch.setattr(
+        state_module,
+        "get_connection_status",
+        lambda: ConnectionStatus(
+            connected=True, demo_mode=False, message="Connected to Supabase."
+        ),
+    )
+    status = state_module.backend_status()
+    assert status["demo_mode"] is False
+    assert status["message"] == "Connected to Supabase."

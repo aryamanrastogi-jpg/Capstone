@@ -7,7 +7,7 @@ discovery is bypassed and this file is the single source of truth for the menu.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
@@ -113,24 +113,41 @@ PAGE_SPECS: List[Dict[str, Any]] = [
     # Listed last and in its own section: signing in is not part of either
     # journey, it is how you leave the sample data behind.
     {
+        "path": "pages/profile.py",
+        "title": "Profile",
+        "icon": ":material/account_circle:",
+        "section": "Account",
+        "roles": [STUDENT, TEACHER],
+        "default": False,
+        "signed_in": True,
+    },
+    {
         "path": "pages/sign_in.py",
         "title": "Sign In",
         "icon": ":material/login:",
         "section": "Account",
         "roles": [STUDENT, TEACHER],
         "default": False,
+        "signed_in": False,
     },
 ]
 
 
-def pages_for(role: Role) -> List[Dict[str, Any]]:
-    return [spec for spec in PAGE_SPECS if role in spec["roles"]]
+def pages_for(role: Role, signed_in: Optional[bool] = None) -> List[Dict[str, Any]]:
+    """Pages for a role. With `signed_in` given, pages marked for the other
+    state are left out: Profile only when signed in, Sign In only when not."""
+    return [
+        spec
+        for spec in PAGE_SPECS
+        if role in spec["roles"]
+        and (signed_in is None or spec.get("signed_in", signed_in) == signed_in)
+    ]
 
 
-def build_navigation(role: Role):
+def build_navigation(role: Role, signed_in: bool = False):
     """Build the grouped navigation object for the signed-in role."""
     sections: Dict[str, List] = {}
-    for spec in pages_for(role):
+    for spec in pages_for(role, signed_in):
         page = st.Page(
             spec["path"],
             title=spec["title"],

@@ -25,7 +25,8 @@ WHY THE CLIENT IS PER SESSION AND NOT PER PROCESS
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+import time
+from typing import Any, Dict, Optional, Tuple
 
 import streamlit as st
 
@@ -128,21 +129,22 @@ def sign_in(email: str, password: str) -> AuthOutcome:
     return AuthOutcome(True, "Signed in.")
 
 
-def sign_up(email: str, password: str) -> AuthOutcome:
+def sign_up(email: str, password: str, full_name: str = "") -> AuthOutcome:
     """Create an account. The profile is created by the database, not here.
 
-    Nothing about the role, the display name or the roster is sent: the trigger
-    assigns an anonymous code and role='student' regardless of what a client
-    asks for. See db/migrations/002_auth_profiles.sql.
+    Only the name travels, as sign-up metadata; the trigger in
+    db/migrations/003_profile_details.sql makes it the display name. The role is
+    never sent - the trigger writes role='student' whatever a client asks for.
     """
     client = session_client()
     if client is None:
         return AuthOutcome(False, "Supabase is not configured on this instance.")
 
     try:
-        response = client.auth.sign_up(
-            {"email": email.strip(), "password": password}
-        )
+        credentials: Dict[str, Any] = {"email": email.strip(), "password": password}
+        if full_name.strip():
+            credentials["options"] = {"data": {"full_name": full_name.strip()[:60]}}
+        response = client.auth.sign_up(credentials)
     except Exception as exc:  # noqa: BLE001 - shown to the user
         return AuthOutcome(False, _readable_auth_error(exc))
 
@@ -222,6 +224,139 @@ def current_user() -> Optional[User]:
     except Exception:  # noqa: BLE001 - no session state available
         pass
     return user
+
+
+# --------------------------------------------------------------------------
+# Your own profile: edit, photo, delete
+# --------------------------------------------------------------------------
+AVATAR_BUCKET = "avatars"
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+AVATAR_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+}
+
+
+def current_email() -> Optional[str]:
+    client = authenticated_client()
+    if client is None:
+        return None
+    try:
+        response = client.auth.get_user()
+        return getattr(response.user, "email", None) if response else None
+    except Exception:  # noqa: BLE001 - shown as blank
+        return None
+
+
+def update_profile(display_name: str, year_group: Optional[int]) -> AuthOutcome:
+    """Change your name and year group. The role is not writable (see 003)."""
+    name = display_name.strip()
+    if not 1 <= len(name) <= 60:
+        return AuthOutcome(False, "Your name must be between 1 and 60 characters.")
+    if year_group is not None and not 7 <= year_group <= 11:
+        return AuthOutcome(False, "Year group must be between 7 and 11.")
+    return _write_profile(
+        {"display_name": name, "year_group": year_group}, "Profile saved."
+    )
+
+
+def upload_avatar(data: bytes, filename: str) -> AuthOutcome:
+    """Store a photo at avatars/<auth id>/avatar.<ext> and point the profile at it."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in AVATAR_TYPES:
+        return AuthOutcome(False, "Use a PNG, JPG or WEBP image.")
+    if len(data) > MAX_AVATAR_BYTES:
+        return AuthOutcome(False, "That image is larger than 2 MB.")
+
+    client, auth_id = _signed_in_client_and_id()
+    if client is None:
+        return AuthOutcome(False, "Sign in first.")
+
+    path = f"{auth_id}/avatar.{ext}"
+    try:
+        _remove_avatar_files(client, auth_id)
+        bucket = client.storage.from_(AVATAR_BUCKET)
+        bucket.upload(
+            path, data, {"content-type": AVATAR_TYPES[ext], "upsert": "true"}
+        )
+        url = bucket.get_public_url(path)
+    except Exception as exc:  # noqa: BLE001 - shown to the user
+        return AuthOutcome(False, f"The photo could not be uploaded ({exc}).")
+
+    # A fresh query string, so browsers do not keep showing the old photo.
+    url = f"{url.split('?')[0]}?v={int(time.time())}"
+    return _write_profile({"avatar_url": url}, "Photo updated.")
+
+
+def remove_avatar() -> AuthOutcome:
+    client, auth_id = _signed_in_client_and_id()
+    if client is None:
+        return AuthOutcome(False, "Sign in first.")
+    try:
+        _remove_avatar_files(client, auth_id)
+    except Exception as exc:  # noqa: BLE001 - shown to the user
+        return AuthOutcome(False, f"The photo could not be removed ({exc}).")
+    return _write_profile({"avatar_url": None}, "Photo removed.")
+
+
+def delete_account() -> AuthOutcome:
+    """Delete the signed-in account, its photo and (by cascade) its profile."""
+    client, auth_id = _signed_in_client_and_id()
+    if client is None:
+        return AuthOutcome(False, "Sign in first.")
+    try:
+        _remove_avatar_files(client, auth_id)
+    except Exception:  # noqa: BLE001 - a missing photo must not block deletion
+        pass
+    try:
+        client.rpc("delete_my_account").execute()
+    except Exception as exc:  # noqa: BLE001 - shown to the user
+        return AuthOutcome(
+            False,
+            "The account could not be deleted. Check that "
+            f"db/migrations/003_profile_details.sql is applied ({exc}).",
+        )
+    sign_out()
+    return AuthOutcome(True, "Your account has been deleted.")
+
+
+def _signed_in_client_and_id() -> Tuple[Optional[Any], Optional[str]]:
+    client = authenticated_client()
+    if client is None:
+        return None, None
+    try:
+        response = client.auth.get_user()
+        auth_id = response.user.id if response and response.user else None
+    except Exception:  # noqa: BLE001 - treated as signed out
+        auth_id = None
+    return (client, auth_id) if auth_id else (None, None)
+
+
+def _remove_avatar_files(client: Any, auth_id: str) -> None:
+    bucket = client.storage.from_(AVATAR_BUCKET)
+    existing = bucket.list(auth_id) or []
+    paths = [f"{auth_id}/{item['name']}" for item in existing if item.get("name")]
+    if paths:
+        bucket.remove(paths)
+
+
+def _write_profile(changes: Dict[str, Any], success: str) -> AuthOutcome:
+    user = current_user()
+    client = authenticated_client()
+    if user is None or client is None:
+        return AuthOutcome(False, "Sign in first.")
+    try:
+        client.table("profiles").update(changes).eq("id", user.id).execute()
+    except Exception as exc:  # noqa: BLE001 - shown to the user
+        return AuthOutcome(
+            False,
+            "Your profile could not be saved. Check that "
+            f"db/migrations/003_profile_details.sql is applied ({exc}).",
+        )
+    _clear_cached_profile()
+    return AuthOutcome(True, success)
 
 
 def current_role() -> Optional[Role]:

@@ -106,6 +106,7 @@ def user_from_row(row: Row) -> User:
         role=Role(row.get("role") or Role.STUDENT.value),
         teacher_id=row.get("teacher_id"),
         year_group=row.get("year_group"),
+        avatar_url=row.get("avatar_url"),
     )
 
 

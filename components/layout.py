@@ -373,10 +373,13 @@ def _identity_switcher() -> None:
 
     signed_in = auth_service.current_user()
     if signed_in is not None:
+        if signed_in.avatar_url:
+            st.image(signed_in.avatar_url, width=56)
         st.markdown(f"**{signed_in.display_name}**")
         st.caption(f"{signed_in.role.label} · signed in")
         if st.button("Sign out", width="stretch"):
             auth_service.sign_out()
+            store.leave_demo()
             st.rerun()
         return
 

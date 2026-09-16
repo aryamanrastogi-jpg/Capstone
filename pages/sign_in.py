@@ -10,9 +10,9 @@ WHAT A PERSON CAN AND CANNOT CHOOSE HERE
   would hand the class register to anybody who asked for it, and every read
   policy downstream would believe the answer.
 
-  There is no display-name field either. Students are identified by an anonymous
-  code the database generates. The privacy notice on every page promises real
-  identities are not stored, so the sign-up form does not invite one.
+  Sign-up asks for a name, which the database trigger stores as the display
+  name (db/migrations/003_profile_details.sql). It can be changed later on the
+  Profile page.
 
 WHY THIS PAGE STILL OFFERS TO CARRY ON WITHOUT SIGNING IN
   Demo mode is not a fallback for a broken sign-in - it is how the app is shown

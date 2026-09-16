@@ -71,4 +71,6 @@ if should_show_landing():
 # built - switching role changes which pages exist.
 sidebar_status()
 
-build_navigation(get_current_role()).run()
+from services.auth_service import current_user as signed_in_user  # noqa: E402
+
+build_navigation(get_current_role(), signed_in=signed_in_user() is not None).run()

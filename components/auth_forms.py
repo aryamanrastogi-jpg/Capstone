@@ -1,7 +1,7 @@
 """The sign-in and create-account forms, shared by the landing and Sign In pages.
 
-Email and password only. There is no role and no name field, for the reasons
-set out at the top of pages/sign_in.py.
+Sign-up asks for a name, an email and a password. There is no role field, for
+the reasons set out at the top of pages/sign_in.py.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ def auth_forms() -> None:
             "administers this instance, not from this form."
         )
         with st.form("sign_up_form"):
+            full_name = st.text_input("Full name", key="sign_up_name", max_chars=60)
             new_email = st.text_input("Email", key="sign_up_email")
             new_password = st.text_input(
                 "Password",
@@ -50,12 +51,15 @@ def auth_forms() -> None:
             created = st.form_submit_button("Create account", type="primary")
 
         if created:
-            if not new_email.strip() or not new_password:
-                st.error("Enter both an email and a password.", icon=":material/error:")
+            if not full_name.strip() or not new_email.strip() or not new_password:
+                st.error(
+                    "Enter your name, an email and a password.",
+                    icon=":material/error:",
+                )
             elif new_password != confirm:
                 st.error("The two passwords do not match.", icon=":material/error:")
             else:
-                outcome = auth_service.sign_up(new_email, new_password)
+                outcome = auth_service.sign_up(new_email, new_password, full_name)
                 if outcome.ok and not outcome.needs_confirmation:
                     st.rerun()
                 elif outcome.ok:

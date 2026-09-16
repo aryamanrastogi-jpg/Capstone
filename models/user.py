@@ -39,6 +39,8 @@ class User(BaseModel):
     # Which teacher's roster this student belongs to. None for teachers.
     teacher_id: Optional[str] = None
     year_group: Optional[int] = None
+    # Public URL of a profile photo in the `avatars` bucket, if one was added.
+    avatar_url: Optional[str] = None
 
     @field_validator("display_name")
     @classmethod

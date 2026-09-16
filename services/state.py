@@ -156,14 +156,16 @@ def leave_demo() -> None:
 
 
 def is_demo_mode() -> bool:
-    return bool(st.session_state.get(DEMO_MODE, True))
+    return get_connection_status().demo_mode
 
 
 def backend_status() -> Dict[str, Any]:
+    """Asked fresh on every run: signing in or out changes the answer."""
+    status = get_connection_status()
     return {
-        "demo_mode": is_demo_mode(),
-        "message": st.session_state.get(BACKEND_MESSAGE, ""),
-        "is_error": bool(st.session_state.get(BACKEND_IS_ERROR, False)),
+        "demo_mode": status.demo_mode,
+        "message": status.message,
+        "is_error": status.is_error,
     }
 
 

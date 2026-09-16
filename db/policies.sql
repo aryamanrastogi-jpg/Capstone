@@ -120,7 +120,7 @@ create policy profiles_update_self on public.profiles
 -- The update policy above still technically permits writing `role`. Postgres
 -- has no column-level RLS, so that is closed with a column grant instead:
 revoke update on public.profiles from authenticated;
-grant update (display_name, year_group) on public.profiles to authenticated;
+grant update (display_name, year_group, avatar_url) on public.profiles to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- assessments
