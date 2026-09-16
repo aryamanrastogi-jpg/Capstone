@@ -40,6 +40,7 @@ def _app_as(role: str) -> AppTest:
     users = at.session_state["users"]
     wanted = next(u for u in users if u.role.value == role)
     at.session_state["current_user_id"] = wanted.id
+    at.session_state["entered_demo"] = True
     at.run()
     assert not at.exception, at.exception
     return at
@@ -55,6 +56,23 @@ def test_the_app_starts_as_a_student():
         u for u in user if u.id == at.session_state["current_user_id"]
     )
     assert current.is_student
+
+
+def test_the_app_opens_on_the_welcome_page():
+    """A visitor who has not signed in sees the landing page, not a dashboard."""
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.run()
+    assert not at.exception, at.exception
+    assert "Explore the demo" in [b.label for b in at.button]
+
+
+def test_exploring_the_demo_leaves_the_welcome_page():
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.run()
+    next(b for b in at.button if b.label == "Explore the demo").click().run()
+    assert not at.exception, at.exception
+    assert at.session_state["entered_demo"] is True
+    assert "Explore the demo" not in [b.label for b in at.button]
 
 
 @pytest.mark.parametrize("page", STUDENT_PAGES)

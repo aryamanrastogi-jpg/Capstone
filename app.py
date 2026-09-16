@@ -27,7 +27,11 @@ if PROJECT_ROOT not in sys.path:
 
 from components.layout import inject_styles, sidebar_status  # noqa: E402
 from components.navigation import build_navigation  # noqa: E402
-from services.state import get_current_role, init_session_state  # noqa: E402
+from services.state import (  # noqa: E402
+    get_current_role,
+    init_session_state,
+    should_show_landing,
+)
 from utils.config import APP_NAME, APP_TAGLINE  # noqa: E402
 
 st.set_page_config(
@@ -53,6 +57,15 @@ inject_styles()
 
 # Seed assessments, submissions, grading results, users and demo-mode flag.
 init_session_state()
+
+# Anyone who has not signed in or chosen the demo lands on the welcome page,
+# which carries the sign-in and sign-up forms. No sidebar, no other pages.
+if should_show_landing():
+    st.navigation(
+        [st.Page(os.path.join(PROJECT_ROOT, "pages", "landing.py"), title="Welcome")],
+        position="hidden",
+    ).run()
+    st.stop()
 
 # The sidebar owns the demo role switch, so it must run before navigation is
 # built - switching role changes which pages exist.

@@ -26,6 +26,8 @@ DEMO_MODE = "demo_mode"
 BACKEND_MESSAGE = "backend_message"
 BACKEND_IS_ERROR = "backend_is_error"
 INITIALISED = "_assessai_initialised"
+# Set once a visitor leaves the landing page for the sample data.
+ENTERED_DEMO = "entered_demo"
 
 
 def init_session_state(load_samples: bool = True) -> None:
@@ -134,6 +136,23 @@ def get_current_teacher() -> str:
     """Display name of the signed-in teacher, for the sidebar."""
     user = get_current_user()
     return user.display_name if user else "Unknown"
+
+
+def should_show_landing() -> bool:
+    """True until the visitor signs in or chooses to explore the demo."""
+    from services.auth_service import current_user as authenticated_user
+
+    if authenticated_user() is not None:
+        return False
+    return not st.session_state.get(ENTERED_DEMO, False)
+
+
+def enter_demo() -> None:
+    st.session_state[ENTERED_DEMO] = True
+
+
+def leave_demo() -> None:
+    st.session_state[ENTERED_DEMO] = False
 
 
 def is_demo_mode() -> bool:

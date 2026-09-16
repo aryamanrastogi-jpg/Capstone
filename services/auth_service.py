@@ -60,7 +60,7 @@ def _new_client() -> Optional[Any]:
     except ImportError:
         return None
     try:
-        return create_client(settings.supabase_url, settings.supabase_anon_key)
+        return create_client(settings.supabase_url, settings.supabase_publishable_key)
     except Exception:  # noqa: BLE001 - reported by services.supabase_client
         return None
 

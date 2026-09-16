@@ -213,7 +213,7 @@ with a term of sample data already loaded.
 
 ## Demo mode
 
-Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app runs in **demo mode**:
+Without `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, the app runs in **demo mode**:
 
 - A **Demo Mode** badge appears in the sidebar with a one-line explanation.
 - A synthetic dataset is seeded: 1 teacher, 4 anonymous students, 6 assessments
@@ -241,7 +241,7 @@ cp .env.example .env
 
 ```text
 SUPABASE_URL=
-SUPABASE_ANON_KEY=
+SUPABASE_PUBLISHABLE_KEY=
 LLM_API_KEY=
 LLM_MODEL=
 ```

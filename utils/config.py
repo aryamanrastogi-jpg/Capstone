@@ -37,13 +37,13 @@ AI_DISCLAIMER = (
 @dataclass(frozen=True)
 class Settings:
     supabase_url: str = ""
-    supabase_anon_key: str = ""
+    supabase_publishable_key: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
 
     @property
     def supabase_configured(self) -> bool:
-        return bool(self.supabase_url and self.supabase_anon_key)
+        return bool(self.supabase_url and self.supabase_publishable_key)
 
     @property
     def llm_configured(self) -> bool:
@@ -59,16 +59,30 @@ class Settings:
         missing = []
         if not self.supabase_url:
             missing.append("SUPABASE_URL")
-        if not self.supabase_anon_key:
-            missing.append("SUPABASE_ANON_KEY")
+        if not self.supabase_publishable_key:
+            missing.append("SUPABASE_PUBLISHABLE_KEY")
         return missing
+
+
+def _publishable_key() -> str:
+    """The Supabase publishable key (`sb_publishable_...`).
+
+    SUPABASE_ANON_KEY is still read as a fallback, so a .env written before the
+    rename keeps working. Supabase treats the two keys the same way: both are
+    safe in a client, and Row Level Security decides what either can do.
+    """
+    for name in ("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY"):
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
         supabase_url=os.getenv("SUPABASE_URL", "").strip(),
-        supabase_anon_key=os.getenv("SUPABASE_ANON_KEY", "").strip(),
+        supabase_publishable_key=_publishable_key(),
         llm_api_key=os.getenv("LLM_API_KEY", "").strip(),
         llm_model=os.getenv("LLM_MODEL", "").strip(),
     )

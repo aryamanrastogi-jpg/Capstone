@@ -58,6 +58,7 @@ def page() -> AppTest:
 
     teacher = next(u for u in at.session_state["users"] if u.is_teacher)
     at.session_state["current_user_id"] = teacher.id
+    at.session_state["entered_demo"] = True
     at.run()
 
     at.switch_page(UPLOAD_PAGE)

@@ -119,6 +119,24 @@ _STYLES = f"""
       margin: 0.2rem 0 0.4rem 0;
   }}
 
+  /* --- Landing page ---------------------------------------------------- */
+  {_IN} .assessai-hero-title {{
+      font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.9rem);
+      font-weight: 750;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: {palette.INK};
+      margin: 0.4rem 0 0.8rem 0;
+  }}
+  {_IN} .assessai-hero-title span {{ color: {palette.PRIMARY}; }}
+  {_IN} .assessai-hero-lede {{
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: {palette.MUTED};
+      max-width: 34rem;
+      margin: 0 0 1.4rem 0;
+  }}
+
   /* --- Cards ----------------------------------------------------------- */
   {_IN} .assessai-card {{
       border: 1px solid {palette.BORDER};
@@ -386,6 +404,9 @@ def _identity_switcher() -> None:
         st.rerun()
 
     st.caption(":material/info: Demo switch, not a login.")
+    if st.button("Back to welcome page", width="stretch"):
+        store.leave_demo()
+        st.rerun()
 
 
 def ai_disclaimer(extra: str = "") -> None:

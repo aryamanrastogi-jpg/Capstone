@@ -107,7 +107,7 @@ def get_supabase_client() -> Optional[Any]:
         return None
 
     try:
-        _client = create_client(settings.supabase_url, settings.supabase_anon_key)
+        _client = create_client(settings.supabase_url, settings.supabase_publishable_key)
         # Reaching Supabase is not the same as being able to use it. Every
         # policy in db/policies.sql grants to `authenticated`, so until somebody
         # signs in this connection can read nothing and write nothing. Saying
