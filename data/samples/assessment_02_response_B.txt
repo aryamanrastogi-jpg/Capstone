@@ -1,0 +1,26 @@
+Student: S-202 (synthetic)
+Assessment: Grade 8 Linear Equations and Expressions
+
+Question 1
+3x - 12 - 2x + 2 = x - 10
+
+Question 2
+5x + 2x = 22 + 7
+7x = 29
+x = 4.14
+
+Question 3
+8x - 3 = 20
+8x = 23
+x = 2.875
+
+Question 4
+w + w + 5 = 46
+2w = 41
+w = 20.5 cm
+
+Question 5
+2 x -3^2 - 12 = 2 x -9 - 12 = -30
+
+Question 6
+x < 5

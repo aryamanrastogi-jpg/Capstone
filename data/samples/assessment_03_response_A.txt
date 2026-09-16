@@ -1,0 +1,27 @@
+Student: S-301 (synthetic)
+Assessment: Grade 9 Mock Exam
+
+Question 1
+c^2 = 6^2 + 8^2 = 100
+c = 10 cm
+
+Question 2
+sin x = 7/12
+x = 35.7 degrees
+
+Question 3
+80 x 1.15 = 92
+92 x 0.85 = 78.20
+The sale price is $78.20. It is not the same, it is lower, because 15% of 92 is more than 15% of 80.
+
+Question 4
+r = 5
+A = pi x 25 = 78.5 cm^2
+
+Question 5
+(a) 5/12
+(b) 9/12 = 3/4
+
+Question 6
+add them: 2x = 14, x = 7
+y = 11 - 7 = 4

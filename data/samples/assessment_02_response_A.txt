@@ -1,0 +1,30 @@
+Student: S-201 (synthetic)
+Assessment: Grade 8 Linear Equations and Expressions
+
+Question 1
+3(x - 4) - 2(x + 1) = 3x - 12 - 2x - 2 = x - 14
+
+Question 2
+5x - 2x = 22 - 7
+3x = 15
+x = 5
+
+Question 3
+8x - 12 = 20
+8x = 32
+x = 4
+
+Question 4
+width = w, length = w + 5
+2w + 2(w + 5) = 46
+4w + 10 = 46
+4w = 36
+w = 9, so the width is 9 cm
+
+Question 5
+2(-3)^2 - 3(4) = 2(9) - 12 = 6
+
+Question 6
+3x < 15
+x < 5
+open circle on 5, line going left

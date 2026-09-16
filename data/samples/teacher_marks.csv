@@ -1,0 +1,52 @@
+response_file,assessment,question,max_marks,teacher_mark,note
+assessment_01_response_A.txt,assessment_01_grade7_fractions,1,2,2,
+assessment_01_response_A.txt,assessment_01_grade7_fractions,2,2,2,
+assessment_01_response_A.txt,assessment_01_grade7_fractions,3,3,3,
+assessment_01_response_A.txt,assessment_01_grade7_fractions,4,2,2,
+assessment_01_response_A.txt,assessment_01_grade7_fractions,5,3,3,
+assessment_01_response_B.txt,assessment_01_grade7_fractions,1,2,0,added numerators and denominators
+assessment_01_response_B.txt,assessment_01_grade7_fractions,2,2,1,not simplified
+assessment_01_response_B.txt,assessment_01_grade7_fractions,3,3,2,no division method shown
+assessment_01_response_B.txt,assessment_01_grade7_fractions,4,2,0,thinks larger denominator means larger fraction
+assessment_01_response_B.txt,assessment_01_grade7_fractions,5,3,1,added fractions wrongly; subtracted from whole
+assessment_01_response_C.txt,assessment_01_grade7_fractions,1,2,1,left as improper fraction
+assessment_01_response_C.txt,assessment_01_grade7_fractions,2,2,2,
+assessment_01_response_C.txt,assessment_01_grade7_fractions,3,3,2,decimal to percentage error (3.75%)
+assessment_01_response_C.txt,assessment_01_grade7_fractions,4,2,0,5/8 converted as 0.58
+assessment_01_response_C.txt,assessment_01_grade7_fractions,5,3,2,answer given as slices not a fraction
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,1,2,2,
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,2,3,3,
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,3,3,3,
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,4,3,3,
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,5,2,2,
+assessment_02_response_A.txt,assessment_02_grade8_linear_equations,6,2,2,
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,1,2,0,sign error expanding -2(x + 1)
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,2,3,0,added instead of subtracting when collecting terms
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,3,3,0,only multiplied first term in bracket
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,4,3,0,perimeter counted two sides only
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,5,2,0,-3^2 taken as -9
+assessment_02_response_B.txt,assessment_02_grade8_linear_equations,6,2,1,no number line
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,1,2,2,
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,2,3,3,collecting steps implied by 3x = 15
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,3,3,1,arithmetic slip 20 + 12
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,4,3,1,2 x 5 written as 5
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,5,2,2,
+assessment_02_response_C.txt,assessment_02_grade8_linear_equations,6,2,1,filled circle instead of open
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,1,3,3,
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,2,3,3,
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,3,3,3,
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,4,3,3,
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,5,3,3,
+assessment_03_response_A.txt,assessment_03_grade9_mock_exam,6,3,3,
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,1,3,0,added the sides
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,2,3,0,used tan instead of sin
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,3,3,0,assumed equal percentage changes cancel
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,4,3,1,used diameter as radius
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,5,3,2,(b) gave P(green) not P(not green)
+assessment_03_response_B.txt,assessment_03_grade9_mock_exam,6,3,2,no working shown
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,1,3,2,forgot to square root
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,2,3,3,
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,3,3,2,no reason given
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,4,3,1,used circumference formula
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,5,3,3,
+assessment_03_response_C.txt,assessment_03_grade9_mock_exam,6,3,2,did not find y

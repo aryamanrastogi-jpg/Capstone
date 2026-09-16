@@ -1,0 +1,22 @@
+Student: S-302 (synthetic)
+Assessment: Grade 9 Mock Exam
+
+Question 1
+6 + 8 = 14 cm
+
+Question 2
+tan x = 7/12
+x = 30.3
+
+Question 3
+15% up and 15% down cancel out so it is still $80. Yes it is the same.
+
+Question 4
+A = pi x 10^2 = 314.2 cm^2
+
+Question 5
+(a) 5/12
+(b) 3/12
+
+Question 6
+x = 7, y = 4

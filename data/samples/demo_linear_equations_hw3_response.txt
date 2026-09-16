@@ -1,0 +1,15 @@
+Student: S-401 (synthetic)
+Assessment: Linear Equations - Homework 3 (the set built into demo mode)
+
+Question 1
+3x + 7 = 22
+3x = 22 - 7 = 15
+x = 15 / 3
+x = 5
+
+Question 2
+Let the number be n
+4n - 6 = 26
+4n = 26 - 6
+4n = 20
+n = 5

@@ -1,0 +1,23 @@
+Student: S-203 (synthetic)
+Assessment: Grade 8 Linear Equations and Expressions
+
+1. 3x - 12 - 2x - 2
+= x - 14
+
+2. 3x = 15
+x = 5
+
+3. 8x - 12 = 20
+8x = 8
+x = 1
+
+4. length = w + 5
+2w + 2(w + 5) = 46
+4w + 5 = 46
+4w = 41
+w = 10.25 cm
+
+5. 2 x 9 - 12 = 6
+
+6. 3x < 15 so x < 5
+filled in dot at 5 and arrow left
