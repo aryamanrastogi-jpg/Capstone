@@ -262,3 +262,161 @@ def test_confirming_with_no_response_text_is_blocked(page):
     assert "Please fix the following" in _messages(at.error)
     assert "response text is empty" in _messages(at.markdown)
     assert _counts(at) == before
+
+
+# ---------------------------------------------------------------------------
+# Splitting an uploaded file per question
+# ---------------------------------------------------------------------------
+AREA_TEXT = (
+    "S-1104   Class exercise\n"
+    "Q1: Area = 12 x 5 = 60 cm2. Perimeter = 2 x (12 + 5) = 34 cm.\n"
+    "Q2: skipped\n"
+)
+
+
+def _pick_assessment(at: AppTest, assessment_id: str) -> AppTest:
+    [s for s in at.selectbox if s.label == "Assessment *"][0].set_value(assessment_id)
+    at.run()
+    return at
+
+
+def _answer_boxes(at: AppTest) -> dict:
+    """Per-question editors, keyed by their 'Qn' prefix."""
+    return {t.label.split(".")[0]: t for t in at.text_area if t.label[:1] == "Q" and "." in t.label}
+
+
+def _confirm(at: AppTest) -> AppTest:
+    _pick_student(at, at.session_state["users"][1].display_name)
+    [b for b in at.button if b.label == "Confirm submission"][0].click()
+    at.run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_a_marked_up_file_is_split_and_previewed_per_question(page):
+    at = _pick_assessment(page, "as_area01")
+    at = _upload(at, "answers.txt", AREA_TEXT.encode("utf-8"), "text/plain")
+
+    assert not at.exception
+    assert "Split the text into answers" in _messages(at.success)
+    boxes = _answer_boxes(at)
+    assert set(boxes) == {"Q1", "Q2"}
+    assert boxes["Q1"].value.startswith("Area = 12 x 5 = 60 cm2")
+    assert boxes["Q2"].value == "skipped"
+    assert "S-1104" not in boxes["Q1"].value, "the header line belongs to no question"
+
+
+def test_a_split_upload_grades_each_question_against_its_own_answer(page):
+    at = _pick_assessment(page, "as_area01")
+    at = _upload(at, "answers.txt", AREA_TEXT.encode("utf-8"), "text/plain")
+    at = _confirm(at)
+
+    submission = at.session_state["submissions"][-1]
+    assert submission.is_segmented
+    assert submission.answers["q_area_2"] == "skipped"
+    assert "Q1: Area" in submission.submission_text, "the file's own text is kept"
+
+    results = {
+        r.question_id: r
+        for r in at.session_state["grading_results"]
+        if r.submission_id == submission.id
+    }
+    assert results["q_area_1"].suggested_score > 0
+    assert results["q_area_2"].suggested_score == 0, "Q1's working must not score on Q2"
+
+
+def test_edits_to_the_split_preview_are_what_gets_graded(page):
+    at = _pick_assessment(page, "as_area01")
+    at = _upload(at, "answers.txt", AREA_TEXT.encode("utf-8"), "text/plain")
+
+    fixed = "Area of a triangle = 1/2 x base x height = 1/2 x 9 x 6 = 27 cm2"
+    _answer_boxes(at)["Q2"].set_value(fixed)
+    at.run()
+    at = _confirm(at)
+
+    submission = at.session_state["submissions"][-1]
+    assert submission.answers["q_area_2"] == fixed
+    result = next(
+        r for r in at.session_state["grading_results"]
+        if r.submission_id == submission.id and r.question_id == "q_area_2"
+    )
+    assert result.suggested_score > 0
+
+
+def test_turning_the_split_off_grades_the_whole_block(page):
+    at = _pick_assessment(page, "as_area01")
+    at = _upload(at, "answers.txt", AREA_TEXT.encode("utf-8"), "text/plain")
+
+    at.toggle[0].set_value(False)
+    at.run()
+    assert not _answer_boxes(at)
+    at = _confirm(at)
+
+    assert at.session_state["submissions"][-1].answers == {}
+
+
+def test_an_unmarked_file_falls_back_and_says_so(page):
+    """One 'Q1' in a two-question set is not enough to split on."""
+    at = _pick_assessment(page, "as_linear01")
+    at = _upload(at, "answers.txt", ANSWER_TEXT.encode("utf-8"), "text/plain")
+
+    assert "Not split per question" in _messages(at.info)
+    assert "graded against the whole text" in _messages(at.info)
+    assert not _answer_boxes(at)
+
+    at = _confirm(at)
+    submission = at.session_state["submissions"][-1]
+    assert submission.answers == {}
+    assert "3x = 15" in submission.submission_text
+
+
+def test_a_student_upload_is_split_across_the_questions_still_outstanding():
+    """My Work uses the same split, but only for questions not yet settled.
+
+    In the seed, S-1104 has already settled Q1 of the linear equations
+    homework, so only Q2 is offered - still found by its 'Q2' marker.
+    """
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    student = next(u for u in at.session_state["users"] if u.id == "usr_s04")
+    at.session_state["current_user_id"] = student.id
+    at.session_state["entered_demo"] = True
+    at.run()
+    at.switch_page("pages/student_home.py")
+    at.run()
+    assert not at.exception, at.exception
+
+    [s for s in at.selectbox if s.label == "Which piece of work is this?"][0].set_value(
+        "as_linear01"
+    )
+    at.run()
+    [r for r in at.radio if r.label == "How do you want to add your answers?"][0].set_value(
+        "Upload a file"
+    )
+    at.run()
+    text = (
+        "Homework 3 again\n"
+        "Q1: 3x = 15 so x = 5\n"
+        "Q2: Let the number be n. 4n - 6 = 26. Add 6 to both sides, 4n = 32. "
+        "Divide by 4, n = 8.\n"
+    )
+    at = _upload(at, "my_work.txt", text.encode("utf-8"), "text/plain")
+    assert not at.exception, at.exception
+
+    boxes = _answer_boxes(at)
+    assert set(boxes) == {"Q2"}, "a settled question is not offered again"
+    assert boxes["Q2"].value.startswith("Let the number be n")
+
+    before = len(at.session_state["submissions"])
+    [b for b in at.button if b.label.startswith(("Get my estimate", "Submit attempt"))][0].click()
+    at.run()
+    assert not at.exception, at.exception
+
+    assert len(at.session_state["submissions"]) == before + 1
+    submission = at.session_state["submissions"][-1]
+    assert submission.student_id == student.id
+    assert set(submission.answers) == {"q_lin_2"}
+    graded = [
+        r for r in at.session_state["grading_results"] if r.submission_id == submission.id
+    ]
+    assert [r.question_id for r in graded] == ["q_lin_2"]

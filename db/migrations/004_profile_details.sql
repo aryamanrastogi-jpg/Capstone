@@ -1,4 +1,4 @@
--- 003 - names at sign-up, profile photos, and deleting your own account
+-- 004 - names at sign-up, profile photos, and deleting your own account
 --
 -- WHAT CHANGES
 --   * Sign-up now asks for a name. The trigger from 002 is replaced so that the
@@ -14,7 +14,7 @@
 -- role='student', and users can update only display_name, year_group and
 -- avatar_url.
 --
--- Run after 002. Safe to re-run.
+-- Run after 003. Safe to re-run.
 
 begin;
 

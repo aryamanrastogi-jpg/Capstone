@@ -4,14 +4,15 @@ WHAT A PERSON CAN AND CANNOT CHOOSE HERE
   They can choose their email and their password. That is the whole list.
 
   There is no role selector, and there will not be one. The role is written by a
-  database trigger at sign-up and is always `student`; a teacher is promoted by
-  an operator running one statement, documented in
-  db/migrations/002_auth_profiles.sql. A form that let you pick "I am a teacher"
-  would hand the class register to anybody who asked for it, and every read
-  policy downstream would believe the answer.
+  database trigger at sign-up and is always `student`. A teacher signs up the
+  same way, then redeems an invite code on the Profile page; the operator mints
+  those codes by hand (db/migrations/005_teacher_invites.sql) and the database
+  decides whether one is good. A form that let you pick "I am a teacher" would
+  hand the class register to anybody who asked for it, and every read policy
+  downstream would believe the answer.
 
   Sign-up asks for a name, which the database trigger stores as the display
-  name (db/migrations/003_profile_details.sql). It can be changed later on the
+  name (db/migrations/004_profile_details.sql). It can be changed later on the
   Profile page.
 
 WHY THIS PAGE STILL OFFERS TO CARRY ON WITHOUT SIGNING IN
@@ -24,7 +25,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.auth_forms import auth_forms
+from components.auth_forms import auth_forms, privacy_details
 from components.layout import page_header
 from services import auth_service
 from services.supabase_client import get_connection_status
@@ -58,7 +59,8 @@ if signed_in_user is not None:
     )
     st.caption(
         "Your role comes from your profile in the database. It is not something "
-        "this app can change."
+        "this app can change - teacher access comes only from an invite code, "
+        "redeemed on your Profile page."
     )
     if st.button("Sign out", type="primary"):
         auth_service.sign_out()
@@ -73,4 +75,7 @@ st.caption(
 auth_forms()
 
 st.divider()
+# The full statement sits here, where the decision to make an account is made,
+# not only in the one-line notice at the foot of every page.
+privacy_details()
 st.caption(PRIVACY_NOTICE)

@@ -3,6 +3,18 @@
 Create happens at sign-up. Here you can read your details, update your name,
 year group and photo, remove the photo, and delete the account. Your role is
 shown but cannot be changed: it comes from the database, not from you.
+
+THE TEACHER INVITE BOX
+  The one way a role changes from this page is by redeeming an invite code, and
+  even then the page decides nothing. The code goes to
+  `redeem_teacher_invite` in db/migrations/005_teacher_invites.sql, which checks
+  it against a hash the operator stored, promotes only the caller, and answers
+  every bad code with the same sentence. The box is offered to students only; a
+  teacher has nothing to redeem.
+
+WHAT IS SHOWN
+  Your own email, read from the signed-in session, is the only email anywhere in
+  the app. It is rendered read-only and never logged.
 """
 
 from __future__ import annotations
@@ -10,6 +22,7 @@ from __future__ import annotations
 import streamlit as st
 
 from components.layout import page_header
+from models import Role
 from services import auth_service
 from services import state as store
 from utils import palette
@@ -68,10 +81,15 @@ with details_col:
         "Role",
         value=user.role.label,
         disabled=True,
-        help="Set by whoever administers this instance, not from this page.",
+        help="Set by the database, not from this page. Teacher access comes "
+        "from an invite code.",
     )
     with st.form("profile_form"):
-        name = st.text_input("Full name", value=user.display_name, max_chars=60)
+        name = st.text_input(
+            "Full name",
+            value=user.display_name,
+            max_chars=auth_service.MAX_NAME_CHARS,
+        )
         year_options = [None, 7, 8, 9, 10, 11]
         year = st.selectbox(
             "Year group",
@@ -83,6 +101,24 @@ with details_col:
         )
         if st.form_submit_button("Save changes", type="primary"):
             _done(auth_service.update_profile(name, year))
+
+if user.role is not Role.TEACHER:
+    st.divider()
+    with st.expander("Have a teacher invite code?", icon=":material/key:"):
+        st.caption(
+            "Teacher access is given by whoever runs this instance. If they sent "
+            "you an invite code, enter it here. Codes expire and can only be used "
+            "a limited number of times. Becoming a teacher removes you from any "
+            "class you have joined."
+        )
+        with st.form("teacher_invite_form", clear_on_submit=True):
+            invite_code = st.text_input(
+                "Invite code",
+                type="password",
+                max_chars=auth_service.MAX_INVITE_CODE_CHARS,
+            )
+            if st.form_submit_button("Redeem code", type="primary"):
+                _done(auth_service.redeem_teacher_invite(invite_code))
 
 st.divider()
 with st.expander("Delete account", icon=":material/warning:"):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 from pydantic import ValidationError as PydanticValidationError
 
+from components.answer_split import split_answer_editor
 from components.layout import empty_state, page_header, privacy_notice
 from components.navigation import goto
 from services import assessment_service as service
@@ -101,6 +102,9 @@ with mode_col:
 
 response_text = ""
 uploaded_name = None
+# question_id -> answer when an uploaded file was split per question. None means
+# every question is graded against the whole text.
+answers = None
 
 if input_mode == "Paste typed answer":
     st.session_state.pop(EXTRACTED_KEY, None)
@@ -142,6 +146,11 @@ else:
             value=stored["text"],
             height=240,
         )
+        if response_text.strip():
+            st.markdown("**Which answer goes to which question**")
+            answers = split_answer_editor(
+                response_text, assessment.questions, key_prefix=f"upload_split_{assessment.id}"
+            )
 
 st.divider()
 
@@ -174,6 +183,8 @@ if st.button("Confirm submission", type="primary"):
                 submission_text=response_text,
                 uploaded_filename=uploaded_name,
                 student_id=selected_student_id,
+                answers=answers,
+                questions=assessment.questions,
             )
             service.save_submission(submission)
         except PydanticValidationError as exc:

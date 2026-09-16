@@ -35,6 +35,8 @@ create table if not exists public.profiles (
     -- Which teacher's roster a student sits on. Null for teachers.
     teacher_id    text references public.profiles (id) on delete set null,
     year_group    integer check (year_group between 7 and 11),
+    -- Public URL of a photo in the `avatars` storage bucket (migration 004).
+    avatar_url    text,
     created_at    timestamptz not null default now(),
 
     -- A teacher cannot sit on another teacher's roster.
@@ -118,7 +120,9 @@ create table if not exists public.submissions (
     is_self_study         boolean not null default false,
     -- The mark the teacher actually wrote on the paper, when the student knows
     -- it. Divergence from the AI estimate is what raises a marking mismatch.
-    teacher_awarded_score numeric(6, 2) check (teacher_awarded_score >= 0)
+    teacher_awarded_score numeric(6, 2) check (teacher_awarded_score >= 0),
+    -- Which go at the set this was; the attempt loop reads it (migration 006).
+    attempt_number        integer not null default 1 check (attempt_number >= 1)
 );
 
 create index if not exists submissions_assessment_id_idx on public.submissions (assessment_id);

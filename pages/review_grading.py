@@ -7,16 +7,19 @@ the suggested score so the two can always be compared.
 
 from __future__ import annotations
 
+from typing import List
+
 import streamlit as st
 
 from components.layout import ai_disclaimer, empty_state, page_header, privacy_notice
 from components.navigation import goto
+from components.report_downloads import report_downloads
 from components.status_badges import (
     confidence_badge,
     review_status_badge,
     review_status_label,
 )
-from models import GradingResult, ReviewStatus
+from models import GradingResult, ReviewStatus, Submission
 from services import assessment_service as service
 from services import state as store
 from services.grading_service import (
@@ -29,11 +32,15 @@ from services.grading_service import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _submission_label(submission_id: str, titles: dict) -> str:
-    submission = service.get_submission(submission_id)
-    if submission is None:
-        return submission_id
-    results = service.list_grading_results(submission_id)
+def _submission_label(
+    submission: Submission, results: List[GradingResult], titles: dict
+) -> str:
+    """Picker label, built from data already loaded.
+
+    Labels are computed up front rather than looked up inside `format_func`:
+    a lookup there costs two repository round trips per option on every
+    rerun against Supabase, and it runs outside the script in AppTest.
+    """
     reviewed = sum(1 for r in results if r.is_reviewed)
     progress = f"{reviewed}/{len(results)} reviewed" if results else "not graded"
     title = titles.get(submission.assessment_id, "Unknown assessment")
@@ -104,8 +111,14 @@ with filter_col:
     )
 
 
+all_results = service.list_grading_results()
+results_by_submission: dict[str, List[GradingResult]] = {}
+for _result in all_results:
+    results_by_submission.setdefault(_result.submission_id, []).append(_result)
+
+
 def _has_pending(submission_id: str) -> bool:
-    results = service.list_grading_results(submission_id)
+    results = results_by_submission.get(submission_id, [])
     return (not results) or any(not r.is_reviewed for r in results)
 
 
@@ -117,13 +130,21 @@ if not candidates:
         "over your decisions.",
         icon=":material/task_alt:",
     )
+    st.divider()
+    report_downloads(all_results, assessments, submissions, key_prefix="review")
+    privacy_notice()
     st.stop()
+
+labels = {
+    s.id: _submission_label(s, results_by_submission.get(s.id, []), titles)
+    for s in candidates
+}
 
 with sub_col:
     selected_id = st.selectbox(
         "Submission",
-        options=[s.id for s in candidates],
-        format_func=lambda sid: _submission_label(sid, titles),
+        options=list(labels),
+        format_func=labels.__getitem__,
     )
 
 submission = service.get_submission(selected_id)
@@ -326,5 +347,8 @@ for index, result in enumerate(results, start=1):
                 f"**{review_status_label(result.review_status)}**"
                 + (f" at **{final} / {result.max_marks}**." if final is not None else ".")
             )
+
+st.divider()
+report_downloads(all_results, assessments, submissions, key_prefix="review")
 
 privacy_notice()

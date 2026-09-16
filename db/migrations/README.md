@@ -17,6 +17,11 @@ Run them in order, in the Supabase SQL editor. Each is idempotent.
 | `001_shared_library.sql` | Adds `is_shared` and `copied_from_id` to `assessments` for the shared question library |
 | `002_auth_profiles.sql` | Creates a profile automatically when someone signs up, and pins the role to `student` |
 | `003_roster.sql` | Class join codes, and the functions that let a student join a class without `teacher_id` becoming writable |
+| `004_profile_details.sql` | Name at sign-up becomes the display name, `profiles.avatar_url`, the `avatars` storage bucket, and `delete_my_account()` |
+| `005_teacher_invites.sql` | Hashed, expiring teacher invite codes and `redeem_teacher_invite(code)` - the only route to the teacher role besides an operator |
+| `006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
+
+After the migrations, re-run `db/policies.sql`.
 
 ## Checking what you have applied
 

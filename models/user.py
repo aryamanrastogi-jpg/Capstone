@@ -30,7 +30,8 @@ class Role(str, Enum):
 class User(BaseModel):
     """A person using the app.
 
-    Students are identified by an anonymous code (S-8201), never a real name.
+    Signed-in users go by the name they gave at sign-up. Demo students, and
+    accounts created without a name, get an anonymous code such as S-8201.
     """
 
     id: str = Field(default_factory=lambda: f"usr_{uuid.uuid4().hex[:8]}")

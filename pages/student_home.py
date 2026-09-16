@@ -18,6 +18,7 @@ from __future__ import annotations
 import streamlit as st
 from pydantic import ValidationError as PydanticValidationError
 
+from components.answer_split import split_answer_editor
 from components.attempts import attempt_comparison
 from components.guidance import guidance_list
 from components.layout import (
@@ -298,6 +299,16 @@ if state.can_attempt:
             uploaded_name = stored["filename"]
             st.markdown("**What we read from your file** — fix anything that came out wrong.")
             response_text = st.text_area("Your answers", value=stored["text"], height=200)
+            if response_text.strip():
+                st.markdown("**Which answer goes to which question**")
+                # Split against the whole set, since the file is numbered that
+                # way, but only the questions still outstanding are graded.
+                answers = split_answer_editor(
+                    response_text,
+                    assessment.questions,
+                    key_prefix=f"student_split_{assessment.id}_{state.next_attempt_number}",
+                    only_question_ids=[q.id for q in outstanding],
+                )
 
     known_mark = st.checkbox(
         "My teacher already marked this",
@@ -331,9 +342,12 @@ if state.can_attempt:
                 submission = service.build_submission(
                     assessment_id=assessment.id,
                     student_identifier=student.display_name,
-                    # Left empty for a per-question submission so the service
-                    # composes a properly numbered transcript from the answers.
-                    submission_text="" if answers else response_text,
+                    # Left empty for a typed per-question submission so the
+                    # service composes a properly numbered transcript. A split
+                    # upload keeps the file's own text as its transcript.
+                    submission_text=(
+                        "" if mode == "Question by question" else response_text
+                    ),
                     answers=answers,
                     questions=outstanding,
                     uploaded_filename=uploaded_name,

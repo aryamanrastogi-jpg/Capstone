@@ -122,6 +122,13 @@ create policy profiles_update_self on public.profiles
 revoke update on public.profiles from authenticated;
 grant update (display_name, year_group, avatar_url) on public.profiles to authenticated;
 
+-- The one application path to role='teacher' is
+-- public.redeem_teacher_invite(code) in db/migrations/005_teacher_invites.sql:
+-- a security-definer function that promotes only auth.uid(), and only against
+-- an operator-minted, hashed, expiring code. Its table, teacher_invites, has
+-- RLS on and no policies here on purpose - no client role can read it. It is
+-- not created in this file because it depends on the migration's pgcrypto.
+
 -- ---------------------------------------------------------------------------
 -- assessments
 -- ---------------------------------------------------------------------------

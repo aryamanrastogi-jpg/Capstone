@@ -20,6 +20,7 @@ STUDENT_PAGES = [
     "pages/my_progress.py",
     "pages/study_camp.py",
     "pages/practice_generator.py",
+    "pages/mock_exam.py",
 ]
 
 TEACHER_PAGES = [
@@ -113,10 +114,6 @@ def test_navigation_does_not_route_a_role_to_the_other_role_s_pages():
     assert "pages/practice_generator.py" in student_paths & teacher_paths
 
 
-# review_grading is excluded: its Submission picker uses `format_func`, and
-# AppTest cannot re-run a page containing one (it stores the rendered labels but
-# resolves the raw value against them). The page itself is fine in a browser -
-# see test_teacher_pages_render, which opens it successfully.
 @pytest.mark.parametrize("page", ["pages/dashboard.py", "pages/create_assessment.py"])
 def test_teacher_pages_refuse_a_student_who_reaches_them_directly(page):
     """Defence in depth: the in-page guard shows a message, not a traceback."""

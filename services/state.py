@@ -28,6 +28,8 @@ BACKEND_IS_ERROR = "backend_is_error"
 INITIALISED = "_assessai_initialised"
 # Set once a visitor leaves the landing page for the sample data.
 ENTERED_DEMO = "entered_demo"
+# The student's in-progress or last mock exam. Practice only, never persisted.
+MOCK_EXAM = "mock_exam"
 
 
 def init_session_state(load_samples: bool = True) -> None:
@@ -84,6 +86,15 @@ def get_users() -> List[User]:
 
 def get_study_camps() -> List[StudyCamp]:
     return st.session_state.setdefault(STUDY_CAMPS, [])
+
+
+def get_mock_exam() -> Optional[Any]:
+    """The current `MockExam`, if the student has started one this session."""
+    return st.session_state.get(MOCK_EXAM)
+
+
+def set_mock_exam(exam: Optional[Any]) -> None:
+    st.session_state[MOCK_EXAM] = exam
 
 
 def get_class_codes() -> Dict[str, str]:

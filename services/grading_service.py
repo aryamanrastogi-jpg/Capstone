@@ -1,11 +1,13 @@
-"""Deterministic mock grading service (Phase 1).
+"""Deterministic rule-based grading.
 
-This module makes NO network calls and uses NO LLM. It applies transparent,
+`grade_answer` makes NO network calls and uses NO LLM. It applies transparent,
 repeatable rules so that the review workflow, the analytics page and the tests
 all have realistic structured data to work with.
 
-In Phase 2 `grade_answer` is the single function to replace with a real LLM
-call: its signature and its GradingResult return type are the contract.
+`grade_submission` routes each answer through
+`services.ai_grading_service.grade_with_ai`, which uses an AI model when one is
+configured (LLM_API_KEY and LLM_MODEL) and otherwise - or whenever the model's
+output fails validation - falls back to `grade_answer`.
 
 Everything it produces is a *recommendation* - `review_status` always starts at
 AWAITING_REVIEW and `teacher_approved_score` always starts as None.
@@ -564,7 +566,18 @@ def grade_submission(
         selected = [q for q in selected if q.id in wanted]
 
     if answers is None:
-        return [grade_answer(q, submission_text, submission_id) for q in selected]
+        return [_grade_one(q, submission_text, submission_id) for q in selected]
     return [
-        grade_answer(q, answers.get(q.id, ""), submission_id) for q in selected
+        _grade_one(q, answers.get(q.id, ""), submission_id) for q in selected
     ]
+
+
+def _grade_one(question: Question, answer: str, submission_id: str) -> GradingResult:
+    """The AI grader when configured, the rules otherwise.
+
+    Imported here because ai_grading_service imports this module for its
+    fallback.
+    """
+    from services.ai_grading_service import grade_with_ai
+
+    return grade_with_ai(question, answer, submission_id).result

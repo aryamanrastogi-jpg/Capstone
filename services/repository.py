@@ -49,6 +49,10 @@ from services import state as store
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 6
 
+# A position no real question set reaches, used to step a question out of the
+# way while positions are reshuffled. See SupabaseRepository._sync_questions.
+_PARKED_POSITION = 100_000
+
 
 def generate_class_code() -> str:
     """A random class code. `secrets`, not `random`: this is a join credential."""
@@ -317,8 +321,9 @@ class SupabaseRepository(Repository):
     1. Parent and child rows are written in two steps - the assessment then its
        questions, the camp then its sessions. PostgREST has no transaction
        across requests, so a save that fails halfway leaves the parent without
-       its children. Children are therefore deleted-then-inserted rather than
-       merged, so a retry converges instead of accumulating duplicates.
+       its children. Leaf children (answers, sessions) are therefore
+       deleted-then-inserted, so a retry converges instead of accumulating
+       duplicates. Questions are the exception - see `_sync_questions`.
 
     2. Children are fetched with one `in_` query for the whole batch rather than
        one query per parent. Listing a term of submissions is otherwise a
@@ -388,10 +393,47 @@ class SupabaseRepository(Repository):
     def save_assessment(self, assessment: Assessment) -> Assessment:
         row, question_rows = mappers.assessment_to_rows(assessment)
         self._client.table("assessments").upsert(row).execute()
-        self._replace_children(
-            "questions", "assessment_id", assessment.id, question_rows
-        )
+        self._sync_questions(assessment.id, question_rows)
         return assessment
+
+    def _sync_questions(self, assessment_id: str, rows: List[Dict[str, Any]]) -> None:
+        """Bring the question rows in line WITHOUT deleting surviving questions.
+
+        Questions are not leaves: `submission_answers` and `grading_results`
+        reference them with ON DELETE CASCADE. Delete-then-insert (as used for
+        answers and study sessions) would therefore silently erase every
+        student answer and every teacher-approved mark on the set whenever it
+        is re-saved - sharing it, renaming it, fixing a typo. So only questions
+        that were actually removed are deleted; the rest are upserted in place.
+
+        `unique (assessment_id, position)` is checked row by row, so a reorder
+        that swaps two positions would collide mid-upsert. Moved questions are
+        parked on a high position first to clear the way.
+        """
+        existing = (
+            self._client.table("questions")
+            .select("id,position")
+            .eq("assessment_id", assessment_id)
+            .execute()
+            .data
+            or []
+        )
+        wanted = {r["id"]: r["position"] for r in rows}
+        stale = [r["id"] for r in existing if r["id"] not in wanted]
+        if stale:
+            self._client.table("questions").delete().in_("id", stale).execute()
+
+        moved = [
+            r for r in existing
+            if r["id"] in wanted and r.get("position") != wanted[r["id"]]
+        ]
+        for offset, r in enumerate(moved):
+            self._client.table("questions").update(
+                {"position": _PARKED_POSITION + offset}
+            ).eq("id", r["id"]).execute()
+
+        if rows:
+            self._client.table("questions").upsert(rows).execute()
 
     def delete_assessment(self, assessment_id: str) -> bool:
         # Questions go with it: the foreign key is ON DELETE CASCADE.

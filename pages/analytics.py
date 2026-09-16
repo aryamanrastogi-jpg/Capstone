@@ -8,6 +8,7 @@ import streamlit as st
 from components import charts
 from components.layout import empty_state, metric_row, page_header, privacy_notice
 from components.navigation import goto
+from components.report_downloads import report_downloads
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
@@ -222,5 +223,8 @@ with st.expander("Approved results (raw table)"):
         hide_index=True,
         width="stretch",
     )
+
+st.divider()
+report_downloads(results, assessments, submissions, key_prefix="analytics")
 
 privacy_notice()

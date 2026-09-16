@@ -52,6 +52,14 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "roles": [STUDENT],
         "default": False,
     },
+    {
+        "path": "pages/mock_exam.py",
+        "title": "Mock Exam",
+        "icon": ":material/timer:",
+        "section": "My study",
+        "roles": [STUDENT],
+        "default": False,
+    },
     # --- Teacher ---------------------------------------------------------
     {
         "path": "pages/dashboard.py",

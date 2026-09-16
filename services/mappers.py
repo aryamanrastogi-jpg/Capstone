@@ -213,6 +213,7 @@ def submission_to_rows(submission: Submission) -> Tuple[Row, List[Row]]:
         "student_id": submission.student_id,
         "is_self_study": submission.is_self_study,
         "teacher_awarded_score": submission.teacher_awarded_score,
+        "attempt_number": submission.attempt_number,
     }
     # A blank answer is written; an unattempted question has no row at all.
     # Submission.answer_for depends on that difference.
@@ -242,6 +243,7 @@ def submission_from_rows(row: Row, answer_rows: Sequence[Row]) -> Submission:
         student_id=row.get("student_id"),
         is_self_study=bool(row.get("is_self_study")),
         teacher_awarded_score=_optional_float(row.get("teacher_awarded_score")),
+        attempt_number=int(row.get("attempt_number") or 1),
     )
 
 

@@ -156,6 +156,8 @@ with head_b:
     if st.button("Start over", width="stretch", help="Delete this camp and build a new one."):
         service.delete_study_camp(camp.id)
         st.rerun()
+    if st.button("Take a mock exam", width="stretch", help="A timed paper on your camp topics."):
+        goto("Mock Exam")
 
 latest = summary["latest"]
 improvement = summary["improvement"]

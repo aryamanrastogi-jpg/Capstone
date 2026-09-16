@@ -1,14 +1,16 @@
 """Welcome page - what AssessAI is, plus sign in, sign up or try the demo.
 
 Shown by app.py to anyone who is not signed in and has not chosen the demo.
-The sign-in forms are the same ones as on the Sign In page.
+The sign-in forms are the same ones as on the Sign In page. Sign-up collects a
+real name and an email, so the full privacy statement sits directly under the
+forms rather than only in the one-line notice at the foot of the page.
 """
 
 from __future__ import annotations
 
 import streamlit as st
 
-from components.auth_forms import auth_forms
+from components.auth_forms import auth_forms, privacy_details
 from components.layout import info_card, inject_styles
 from services import state as store
 from services.supabase_client import get_connection_status
@@ -34,7 +36,9 @@ teacher confirms every mark.</p>''',
     )
     info_card(
         "For teachers",
-        "Set assessments, review AI-suggested marks and keep an eye on the class.",
+        "Set assessments, review AI-suggested marks and keep an eye on the class. "
+        "Create an account, then enter the invite code from your administrator "
+        "on your Profile page.",
     )
 
 with auth:
@@ -43,6 +47,7 @@ with auth:
         if status.connected:
             st.markdown("#### Welcome")
             auth_forms()
+            privacy_details()
         else:
             st.markdown("#### Try AssessAI")
             st.info(

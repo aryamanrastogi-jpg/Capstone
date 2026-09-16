@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "description": "Hand-labelled Grades 7-9 maths answers for measuring grader accuracy. Questions come from data/sample_data.py; teacher_score is the mark a teacher applying the marking criteria would give, and teacher_error_types uses the app's ErrorType values. Synthetic answers only - no real student work.",
+  "items": [
+    {
+      "id": "e01",
+      "question_id": "q_lin_1",
+      "student_answer": "Subtract 7 from both sides: 3x = 15. Divide both sides by 3: x = 5.",
+      "teacher_score": 3,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e02",
+      "question_id": "q_lin_1",
+      "student_answer": "x = 5",
+      "teacher_score": 1,
+      "teacher_error_types": ["missing_working"]
+    },
+    {
+      "id": "e03",
+      "question_id": "q_lin_1",
+      "student_answer": "3x = 22 + 7 = 29, so x = 29 / 3 = 9.67",
+      "teacher_score": 1,
+      "teacher_error_types": ["incorrect_method"]
+    },
+    {
+      "id": "e04",
+      "question_id": "q_lin_1",
+      "student_answer": "3x = 22 - 7 = 15, then x = 15 / 3 = 6",
+      "teacher_score": 2,
+      "teacher_error_types": ["arithmetic_error"]
+    },
+    {
+      "id": "e05",
+      "question_id": "q_lin_2",
+      "student_answer": "Let the number be n. 4n - 6 = 26, add 6 to both sides so 4n = 32, divide by 4 so n = 8.",
+      "teacher_score": 4,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e06",
+      "question_id": "q_lin_2",
+      "student_answer": "n + 4 - 6 = 26 so n = 28",
+      "teacher_score": 1,
+      "teacher_error_types": ["conceptual_error"]
+    },
+    {
+      "id": "e07",
+      "question_id": "q_lin_2",
+      "student_answer": "The equation is 4n - 6 = 26",
+      "teacher_score": 1,
+      "teacher_error_types": ["incomplete_answer"]
+    },
+    {
+      "id": "e08",
+      "question_id": "q_lin_2",
+      "student_answer": "4n - 6 = 26, so 4n = 20 and n = 5",
+      "teacher_score": 2,
+      "teacher_error_types": ["arithmetic_error"]
+    },
+    {
+      "id": "e09",
+      "question_id": "q_area_1",
+      "student_answer": "Area = length x breadth = 12 x 5 = 60 cm2. Perimeter = 2 x (12 + 5) = 34 cm.",
+      "teacher_score": 4,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e10",
+      "question_id": "q_area_1",
+      "student_answer": "Area = 12 x 5 = 60. Perimeter = 12 + 5 + 12 + 5 = 34.",
+      "teacher_score": 3,
+      "teacher_error_types": ["unit_error"]
+    },
+    {
+      "id": "e11",
+      "question_id": "q_area_1",
+      "student_answer": "Area = 2 x (12 + 5) = 34 cm2. Perimeter = 12 x 5 = 60 cm.",
+      "teacher_score": 0,
+      "teacher_error_types": ["conceptual_error"]
+    },
+    {
+      "id": "e12",
+      "question_id": "q_area_2",
+      "student_answer": "Area of a triangle = 1/2 x base x height = 1/2 x 9 x 6 = 27 cm2",
+      "teacher_score": 3,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e13",
+      "question_id": "q_area_2",
+      "student_answer": "Area = 9 x 6 = 54 cm2",
+      "teacher_score": 1,
+      "teacher_error_types": ["incorrect_method"]
+    },
+    {
+      "id": "e14",
+      "question_id": "q_area_2",
+      "student_answer": "Area = 1/2 x base x height = 1/2 x 9 x 6 = 27",
+      "teacher_score": 2.5,
+      "teacher_error_types": ["unit_error"]
+    },
+    {
+      "id": "e15",
+      "question_id": "q_ratio_1",
+      "student_answer": "Total parts 2 + 3 = 5. One part is 45 / 5 = 9. Shares are 2 x 9 = 18 and 3 x 9 = 27.",
+      "teacher_score": 3,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e16",
+      "question_id": "q_ratio_1",
+      "student_answer": "45 / 2 = 22.5 and 45 / 3 = 15",
+      "teacher_score": 0,
+      "teacher_error_types": ["conceptual_error"]
+    },
+    {
+      "id": "e17",
+      "question_id": "q_ratio_1",
+      "student_answer": "5 parts in total, 45 / 5 = 9, so the shares are 18 and 28",
+      "teacher_score": 2,
+      "teacher_error_types": ["arithmetic_error"]
+    },
+    {
+      "id": "e18",
+      "question_id": "q_pct_1",
+      "student_answer": "350 / 100 = 3.5, then 3.5 x 20 = 70",
+      "teacher_score": 2,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e19",
+      "question_id": "q_pct_1",
+      "student_answer": "70",
+      "teacher_score": 1,
+      "teacher_error_types": ["missing_working"]
+    },
+    {
+      "id": "e20",
+      "question_id": "q_pct_1",
+      "student_answer": "350 / 100 = 3.5, then 3.5 x 20 = 7",
+      "teacher_score": 1,
+      "teacher_error_types": ["arithmetic_error"]
+    },
+    {
+      "id": "e21",
+      "question_id": "q_pct_2",
+      "student_answer": "25% of 240 = 60 rupees, so the new price is 240 - 60 = 180 rupees.",
+      "teacher_score": 2,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e22",
+      "question_id": "q_pct_2",
+      "student_answer": "240 - 25 = 215 rupees",
+      "teacher_score": 0,
+      "teacher_error_types": ["conceptual_error"]
+    },
+    {
+      "id": "e23",
+      "question_id": "q_lin2_1",
+      "student_answer": "Subtract 8: 5x = 43 - 8 = 35. Divide by 5: x = 35 / 5 = 7.",
+      "teacher_score": 3,
+      "teacher_error_types": []
+    },
+    {
+      "id": "e24",
+      "question_id": "q_lin2_1",
+      "student_answer": "",
+      "teacher_score": 0,
+      "teacher_error_types": ["incomplete_answer"]
+    },
+    {
+      "id": "e25",
+      "question_id": "q_mock_1",
+      "student_answer": "Area = 15 x 8 = 120 m2. Perimeter = 15 + 8 = 23 m.",
+      "teacher_score": 2,
+      "teacher_error_types": ["incorrect_method"]
+    }
+  ]
+}

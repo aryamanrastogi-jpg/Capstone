@@ -177,6 +177,14 @@ def test_submission_round_trips(submission: Submission) -> None:
     assert restored.student_id == submission.student_id
     assert restored.is_self_study == submission.is_self_study
     assert restored.teacher_awarded_score == submission.teacher_awarded_score
+    assert restored.attempt_number == submission.attempt_number
+
+
+def test_attempt_number_survives_a_round_trip(submission: Submission) -> None:
+    """Reloading must not reset the attempt loop to attempt 1."""
+    third = submission.model_copy(update={"attempt_number": 3})
+    restored = mappers.submission_from_rows(*mappers.submission_to_rows(third))
+    assert restored.attempt_number == 3
 
 
 def test_blank_answer_is_stored_but_unattempted_question_is_absent(

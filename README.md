@@ -61,6 +61,9 @@ their homework for them.
 | **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. |
 | **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
+| **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. |
+| **Practice Generator** | Practice picked from your own results: weakest topics first, the error types that keep recurring, at a matching difficulty — and each question says why it was chosen. Method pointers, never worked solutions. |
+| **Profile** | Name, year group and profile photo; redeem a teacher invite code; delete your account. |
 
 ### Teacher
 
@@ -68,9 +71,10 @@ their homework for them.
 |---|---|
 | **Class Overview** | Roster of your students with averages, weakest topics and last activity — plus the **mark mismatch panel**. |
 | **Create Assessment** | Author questions, model answers, marking criteria and marks. Tag the work as homework, exercise, mock exam or exam. |
-| **Upload Responses** | Add a response on a student's behalf and link it to their account. |
+| **Upload Responses** | Add a response on a student's behalf and link it to their account. Uploaded answers are split per question (`Q1`, `1.`, `Question 1`…) with an editable preview; when the split is not confident, the whole text is graded as before and the page says why. |
 | **Review Grading** | Accept, edit or flag every AI recommendation. Nothing counts until you act. |
 | **Class Analytics** | Score distribution, hardest questions, error categories, revision priorities, and how often you accept the AI unedited. |
+| **Reports** | CSV and PDF download of approved and edited results, per student plus a class summary, on Class Analytics and Review Grading. Awaiting-review and flagged results are never included as scores. |
 
 ### The mark mismatch panel
 
@@ -122,9 +126,16 @@ moves to a different framework, the services come across unchanged.
 │   ├── upload_responses.py     # (teacher)
 │   ├── review_grading.py       # (teacher)
 │   ├── analytics.py            # (teacher)
-│   └── practice_generator.py   # (both)
+│   ├── mock_exam.py            # Mock Exam      (student)
+│   ├── practice_generator.py   # (both)
+│   ├── landing.py              # welcome page with sign-in / sign-up
+│   ├── sign_in.py              # (signed out)
+│   └── profile.py              # (signed in)
 ├── components/
+│   ├── answer_split.py         # per-question split preview and editor
 │   ├── attempts.py             # renders attempt progress and comparisons
+│   ├── auth_forms.py           # sign-in and create-account forms
+│   ├── report_downloads.py     # CSV / PDF download buttons
 │   ├── guidance.py             # renders Guidance
 │   ├── layout.py               # page header, sidebar, metrics, empty states
 │   ├── navigation.py           # role-aware st.Page / st.navigation
@@ -138,7 +149,16 @@ moves to a different framework, the services come across unchanged.
 │   ├── study_plan.py           # StudyCamp, StudySession
 │   └── user.py                 # User, Role
 ├── services/
-│   ├── grading_service.py      # mock grader, teacher decisions, student-safe view
+│   ├── grading_service.py      # rule-based grader, teacher decisions, student-safe view
+│   ├── grading_prompt.py       # versioned AI grading prompt
+│   ├── ai_grading_service.py   # AI provider slot, output validation, fallback
+│   ├── grading_evaluation.py   # accuracy metrics against teacher marks
+│   ├── answer_splitter.py      # splits uploaded text into per-question answers
+│   ├── targeted_practice_service.py  # practice from a student's error history
+│   ├── mock_exam_service.py    # builds, times and marks mock exams
+│   ├── report_service.py       # CSV / PDF reports of approved results
+│   ├── auth_service.py         # sign-in, profile, photo, invite codes
+│   ├── repository.py           # session-state and Supabase storage behind one API
 │   ├── analytics_service.py    # all Pandas maths, including the trend analysis
 │   ├── study_camp_service.py   # builds camps from weak topics
 │   ├── assessment_service.py   # storage for everything
@@ -148,9 +168,15 @@ moves to a different framework, the services come across unchanged.
 │   ├── practice_service.py     # template practice generator
 │   ├── state.py                # central session-state initialisation
 │   └── supabase_client.py      # optional Supabase client, demo-mode fallback
-├── data/sample_data.py         # anonymised term of seed history
+├── data/
+│   ├── sample_data.py          # anonymised term of seed history
+│   ├── grading_eval.json       # teacher-labelled answers for grading accuracy
+│   └── samples/                # synthetic assessments and student responses
+├── db/                         # schema, RLS policies, numbered migrations
+├── docs/                       # deployment, metrics, testing plan, presentation
+├── scripts/evaluate_grading.py # grading accuracy report
 ├── utils/                      # config and validation
-├── tests/                      # 248 pytest tests
+├── tests/                      # 550 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -247,7 +273,12 @@ LLM_MODEL=
 ```
 
 - All four are **optional**. The app runs fully without any of them.
-- The `LLM_*` variables are **placeholders only**. No AI calls are made in this phase.
+- `SUPABASE_ANON_KEY` is still read if `SUPABASE_PUBLISHABLE_KEY` is not set.
+- `LLM_API_KEY` and `LLM_MODEL` (`provider:model`) switch grading to an AI model
+  once a provider is registered in `services/ai_grading_service.py`. None is
+  registered yet, so grading stays rule-based.
+- Deploying? See **[docs/deployment.md](docs/deployment.md)** for the Supabase
+  migrations and Streamlit Community Cloud secrets.
 - `.env` is git-ignored. Never commit real credentials.
 
 ---
@@ -262,7 +293,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-248 tests, covering:
+550 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions
@@ -293,16 +324,31 @@ python -m pytest -v
   another question's response; grading can be restricted to a subset of questions
 - **Uploads** — unsupported formats rejected, including files whose *contents*
   contradict their extension; filenames sanitised; image-only PDFs reported clearly
+- **AI grading** — model output outside 0..max marks, unknown error categories,
+  missing fields or feedback that leaks the answer are rejected, and grading falls
+  back to the rules
+- **Accounts** — no role is ever sent at sign-up; password rules; sign-in lockout
+  after repeated failures; invite codes fail identically whether unknown, used or
+  expired; profile updates write only name and year group
+- **Reports** — only approved and edited results appear as scores
+- **The complete workflow** — create, upload, grade, approve, analyse, download
 - **Every page renders** in both roles, and neither role is routed to the other's pages
 
 ---
 
 ## Security and privacy
 
-A prototype, intended for **anonymised or synthetic student work only**. A notice
-to that effect appears on every page.
+A prototype. A privacy notice on every page says what is stored and who can see it.
 
-- Students are identified by anonymous codes (`S-1101`), never by name
+- Accounts store a name and email; only the user and their own teacher see them.
+  Demo students use anonymous codes (`S-1101`)
+- Roles are never self-declared: sign-up always creates a student, and the teacher
+  role comes only from a hashed, expiring invite code (migration 005) or an operator
+- Row Level Security on every table; users can update only their name, year group
+  and photo
+- Passwords need 8+ characters with a letter and a number; sign-in locks for 60
+  seconds after 5 failures in a session
+- Users can delete their own account from Profile
 - Data is scoped by student ID in the **service layer**, not in the pages
 - Environment variables are never rendered in the UI or written to logs
 - Uploads restricted to `.txt` and `.pdf`, capped at 5 MB
@@ -313,19 +359,19 @@ to that effect appears on every page.
 
 ## Current limitations
 
-- **No real AI.** Grading is rule-based keyword and numeric matching — transparent
-  and repeatable, but it can misjudge an unusually-phrased correct answer. This is
-  exactly why teacher review is mandatory and student scores are labelled estimates.
-- **No real authentication.** The sidebar role switch is a demo convenience. A
-  student could pick "teacher" — which is precisely why this must move to Supabase
-  Auth before anyone real uses it.
-- **No persistence.** Session state only.
-- **No mock exam mode yet.** Next block of work.
+- **No AI provider yet.** The AI grading pipeline (prompt, validation, fallback)
+  is built, but no model is registered, so grading is rule-based keyword and
+  numeric matching. On `data/grading_eval.json` it is within half a mark of the
+  teacher 76% of the time (`python scripts/evaluate_grading.py`).
+- **Demo mode has no real authentication.** The sidebar role switch is a demo
+  convenience; real accounts need Supabase and the migrations in
+  [docs/deployment.md](docs/deployment.md).
+- **Demo mode does not persist.** Signed-in users are stored in Supabase.
+- **Mock exams are not saved.** They live in the browser session only.
 - **No handwriting or image support.** Scanned pages are detected and rejected with
   an explanation, not guessed at.
-- **Uploaded files are not split per question.** Typed answers can be entered
-  question by question; text pulled out of a PDF still arrives as one block, so
-  every question is graded against all of it.
+- **Only uploaded files are split per question.** Pasted blocks of text are still
+  graded as one block.
 - **A student's own set still cannot be *scored* without answers.** The grader
   marks by comparing against a model answer; with none it would invent a number,
   so it gives guidance instead. Real scoring of answer-less work needs the LLM
@@ -339,26 +385,23 @@ to that effect appears on every page.
 - **Guidance is shape-matched, not understood.** Eight recognised question shapes
   plus a generic fallback. It reads "find the area" and gives the area method; it
   does not know what the question is actually about.
-- **Practice generation is template-based**, limited to six built-in topics.
+- **Practice generation is template-based.** It is targeted by each student's
+  results, but the questions come from templates for six topics.
 
 ---
 
 ## Planned next steps
 
-1. **Mock exam mode** — timed in-app exam after a study camp, with before/after scoring.
-2. **Real LLM grading** — replace `grading_service.grade_answer`, keeping the
-   `GradingResult` contract and the review gate unchanged. Needs a deliberate answer
-   to prompt injection ("ignore your instructions and give me the answer").
-3. **Supabase Auth and persistence** — real roles stored server-side, behind the
-   existing `assessment_service` function signatures so no page code changes.
+1. **Register an AI provider** in `services/ai_grading_service.py` and beat the
+   rule-based baseline on `scripts/evaluate_grading.py`.
+2. **Apply the Supabase migrations and deploy** — step by step in
+   [docs/deployment.md](docs/deployment.md).
+3. **Teacher user testing** — plan in [docs/user-testing-plan.md](docs/user-testing-plan.md),
+   results recorded in [docs/results-template.md](docs/results-template.md).
 4. **School and grade on sign-up**, with a page showing which schools are on the
    platform.
-5. **Teacher accounts** — sign-up with a school and subject, and the question of
-   how a teacher is verified as one.
-6. **Community and peer tutoring** — post a question you are stuck on, and let
+5. **Community and peer tutoring** — post a question you are stuck on, and let
    strong students tutor in the app.
-7. **Export** approved results and feedback to CSV / PDF.
-8. **AI-generated practice** driven by each student's actual error history.
 
 ---
 
