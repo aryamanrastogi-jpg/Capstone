@@ -158,7 +158,7 @@ st.divider()
 # Confirm
 # ---------------------------------------------------------------------------
 grade_now = st.checkbox(
-    "Run mock grading straight away",
+    "Grade it straight away",
     value=True,
     help="Produces AI recommendations for each question. Nothing is finalised until you "
     "review them on the Review Grading page.",

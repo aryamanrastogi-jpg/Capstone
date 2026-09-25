@@ -26,6 +26,32 @@ class ErrorType(str, Enum):
         return self.value.replace("_", " ").title()
 
 
+# The 1-5 rating students see for each question. Marks stay the unit of record
+# (teachers award them, analytics and reports add them up); the rating is a
+# fixed reading of the fraction earned, so it can never disagree with the mark.
+RATING_MIN = 1
+RATING_MAX = 5
+RATING_LABELS = {
+    1: "Not there yet",
+    2: "Getting started",
+    3: "Halfway there",
+    4: "Nearly there",
+    5: "Spot on",
+}
+
+
+def rating_for(score: float, max_marks: float) -> int:
+    """Map marks to 1-5: 1 + 4 x the fraction earned, rounded half up.
+
+    0 marks is 1, full marks is 5, and each quarter of the marks between is
+    one step - so 2/3 is a 4 and 1.5/3 is a 3.
+    """
+    if max_marks <= 0:
+        return RATING_MIN
+    fraction = min(max(score / max_marks, 0.0), 1.0)
+    return int(RATING_MIN + (RATING_MAX - RATING_MIN) * fraction + 0.5)
+
+
 class ReviewStatus(str, Enum):
     AWAITING_REVIEW = "awaiting_review"
     APPROVED = "approved"          # AI recommendation accepted as-is
@@ -109,6 +135,15 @@ class GradingResult(BaseModel):
         """
         final = self.final_score
         return final if final is not None else self.suggested_score
+
+    @property
+    def rating(self) -> int:
+        """The 1-5 rating for this answer, from the score that counts."""
+        return rating_for(self.effective_score, self.max_marks)
+
+    @property
+    def rating_label(self) -> str:
+        return RATING_LABELS[self.rating]
 
     @property
     def final_feedback(self) -> str:

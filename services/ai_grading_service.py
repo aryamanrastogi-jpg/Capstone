@@ -1,8 +1,9 @@
-"""AI grading pipeline, built so a provider can be plugged in later.
+"""AI grading pipeline with pluggable model providers.
 
-There is no provider today and no API key, so this module makes NO network
-calls and imports NO provider SDK. What it does provide is everything around
-the model call that must be right regardless of which model is used:
+Google Gemini is built in (services/gemini_provider.py), selected with
+LLM_MODEL="gemini:<model id>" and LLM_API_KEY. Without both, this module makes
+NO network calls and imports NO provider SDK. Everything around the model call
+that must be right regardless of which model is used lives here:
 
   * a `GradingModel` protocol - one method, `complete(system, user) -> str`;
   * a registry that picks a provider from LLM_API_KEY / LLM_MODEL;
@@ -96,6 +97,29 @@ def get_grading_model(settings: Optional[Settings] = None) -> Optional[GradingMo
     if factory is None:
         return None
     return factory(settings)
+
+
+def _gemini_factory(settings: Settings) -> GradingModel:
+    from services.gemini_provider import GeminiGradingModel
+
+    return GeminiGradingModel.from_settings(settings)
+
+
+# Built-in providers. The SDK import stays inside the factory, so registering
+# costs nothing until LLM_MODEL actually selects the provider.
+BUILTIN_PROVIDERS: Dict[str, ProviderFactory] = {"gemini": _gemini_factory}
+for _name, _factory in BUILTIN_PROVIDERS.items():
+    register_provider(_name, _factory)
+
+
+def describe_grading_engine(settings: Optional[Settings] = None) -> str:
+    """A one-line, key-free description of what will mark the next answer."""
+    settings = settings or get_settings()
+    provider, _, model_id = (part.strip() for part in settings.llm_model.partition(":"))
+    if not settings.llm_api_key or provider.lower() not in _PROVIDERS:
+        return grading_service.MOCK_ENGINE_NAME
+    name = f"{provider.title()} ({model_id})" if model_id else provider.title()
+    return f"{name}, with the rule-based grader as fallback"
 
 
 class FakeGradingModel:
@@ -258,7 +282,14 @@ def grade_with_ai(
     Raises ValueError for a question with no model answer, exactly like
     `grading_service.grade_answer` - neither path can mark that honestly.
     """
-    model = model if model is not None else get_grading_model(settings)
+    if model is None:
+        try:
+            model = get_grading_model(settings)
+        except Exception as exc:  # e.g. the provider's SDK is not installed
+            return _fallback(
+                question, student_answer, submission_id,
+                f"The AI provider could not be set up ({type(exc).__name__}).",
+            )
     if model is None:
         return _fallback(question, student_answer, submission_id, "No AI provider is configured.")
     if not (student_answer or "").strip():
@@ -308,6 +339,7 @@ __all__ = [
     "PATH_AI",
     "PATH_RULE_BASED",
     "PROMPT_VERSION",
+    "describe_grading_engine",
     "get_grading_model",
     "grade_with_ai",
     "parse_ai_output",

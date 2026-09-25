@@ -14,6 +14,7 @@ import streamlit as st
 from components.layout import badge_row, hint_note
 from components.status_badges import error_chip, outcome_badge
 from models import Question, Subject
+from models.grading import rating_for
 from services import hint_service
 from services.grading_service import student_safe_view
 
@@ -56,7 +57,11 @@ def attempt_comparison(
         # of the answer. See `hint_service.escalating_pointers`.
         level = hint_service.hint_level_for(len(history))
         hint_note(f"What to change next time · hint level {level}")
-        view = student_safe_view(latest["result"], question, subject, hint_level=level)
+        with st.spinner("Writing your next hint..."):
+            view = student_safe_view(
+                latest["result"], question, subject, hint_level=level,
+                student_answer=latest["answer"] or "",
+            )
         for pointer in view["pointers"]:
             st.markdown(f"- {pointer}")
 
@@ -69,17 +74,19 @@ def _attempt_column(
 ) -> None:
     """One attempt's tile: score, verdict, what was written, what was flagged."""
     previous = _previous_score(history, entry)
+    rating = entry["result"].rating
     delta = None
     if previous is not None:
-        change = entry["score"] - previous
-        delta = f"{change:+g}" if change else "no change"
+        change = rating - rating_for(previous, entry["max_marks"])
+        delta = f"{change:+d}" if change else "no change"
 
     st.metric(
         f"Attempt {entry['attempt_number']}",
-        f"{entry['score']:g}/{entry['max_marks']:g}",
+        f"{rating}/5",
         delta=delta,
         delta_color="normal" if delta and delta != "no change" else "off",
     )
+    st.caption(f"{entry['score']:g}/{entry['max_marks']:g} marks")
     outcome_badge(entry["is_settled"])
 
     answer = (entry["answer"] or "").strip()

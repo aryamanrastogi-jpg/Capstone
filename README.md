@@ -269,14 +269,20 @@ cp .env.example .env
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 LLM_API_KEY=
-LLM_MODEL=
+LLM_MODEL=gemini:gemini-2.5-flash
 ```
 
 - All four are **optional**. The app runs fully without any of them.
 - `SUPABASE_ANON_KEY` is still read if `SUPABASE_PUBLISHABLE_KEY` is not set.
-- `LLM_API_KEY` and `LLM_MODEL` (`provider:model`) switch grading to an AI model
-  once a provider is registered in `services/ai_grading_service.py`. None is
-  registered yet, so grading stays rule-based.
+- `LLM_API_KEY` and `LLM_MODEL` (`provider:model`) switch grading to an AI model.
+  Google Gemini is built in: get a free key at https://aistudio.google.com/apikey
+  and set `LLM_MODEL=gemini:gemini-2.5-flash` (any Gemini model id works after
+  the colon). If a call fails, is rate-limited or returns output that breaks the
+  rules, that answer is marked by the rule-based grader instead.
+- The same key also has Gemini write the hints (approach guidance and the
+  step-by-step hint ladder) and the practice questions, aimed at the questions
+  a student lost marks on. Each falls back to its built-in templates in the
+  same way, and a hint that would reveal an answer is thrown away.
 - Deploying? See **[docs/deployment.md](docs/deployment.md)** for the Supabase
   migrations and Streamlit Community Cloud secrets.
 - `.env` is git-ignored. Never commit real credentials.

@@ -465,6 +465,7 @@ def student_safe_view(
     question: Question,
     subject: Optional[Subject] = None,
     hint_level: Optional[int] = None,
+    student_answer: str = "",
 ) -> dict:
     """What a student is allowed to see about their own answer.
 
@@ -490,7 +491,10 @@ def student_safe_view(
     return {
         "question_text": question.question_text,
         "max_marks": result.max_marks,
-        "score": result.suggested_score,
+        # The teacher's mark once they have settled one, else the estimate.
+        "score": result.effective_score,
+        "rating": result.rating,
+        "rating_label": result.rating_label,
         "confidence": result.confidence,
         "is_estimate": not result.is_finalised,
         # Keep only praise that does not restate the expected numbers.
@@ -506,6 +510,7 @@ def student_safe_view(
                 [e.error_type for e in result.errors],
                 subject or Subject.MATHEMATICS,
                 hint_level,
+                student_answer,
             )
         ),
     }

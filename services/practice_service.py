@@ -1,8 +1,11 @@
-"""Template-based practice question generator (prototype).
+"""Practice question generator: AI-written, with templates as the fallback.
 
-Phase 1 uses deterministic templates with numbers derived from a stable seed,
-so the same selections always produce the same questions. No AI is involved.
-Phase 2 replaces `generate_practice_questions` with a real LLM call.
+When an AI provider is configured (Gemini, see `ai_practice_service`), the
+questions are written by the model - on any topic, aimed at the error
+category, and modelled on questions the student found hard when the caller
+passes some. Anything the AI does not supply comes from the deterministic
+templates below, whose numbers derive from a stable seed so the same
+selections always produce the same questions.
 
 Each template builds its numbers *backwards from a chosen answer* rather than
 picking them at random. A generator that emits "36x + 36 = 21" is worse than
@@ -26,11 +29,22 @@ from math import gcd
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from models import ErrorType
+from services import ai_practice_service, llm_service
 
 GENERATOR_LABEL = (
-    "Prototype template generator - deterministic, no AI. This will be replaced "
-    "by a real AI service in a later phase."
+    "Prototype template generator - deterministic, no AI. Add a Gemini key "
+    "(LLM_API_KEY) to have questions written by AI."
 )
+AI_GENERATOR_LABEL = (
+    "Questions are written by AI and aimed at the errors in the results. Check "
+    "them before setting them - if the AI is unavailable, the built-in "
+    "templates are used instead."
+)
+
+
+def generator_label() -> str:
+    """Which generator the next request will use, in plain words."""
+    return AI_GENERATOR_LABEL if llm_service.ai_enabled() else GENERATOR_LABEL
 
 DIFFICULTIES: List[str] = ["Foundation", "Core", "Extension"]
 
@@ -476,46 +490,77 @@ def generate_practice_questions(
     difficulty: str,
     count: int = 3,
     start: int = 0,
+    examples: Sequence[str] = (),
 ) -> List[PracticeQuestion]:
-    """Generate practice questions from deterministic templates.
+    """Generate practice questions: AI first, templates for anything missing.
 
     `start` continues a sequence: questions `start`..`start + count - 1`, so two
-    calls for the same topic can rotate through different templates rather than
-    both beginning with the first one.
+    calls for the same topic rotate through different templates (and ask the
+    AI for a different set) rather than repeating the first ones.
+
+    `examples` are question texts the student found hard; the AI writes new
+    questions practising the same skills. The templates ignore them.
+
+    Raises ValueError when neither the AI nor a template can supply a question
+    for the topic.
     """
     count = max(1, min(int(count), 10))
     start = max(0, int(start))
     resolved = template_topic_for(topic)
     builders = _TEMPLATES.get(resolved) if resolved else None
-    if not builders:
-        raise ValueError(f"No practice templates are available for topic '{topic}'.")
-
-    low, high = _DIFFICULTY_RANGE.get(difficulty, _DIFFICULTY_RANGE["Core"])
     remediation = _ERROR_PROMPTS.get(error_type, "Work carefully and show your reasoning.")
+    label = resolved or (topic or "").strip()
 
-    questions: List[PracticeQuestion] = []
-    for offset in range(count):
-        index = start + offset
-        rng = _seed_for(resolved, error_type, difficulty, index)
-        built = builders[index % len(builders)](rng, low, high)
-        questions.append(
-            PracticeQuestion(
-                number=offset + 1,
-                topic=resolved,
-                difficulty=difficulty,
-                error_focus=error_type.label,
-                question_text=built.question,
-                method_hint=built.pointer,
-                skill_focus=f"{built.focus} {remediation}",
-            )
+    written = ai_practice_service.ai_practice(
+        label, error_type, difficulty, count, start, examples
+    ) if label else []
+    questions = [
+        PracticeQuestion(
+            number=0,
+            topic=label,
+            difficulty=difficulty,
+            error_focus=error_type.label,
+            question_text=item["question_text"],
+            method_hint=item["method_hint"],
+            skill_focus=f"{item['skill_focus'].rstrip('.')}. {remediation}",
         )
+        for item in written
+    ]
+
+    if len(questions) < count and builders:
+        low, high = _DIFFICULTY_RANGE.get(difficulty, _DIFFICULTY_RANGE["Core"])
+        for offset in range(len(questions), count):
+            index = start + offset
+            rng = _seed_for(resolved, error_type, difficulty, index)
+            built = builders[index % len(builders)](rng, low, high)
+            questions.append(
+                PracticeQuestion(
+                    number=0,
+                    topic=resolved,
+                    difficulty=difficulty,
+                    error_focus=error_type.label,
+                    question_text=built.question,
+                    method_hint=built.pointer,
+                    skill_focus=f"{built.focus} {remediation}",
+                )
+            )
+
+    if not questions:
+        raise ValueError(f"No practice templates are available for topic '{topic}'.")
+    for number, question in enumerate(questions, start=1):
+        question.number = number
     return questions
 
 
 def available_topics(extra: Sequence[str] = ()) -> List[str]:
-    """Template topics, plus any assessment topics that also have templates."""
+    """Template topics, plus the assessment topics questions can be made for.
+
+    With AI on, any topic can be practised, so every extra topic is offered;
+    without it, only those that also have templates.
+    """
     known = list(TOPICS)
+    ai_on = llm_service.ai_enabled()
     for topic in extra:
-        if topic in _TEMPLATES and topic not in known:
+        if topic and topic not in known and (ai_on or topic in _TEMPLATES):
             known.append(topic)
     return known

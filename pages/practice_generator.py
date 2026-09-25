@@ -17,6 +17,7 @@ from components.layout import hint_note, page_header, privacy_notice
 from models import ErrorType
 from services import analytics_service as analytics
 from services import assessment_service as service
+from services import llm_service
 from services import practice_service
 from services import state as store
 from services import targeted_practice_service as targeted
@@ -32,7 +33,10 @@ page_header(
     "chosen.",
 )
 
-st.warning(practice_service.GENERATOR_LABEL, icon=":material/construction:")
+if llm_service.ai_enabled():
+    st.info(practice_service.generator_label(), icon=":material/smart_toy:")
+else:
+    st.warning(practice_service.generator_label(), icon=":material/construction:")
 
 _viewer = store.get_current_user()
 _is_student = _viewer is not None and _viewer.is_student
@@ -139,7 +143,8 @@ if mode == FROM_RESULTS:
             value=targeted.DEFAULT_TOTAL,
             step=1,
         )
-        plan = targeted.generate_targeted_practice(frame, total=int(count), whose=whose)
+        with st.spinner("Writing practice questions..."):
+            plan = targeted.generate_targeted_practice(frame, total=int(count), whose=whose)
 
         with st.expander("What the results show"):
             st.dataframe(
@@ -160,7 +165,7 @@ if mode == FROM_RESULTS:
             )
             if plan.unsupported_topics:
                 st.caption(
-                    "No practice templates exist yet for "
+                    "No practice questions could be made for "
                     + ", ".join(plan.unsupported_topics)
                     + ", so those topics were left out."
                 )
@@ -175,7 +180,10 @@ if mode == FROM_RESULTS:
             topics = list(dict.fromkeys(t.topic for t in plan.targets))
             st.subheader(f"{len(plan.items)} practice question(s) · {', '.join(topics)}")
             st.caption(
-                "The same results always produce the same questions. New graded "
+                "Written from the questions that lost the most marks. New graded "
+                "work changes the mix."
+                if llm_service.ai_enabled()
+                else "The same results always produce the same questions. New graded "
                 "work changes the mix."
             )
             for item in plan.items:
@@ -210,10 +218,11 @@ else:
             "Number of questions", min_value=1, max_value=10, value=3, step=1
         )
 
-    st.caption(
-        "The same selections always produce the same questions - the generator is "
-        "deterministic, not random."
-    )
+    if not llm_service.ai_enabled():
+        st.caption(
+            "The same selections always produce the same questions - the generator is "
+            "deterministic, not random."
+        )
 
     if st.button("Generate practice questions", type="primary"):
         st.session_state["practice_request"] = {
@@ -228,12 +237,13 @@ else:
     if request:
         st.divider()
         try:
-            questions = practice_service.generate_practice_questions(
-                topic=request["topic"],
-                error_type=ErrorType(request["error_type"]),
-                difficulty=request["difficulty"],
-                count=request["count"],
-            )
+            with st.spinner("Writing practice questions..."):
+                questions = practice_service.generate_practice_questions(
+                    topic=request["topic"],
+                    error_type=ErrorType(request["error_type"]),
+                    difficulty=request["difficulty"],
+                    count=request["count"],
+                )
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:

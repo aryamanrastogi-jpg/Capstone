@@ -17,14 +17,15 @@ THE ONE RULE
   15 into the formula". The formula is method; the number is the answer.
 
 HOW IT WORKS
-  Deterministic pattern matching on the question text, in the same spirit as
-  the mock grader: transparent, free, and identical every time. `_SHAPES` is
-  an ordered list of (matcher, template) pairs - the first match wins, so more
-  specific shapes are listed before broader ones.
+  When an AI provider is configured (Gemini, see `ai_hint_service`), guidance
+  and the hint ladder are written by the model first - from the question text
+  and, for the ladder, the student's own attempt; never the model answer. Any
+  question the AI declines, fails or leaks on falls back to the templates here.
 
-  In Phase 2 this is where an LLM goes. Keep `guidance_for`'s signature and its
-  `Guidance` return type and nothing else has to change - and keep the rule
-  above, which for an LLM means never putting the model answer in the prompt.
+  The templates are deterministic pattern matching on the question text, in
+  the same spirit as the mock grader: transparent, free, and identical every
+  time. `_SHAPES` is an ordered list of (matcher, template) pairs - the first
+  match wins, so more specific shapes are listed before broader ones.
 
 TRY CHANGING THIS
   Add a shape for simultaneous equations. Write the matcher, write the
@@ -38,6 +39,7 @@ from typing import Callable, List, Sequence, Tuple
 
 from models import ErrorType, Question, Subject
 from models.guidance import GENERIC_SHAPE, Guidance
+from services import ai_hint_service
 
 HINT_ENGINE_NAME = "Rule-based guidance v1 (no LLM)"
 
@@ -295,6 +297,11 @@ def guidance_for(question: Question, subject: Subject = Subject.MATHEMATICS) -> 
     criteria are deliberately not consulted, so nothing this returns can give
     the answer away - see the module docstring.
     """
+    return guidance_for_questions([question], subject)[0]
+
+
+def rule_based_guidance(question: Question, subject: Subject = Subject.MATHEMATICS) -> Guidance:
+    """The template guidance for one question - the fallback for the AI."""
     text = question.question_text or ""
 
     # Outside mathematics, a written-answer question is the common case, so a
@@ -318,8 +325,13 @@ def guidance_for_questions(
     questions: Sequence[Question],
     subject: Subject = Subject.MATHEMATICS,
 ) -> List[Guidance]:
-    """Guidance for a whole set, in the order the questions are given."""
-    return [guidance_for(q, subject) for q in questions]
+    """Guidance for a whole set, in the order the questions are given.
+
+    AI-written where a provider is configured (one call for the set), with the
+    templates filling in any question the AI did not handle.
+    """
+    written = ai_hint_service.ai_guidance(questions, subject)
+    return [written.get(i) or rule_based_guidance(q, subject) for i, q in enumerate(questions)]
 
 
 def _match(text: str) -> _Template:
@@ -401,13 +413,17 @@ def escalating_pointers(
     error_types: Sequence[ErrorType] = (),
     subject: Subject = Subject.MATHEMATICS,
     level: int = 1,
+    student_answer: str = "",
 ) -> List[str]:
     """Pointers for one missed question, sharpened by how many goes have gone.
 
-    Like `guidance_for`, this reads the question text only. Nothing here can
-    contain a value from the model answer because it never sees one.
+    Like `guidance_for`, this reads the question text only - plus, for the AI,
+    the student's own attempt. Neither path ever sees the model answer.
     """
     level = max(1, min(MAX_HINT_LEVEL, int(level)))
+    written = ai_hint_service.ai_pointers(question, error_types, subject, level, student_answer)
+    if written:
+        return written
     pointers: List[str] = []
 
     template = _match(question.question_text or "")

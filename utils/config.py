@@ -53,6 +53,10 @@ PRIVACY_DETAILS = (
     "kept only as a one-way hash, and cannot be read by the app or your "
     "teacher. Emails, passwords and sign-in tokens are never written to logs "
     "or shown on screen.",
+    "**AI marking.** When AI marking is switched on, the text of your answer "
+    "and the question (never your name or email) is sent to Google's Gemini "
+    "service to be marked. On Gemini's free tier, Google may use that text to "
+    "improve its products.",
     "**Deleting it.** Profile > Delete account removes your account, your "
     "photo, your profile and the work saved under it straight away. It "
     "cannot be undone.",

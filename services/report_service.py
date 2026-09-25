@@ -28,6 +28,7 @@ from dataclasses import asdict, dataclass
 from typing import Dict, List, Optional, Sequence
 
 from models import Assessment, GradingResult, Submission
+from models.grading import rating_for
 
 REPORT_COLUMNS = [
     "student",
@@ -35,6 +36,7 @@ REPORT_COLUMNS = [
     "question",
     "score",
     "max_marks",
+    "rating",
     "error_categories",
     "teacher_feedback",
     "review_state",
@@ -55,6 +57,7 @@ class ReportRow:
     question: str
     score: float
     max_marks: float
+    rating: int  # 1-5, see models.grading.rating_for
     error_categories: str
     teacher_feedback: str
     review_state: str
@@ -120,6 +123,7 @@ def build_report(
                 question=question.question_text if question else result.question_id,
                 score=float(result.final_score or 0.0),
                 max_marks=float(result.max_marks),
+                rating=rating_for(result.final_score or 0.0, result.max_marks),
                 error_categories="; ".join(e.error_type.label for e in result.errors),
                 teacher_feedback=result.final_feedback,
                 review_state=result.review_status.label,
@@ -229,7 +233,7 @@ def to_pdf(report: Report, title: str = "CampPrep AI results report") -> Optiona
             lines += [("", 10), (f"Student {row.student}", 12)]
         lines.append((
             f"{row.assessment} | {row.question} | {row.score:g} / {row.max_marks:g} "
-            f"| {row.review_state}", 10))
+            f"(rating {row.rating}/5) | {row.review_state}", 10))
         if row.error_categories:
             lines.append((f"    Errors: {row.error_categories}", 9))
         if row.teacher_feedback:

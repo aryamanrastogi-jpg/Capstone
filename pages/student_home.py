@@ -148,7 +148,9 @@ if not assessment.is_gradable:
         "cannot score it. Here is how to approach each question instead.",
         icon=":material/lightbulb:",
     )
-    guidance_list(hint_service.guidance_for_questions(assessment.questions, assessment.subject))
+    with st.spinner("Writing hints for each question..."):
+        guidance = hint_service.guidance_for_questions(assessment.questions, assessment.subject)
+    guidance_list(guidance)
     st.caption(
         f"{missing} question(s) have no answer stored. Add the answers on My "
         "Questions when you have the mark scheme, and this set becomes scorable."
@@ -212,7 +214,9 @@ if state.is_exhausted:
         icon=":material/pause_circle:",
     )
     with st.expander("How to approach the ones you have left", expanded=True):
-        guidance_list(hint_service.guidance_for_questions(outstanding, assessment.subject))
+        with st.spinner("Writing hints..."):
+            guidance = hint_service.guidance_for_questions(outstanding, assessment.subject)
+        guidance_list(guidance)
 
 # The input form only exists while there is something left to attempt. A
 # finished or exhausted set still shows its history below.
@@ -222,13 +226,17 @@ if state.can_attempt:
             st.markdown(f"**Q{index}. ({question.max_marks} marks)** {question.question_text}")
 
     # Available before an attempt as well as after one - a student who is stuck at
-    # the start should not have to submit something wrong to get a pointer.
-    with st.expander("Show me how to approach these"):
+    # the start should not have to submit something wrong to get a pointer. A
+    # toggle rather than an expander: expander bodies run even when closed, and
+    # the hints may cost an AI call, so they are only made when asked for.
+    if st.toggle("Show me how to approach these", key=f"hints_{assessment.id}"):
         st.caption(
             "Method only. This never contains the answer - it is built from the "
             "question text and nothing else."
         )
-        guidance_list(hint_service.guidance_for_questions(outstanding, assessment.subject))
+        with st.spinner("Writing hints..."):
+            guidance = hint_service.guidance_for_questions(outstanding, assessment.subject)
+        guidance_list(guidance)
 
     mode = st.radio(
         "How do you want to add your answers?",
@@ -437,7 +445,7 @@ for submission in recent:
     if not results:
         continue
 
-    awarded = sum(r.suggested_score for r in results)
+    awarded = sum(r.effective_score for r in results)
     available = sum(r.max_marks for r in results)
     official = all(r.is_finalised for r in results)
 
@@ -468,8 +476,12 @@ for submission in recent:
             score_col, detail_col = st.columns([1, 3])
             with score_col:
                 st.metric(
-                    "Estimate" if view["is_estimate"] else "Mark",
-                    f"{view['score']:g} / {view['max_marks']:g}",
+                    "Rating (estimate)" if view["is_estimate"] else "Rating",
+                    f"{view['rating']} / 5",
+                    help="How good this answer is, from 1 (not there yet) to 5 (spot on).",
+                )
+                st.caption(
+                    f"{view['rating_label']} · {view['score']:g}/{view['max_marks']:g} marks"
                 )
                 confidence_badge(view["confidence"])
             with detail_col:

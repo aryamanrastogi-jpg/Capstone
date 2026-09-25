@@ -17,6 +17,11 @@ Every item carries a plain-language reason, so the page can say *why* it was
 chosen. Nothing here shows a worked solution: questions come from
 `practice_service`, whose hints are pointers only.
 
+With AI on, the questions are written from the student's own answers: the
+lowest-scoring question texts in each chosen topic go to the model as
+examples of what to practise, and topics with no templates are kept rather
+than dropped. Only question text is sent - never names or model answers.
+
 Pure functions, no Streamlit.
 """
 
@@ -28,6 +33,7 @@ from typing import Dict, List, Sequence, Tuple
 import pandas as pd
 
 from models import ErrorType
+from services import llm_service
 from services.practice_service import (
     DIFFICULTIES,
     PracticeQuestion,
@@ -45,6 +51,8 @@ MAX_ERRORS_PER_TOPIC = 2
 SECURE_PERCENTAGE = 85.0
 # Floor on a topic's weight so a strong-but-chosen topic still gets a question.
 _MIN_WEIGHT = 5.0
+# Hardest questions per topic handed to the AI as "practise things like this".
+MAX_EXAMPLES = 3
 
 DEFAULT_FOCUS = ErrorType.MISSING_WORKING
 
@@ -120,13 +128,18 @@ def topic_evidence(frame: pd.DataFrame) -> Tuple[List[TopicEvidence], List[str]]
     """Evidence per template topic, weakest first, plus topics with no templates.
 
     Free-text topics are folded into the template topic they belong to, so a
-    student's own "Percentage change" set counts towards "Percentages".
+    student's own "Percentage change" set counts towards "Percentages". With
+    AI on, a topic with no template keeps its own name instead of being left
+    out, because the AI can write questions for it.
     """
     if frame is None or frame.empty:
         return [], []
 
+    ai_on = llm_service.ai_enabled()
     working = frame.copy()
-    working["template_topic"] = working["topic"].map(template_topic_for)
+    working["template_topic"] = working["topic"].map(
+        lambda topic: template_topic_for(topic) or (str(topic) if ai_on and topic else None)
+    )
     unsupported = sorted(
         {str(t) for t in working.loc[working["template_topic"].isna(), "topic"]}
     )
@@ -145,6 +158,22 @@ def topic_evidence(frame: pd.DataFrame) -> Tuple[List[TopicEvidence], List[str]]
         )
     evidence.sort(key=lambda e: (e.avg_percentage, -e.total_errors, e.topic))
     return evidence, unsupported
+
+
+def hardest_questions(
+    frame: pd.DataFrame, topics: Sequence[str], limit: int = MAX_EXAMPLES
+) -> List[str]:
+    """The lowest-scoring question texts in these topics, worst first.
+
+    Only questions that lost marks count - there is nothing to practise in one
+    answered perfectly.
+    """
+    if frame is None or frame.empty or "question_text" not in frame:
+        return []
+    rows = frame[frame["topic"].isin(list(topics)) & (frame["percentage"] < 100)]
+    rows = rows.sort_values("percentage", kind="stable")
+    texts = [str(t).strip() for t in rows["question_text"] if str(t or "").strip()]
+    return list(dict.fromkeys(texts))[:limit]
 
 
 def overall_error_counts(frame: pd.DataFrame) -> List[Tuple[ErrorType, int]]:
@@ -299,23 +328,33 @@ def generate_targeted_practice(
 ) -> TargetedPractice:
     """Build practice questions aimed at the weaknesses in `frame`.
 
-    Deterministic: the same results always give the same questions. Questions
-    for one topic continue a single template rotation, so two error categories
-    in the same topic do not both start with the same kind of question.
+    Without AI this is deterministic: the same results always give the same
+    questions. Questions for one topic continue a single rotation, so two
+    error categories in the same topic do not both start with the same kind of
+    question. With AI, each topic's hardest questions are passed along as
+    examples, and a topic the AI cannot serve (and has no template for) is
+    moved to `unsupported_topics` rather than failing the whole plan.
     """
     targets, evidence, unsupported = build_targets(frame, total, max_topics, whose)
+    sources = {e.topic: e.source_topics for e in evidence}
 
     items: List[TargetedItem] = []
     next_index: Dict[str, int] = {}
     for target in targets:
         start = next_index.get(target.topic, 0)
-        questions = generate_practice_questions(
-            topic=target.topic,
-            error_type=target.error_type,
-            difficulty=target.difficulty,
-            count=target.count,
-            start=start,
-        )
+        try:
+            questions = generate_practice_questions(
+                topic=target.topic,
+                error_type=target.error_type,
+                difficulty=target.difficulty,
+                count=target.count,
+                start=start,
+                examples=hardest_questions(frame, sources.get(target.topic, [target.topic])),
+            )
+        except ValueError:
+            if target.topic not in unsupported:
+                unsupported = sorted([*unsupported, target.topic])
+            continue
         next_index[target.topic] = start + len(questions)
         items.extend(TargetedItem(question=q, reason=target.reason) for q in questions)
 

@@ -151,9 +151,9 @@ def test_teacher_workflow_from_assessment_to_report(
     )))
     ours = [row for row in table if len(row) > 2 and row[1] == TITLE]
     assert ours == [[code, TITLE, QUESTION, str(float(suggested)), "2.0",
-                     ours[0][5], approved.final_feedback, "Approved"]]
+                     str(approved.rating), ours[0][6], approved.final_feedback, "Approved"]]
     assert any(row and row[0] == "All assessments" for row in table)
-    exported = {(row[0], row[2]) for row in table if len(row) == 8}
+    exported = {(row[0], row[2]) for row in table if len(row) == 9}
     for result in all_results:
         if not result.is_finalised:
             sub = next(s for s in at.session_state["submissions"]

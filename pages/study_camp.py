@@ -125,12 +125,13 @@ if camp is None:
 
     if st.button("Start my study camp", type="primary", disabled=not chosen):
         try:
-            new_camp = camps.build_camp(
-                student_id=student.id,
-                frame=frame,
-                topics=chosen,
-                duration_days=duration,
-            )
+            with st.spinner("Writing your practice questions..."):
+                new_camp = camps.build_camp(
+                    student_id=student.id,
+                    frame=frame,
+                    topics=chosen,
+                    duration_days=duration,
+                )
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:

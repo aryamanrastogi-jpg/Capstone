@@ -4,10 +4,10 @@ Turns a weakness analysis into a short, dated revision programme. This is the
 "and then do something about it" step that separates the app from asking a
 chatbot to mark one question.
 
-Questions come from the existing template generator in `practice_service`, so
-the camp is deterministic: the same weaknesses produce the same programme.
-Phase 2 swaps that generator for a real AI service and this module keeps
-working unchanged.
+Questions come from `practice_service`: AI-written when a provider is
+configured, otherwise from its templates (deterministic - the same weaknesses
+produce the same programme). Camps stay on template topics so the templates
+can always stand in for a failed AI call.
 """
 
 from __future__ import annotations
@@ -143,11 +143,15 @@ def build_camp(
         # the camp rather than being covered once and dropped.
         topic = chosen[(day - 1) % len(chosen)]
         focus = dominant_error_for_topic(frame, topic)
+        # Each return to a topic continues its sequence instead of repeating
+        # the first day's questions.
+        rotation = (day - 1) // len(chosen)
         questions = generate_practice_questions(
             topic=topic,
             error_type=focus,
             difficulty=difficulty,
             count=QUESTIONS_PER_SESSION,
+            start=rotation * QUESTIONS_PER_SESSION,
         )
         sessions.append(
             StudySession(

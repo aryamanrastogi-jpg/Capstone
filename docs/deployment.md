@@ -152,12 +152,12 @@ Push `main` to the GitHub repository (currently `origin` = `github.com/aryamanra
 ```toml
 SUPABASE_URL = "https://<project-ref>.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
-LLM_API_KEY = ""
-LLM_MODEL = ""
+LLM_API_KEY = "<Gemini key from aistudio.google.com/apikey>"
+LLM_MODEL = "gemini:gemini-2.5-flash"
 ```
 
 - Keys must be at **root level** - no `[supabase]` section header. Community Cloud exposes root-level secrets as environment variables, and `utils/config.py` reads everything with `os.getenv`. Keys inside a `[section]` are not exported as environment variables, so the app would not see them.
-- `LLM_API_KEY` / `LLM_MODEL` can stay empty. The AI grading pipeline being added falls back to rule-based grading when no provider is configured.
+- `LLM_API_KEY` / `LLM_MODEL` turn on AI grading with Google Gemini (free tier works). Leave them empty and grading stays rule-based. The free tier is rate-limited; an answer that hits the limit is marked by the rule-based grader instead.
 - **Never** put the Supabase secret / `service_role` key here.
 - To change secrets later: app menu (three dots) -> **Settings -> Secrets**. The app restarts on save.
 

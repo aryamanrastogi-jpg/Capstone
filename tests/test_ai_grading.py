@@ -1,7 +1,8 @@
 """Tests for the AI grading pipeline: prompt, validation, fallback, evaluation.
 
-No provider exists yet, so every model here is a FakeGradingModel. The point
-is to pin down the contract a real provider will have to meet.
+Every model here is a FakeGradingModel, so nothing touches the network. The
+point is to pin down the contract every provider (Gemini included, see
+tests/test_gemini_provider.py) has to meet.
 """
 
 from __future__ import annotations
@@ -310,8 +311,8 @@ class TestRegistry:
         assert seen["settings"] is settings
         assert "fakeprov" in ai.registered_providers()
 
-    def test_no_provider_is_registered_by_default(self):
-        assert ai.registered_providers() == []
+    def test_only_builtin_providers_are_registered_by_default(self):
+        assert ai.registered_providers() == ["gemini"]
 
 
 # --------------------------------------------------------------------------
@@ -556,3 +557,47 @@ class TestEvaluationDataset:
         assert main(["--ai", "--show-misses"]) == 0
         out = capsys.readouterr().out
         assert "rule_based=" in out and "More than half a mark off" in out
+
+
+# --------------------------------------------------------------------------
+# 1-5 rating and engine description
+# --------------------------------------------------------------------------
+class TestRating:
+    @pytest.mark.parametrize(
+        "score, max_marks, expected",
+        [(0, 3, 1), (0.5, 3, 2), (1, 3, 2), (1.5, 3, 3), (2, 3, 4), (2.5, 3, 4), (3, 3, 5),
+         (0, 1, 1), (1, 1, 5), (0.5, 1, 3), (5, 10, 3), (10, 10, 5)],
+    )
+    def test_rating_scale(self, score, max_marks, expected):
+        from models.grading import rating_for
+        assert rating_for(score, max_marks) == expected
+
+    def test_rating_follows_the_teacher_mark(self, question):
+        from models import ReviewStatus
+        result = _parse(_raw(suggested_score=1), question)
+        assert result.rating == 2
+        result.teacher_approved_score = 3
+        result.review_status = ReviewStatus.EDITED
+        assert result.rating == 5
+
+    def test_student_view_shows_rating_and_teacher_mark(self, question):
+        from models import ReviewStatus
+        result = _parse(_raw(suggested_score=1), question)
+        result.teacher_approved_score = 3
+        result.review_status = ReviewStatus.EDITED
+        view = grading_service.student_safe_view(result, question)
+        assert view["score"] == 3
+        assert view["rating"] == 5
+        assert view["rating_label"] == "Spot on"
+
+
+class TestDescribeEngine:
+    def test_rule_based_without_key(self):
+        assert ai.describe_grading_engine(Settings()) == grading_service.MOCK_ENGINE_NAME
+
+    def test_names_gemini_without_revealing_the_key(self):
+        text = ai.describe_grading_engine(
+            Settings(llm_api_key="secret-key", llm_model="gemini:gemini-2.5-flash")
+        )
+        assert text.startswith("Gemini (gemini-2.5-flash)")
+        assert "secret-key" not in text

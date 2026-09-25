@@ -20,13 +20,11 @@ from components.status_badges import (
     review_status_label,
 )
 from models import GradingResult, ReviewStatus, Submission
+from models.grading import rating_for
 from services import assessment_service as service
 from services import state as store
-from services.grading_service import (
-    MOCK_ENGINE_NAME,
-    apply_teacher_decision,
-    grade_submission,
-)
+from services.ai_grading_service import describe_grading_engine
+from services.grading_service import apply_teacher_decision, grade_submission
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +70,7 @@ page_header(
     "Flag parks the result for a second look without approving it.",
 )
 
-ai_disclaimer(f"Grading engine: {MOCK_ENGINE_NAME}.")
+ai_disclaimer(f"Grading engine: {describe_grading_engine()}.")
 
 assessments = service.list_assessments_for_teacher()
 submissions = service.list_submissions()
@@ -166,7 +164,7 @@ if assessment is None:
 results = service.list_grading_results(submission.id)
 if not results:
     st.info("This submission has not been graded yet.", icon=":material/info:")
-    if st.button("Run mock grading", type="primary"):
+    if st.button("Grade this submission", type="primary"):
         for result in grade_submission(
             assessment.questions,
             submission.submission_text,
@@ -247,7 +245,11 @@ for index, result in enumerate(results, start=1):
         with rec_a:
             st.metric(
                 "Suggested score",
-                f"{result.suggested_score} / {result.max_marks}",
+                f"{result.suggested_score:g} / {result.max_marks:g}",
+            )
+            st.caption(
+                f"Student sees {rating_for(result.suggested_score, result.max_marks)}/5 "
+                "until you decide."
             )
             confidence_badge(result.confidence)
         with rec_b:
