@@ -13,45 +13,46 @@
 base = "light"
 
 primaryColor = "#1B2CC1"           # palette.PRIMARY
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F4F6FB"
-textColor = "#0F172A"              # palette.INK
+backgroundColor = "#F6F7FE"        # palette.CANVAS
+secondaryBackgroundColor = "#EEF0FC"
+textColor = "#0E1340"              # palette.INK
 linkColor = "#1B2CC1"
 linkUnderline = false
-borderColor = "#E2E8F0"            # palette.BORDER
-dataframeBorderColor = "#E2E8F0"
-dataframeHeaderBackgroundColor = "#F1F5F9"
+borderColor = "#E2E5F5"            # palette.BORDER
+dataframeBorderColor = "#E2E5F5"
+dataframeHeaderBackgroundColor = "#EEF0FC"
 
-# Type. No webfont is loaded on purpose: the app has to look right offline and
-# on a school network, so it uses the platform UI face (Segoe UI Variable on
-# Windows, SF Pro on macOS, Roboto on Android) with a fixed fallback stack.
-font = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-headingFont = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+# Type. Plus Jakarta Sans for its rounded, friendly geometry - it reads well
+# at the small sizes a mark sheet needs. Streamlit falls back to its own sans
+# stack when Google Fonts is unreachable (offline, or a school filter), so the
+# app still looks right without it.
+font = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap"
+headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap"
 codeFont = "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace"
 baseFontSize = 15
-headingFontSizes = ["2rem", "1.45rem", "1.15rem", "1rem", "0.95rem", "0.9rem"]
-headingFontWeights = [700, 700, 650, 600, 600, 600]
-metricValueFontSize = "1.65rem"
-metricValueFontWeight = 700
+headingFontSizes = ["2.1rem", "1.5rem", "1.2rem", "1.02rem", "0.95rem", "0.9rem"]
+headingFontWeights = [800, 800, 700, 700, 650, 650]
+metricValueFontSize = "1.8rem"
+metricValueFontWeight = 800
 
-# Shape. One radius for surfaces, a slightly tighter one for controls.
-baseRadius = "0.7rem"
-buttonRadius = "0.6rem"
+# Shape. Soft, generous corners - the app is for 12 to 15 year olds.
+baseRadius = "1rem"
+buttonRadius = "0.85rem"
 showWidgetBorder = true
-showSidebarBorder = true
+showSidebarBorder = false
 
 # Semantic families, mapped onto the palette.
 blueColor = "#1B2CC1"
-blueBackgroundColor = "#E9EBFA"
+blueBackgroundColor = "#E6E9FC"
 blueTextColor = "#16218F"
 greenColor = "#76C457"
-greenBackgroundColor = "#EAF6E3"
-greenTextColor = "#3B7A22"
+greenBackgroundColor = "#E8F6E1"
+greenTextColor = "#35711E"
 redColor = "#DF301C"
-redBackgroundColor = "#FCE6E3"
-redTextColor = "#96200F"
+redBackgroundColor = "#FDE5E1"
+redTextColor = "#962010"
 orangeColor = "#FF9100"
-orangeBackgroundColor = "#FFF1DE"
+orangeBackgroundColor = "#FFF0DB"
 orangeTextColor = "#8A4E00"
 yellowColor = "#FF9100"
 yellowBackgroundColor = "#FFF6E5"
@@ -59,9 +60,9 @@ yellowTextColor = "#8A4E00"
 violetColor = "#2F39A9"
 violetBackgroundColor = "#ECEEFA"
 violetTextColor = "#232C82"
-grayColor = "#475569"
-grayBackgroundColor = "#F1F5F9"
-grayTextColor = "#334155"
+grayColor = "#555C85"
+grayBackgroundColor = "#F1F3FC"
+grayTextColor = "#3A4170"
 
 # Charts read from the same six colours as the rest of the UI. Green and red
 # come last so a two-series chart never accidentally implies correct/incorrect.
@@ -72,10 +73,16 @@ chartSequentialColors = [
 ]
 
 
+# The sidebar is the one dark surface: a deep indigo rail that the white
+# content canvas sits against. Cyan marks the active item.
 [theme.sidebar]
-backgroundColor = "#F7F9FC"
-secondaryBackgroundColor = "#EDF1F8"
-borderColor = "#E2E8F0"
+backgroundColor = "#141E8C"
+secondaryBackgroundColor = "#26319F"
+textColor = "#E9ECFF"
+primaryColor = "#1DCED8"
+linkColor = "#1DCED8"
+borderColor = "#3440B0"
+codeBackgroundColor = "#26319F"
 
 [server]
 maxUploadSize = 5

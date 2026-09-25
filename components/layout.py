@@ -2,10 +2,16 @@
 
 The rule this file exists to enforce: a page describes *what* it is showing,
 never *how* it looks. Colours come from `utils.palette`, shape and type come
-from `.streamlit/config.toml`, and the handful of things Streamlit's theme
-cannot express - card surfaces, badges, and the responsive rules that keep a
-row of columns from being squashed on a phone - come from the one style block
-below.
+from `.streamlit/config.toml`, and the things Streamlit's theme cannot express
+- the page banner, card surfaces, chunky buttons, badges, and the responsive
+rules that keep a row of columns from being squashed on a phone - come from
+the one style block below.
+
+The look, in one breath: a deep indigo sidebar rail, a pale indigo canvas,
+white cards with soft shadows, and a gradient banner at the top of every page.
+The six palette colours appear together in one place only - the stripe under
+the banner - and everywhere else each colour keeps the single job it was
+given in `utils.palette`.
 
 Responsiveness, in three moves:
   1. Columns wrap instead of shrinking, and stack outright below 720px.
@@ -25,7 +31,7 @@ from services import state as store
 from utils import palette
 from utils.config import AI_DISCLAIMER, APP_TAGLINE, PRIVACY_NOTICE
 
-HEADING = palette.PRIMARY_DARK
+HEADING = palette.INK
 ACCENT = palette.PRIMARY
 
 # Widths below this stack; between this and the wide breakpoint, columns wrap
@@ -39,20 +45,74 @@ _WRAP_BREAKPOINT = "1100px"
 # a heading actually render as a heading.
 _IN = '[data-testid="stMarkdownContainer"]'
 
+_SIDEBAR = '[data-testid="stSidebar"]'
+
+# The banner gradient: deep blue into indigo into night, with a cyan glow top
+# right and a warm orange one bottom right so the corner never looks flat.
+_BANNER = (
+    "radial-gradient(120% 140% at 100% 0%, rgba(29, 206, 216, 0.38) 0%, "
+    "rgba(29, 206, 216, 0) 42%), "
+    "radial-gradient(90% 120% at 85% 120%, rgba(255, 145, 0, 0.30) 0%, "
+    "rgba(255, 145, 0, 0) 48%), "
+    f"linear-gradient(125deg, {palette.BLUE_DEEP} 0%, {palette.BLUE_INDIGO} 55%, "
+    f"{palette.NIGHT} 100%)"
+)
+
+
+def _stripe(colours: Sequence[str]) -> str:
+    """Equal hard-stopped bands of colour, left to right - the brand motif."""
+    step = 100 / len(colours)
+    bands = ", ".join(
+        f"{colour} {i * step:.2f}% {(i + 1) * step:.2f}%"
+        for i, colour in enumerate(colours)
+    )
+    return f"linear-gradient(90deg, {bands})"
+
+
+# All six on a light surface. On the dark banner and sidebar the two blues
+# would vanish into the background, so those carry the four accents only.
+_STRIPE = _stripe(palette.PALETTE)
+_STRIPE_ON_DARK = _stripe((palette.CYAN, palette.GREEN, palette.ORANGE, palette.RED))
+
+# Tile accents, handed out by column position so a row of four metrics reads
+# as four different things at a glance.
+_TILE_ACCENTS = (palette.PRIMARY, palette.HINT, palette.WARNING, palette.CORRECT)
+
+# Icon tile tones for `info_card`: (tile background, glyph colour).
+_TONES = {
+    "primary": (palette.TINT_PRIMARY[0], palette.PRIMARY),
+    "hint": (palette.TINT_HINT[0], palette.TINT_HINT[1]),
+    "correct": (palette.TINT_CORRECT[0], palette.TINT_CORRECT[1]),
+    "warning": (palette.TINT_WARNING[0], palette.TINT_WARNING[1]),
+    "incorrect": (palette.TINT_INCORRECT[0], palette.TINT_INCORRECT[1]),
+}
+
+_tile_rules = "\n".join(
+    f'  [data-testid="stColumn"]:nth-child(4n+{i + 1}) [data-testid="stMetric"] '
+    f"{{ --cp-tile: {colour}; }}"
+    for i, colour in enumerate(_TILE_ACCENTS)
+)
+
 _STYLES = f"""
 <style>
   :root {{
-      --aa-primary: {palette.PRIMARY};
-      --aa-primary-dark: {palette.PRIMARY_DARK};
-      --aa-hint: {palette.HINT};
-      --aa-ink: {palette.INK};
-      --aa-muted: {palette.MUTED};
-      --aa-border: {palette.BORDER};
-      --aa-surface: {palette.SURFACE};
-      --aa-surface-alt: {palette.SURFACE_ALT};
-      --aa-radius: 12px;
-      --aa-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
-                   0 8px 24px -16px rgba(15, 23, 42, 0.18);
+      --cp-primary: {palette.PRIMARY};
+      --cp-primary-dark: {palette.PRIMARY_DARK};
+      --cp-lip: {palette.PRIMARY_LIP};
+      --cp-hint: {palette.HINT};
+      --cp-ink: {palette.INK};
+      --cp-muted: {palette.MUTED};
+      --cp-border: {palette.BORDER};
+      --cp-surface: {palette.SURFACE};
+      --cp-surface-alt: {palette.SURFACE_ALT};
+      --cp-radius: 18px;
+      --cp-radius-sm: 12px;
+      --cp-shadow: 0 1px 2px rgba(14, 19, 64, 0.04),
+                   0 10px 30px -18px rgba(27, 44, 193, 0.28);
+      --cp-shadow-lift: 0 2px 4px rgba(14, 19, 64, 0.05),
+                        0 18px 40px -20px rgba(27, 44, 193, 0.38);
+      --cp-stripe: {_STRIPE};
+      --cp-stripe-dark: {_STRIPE_ON_DARK};
   }}
 
   /* --- Page canvas ----------------------------------------------------- */
@@ -60,53 +120,110 @@ _STYLES = f"""
      feedback text is unreadable at 1800px. */
   .stMainBlockContainer {{
       max-width: 1180px;
-      padding-top: 2.4rem;
+      padding-top: 2.2rem;
       padding-bottom: 4rem;
   }}
+  [data-testid="stHeader"] {{
+      background: rgba(246, 247, 254, 0.8);
+      backdrop-filter: blur(10px);
+  }}
+  .stMainBlockContainer h1, .stMainBlockContainer h2,
+  .stMainBlockContainer h3, .stMainBlockContainer h4 {{
+      letter-spacing: -0.02em;
+      color: {palette.INK};
+  }}
+  hr {{ border-color: {palette.BORDER} !important; }}
 
-  /* --- Page header ----------------------------------------------------- */
-  {_IN} .campprep-header {{ margin: 0 0 1.15rem 0; }}
+  /* --- Page banner ----------------------------------------------------- */
+  {_IN} .campprep-header {{
+      position: relative;
+      overflow: hidden;
+      background: {_BANNER};
+      border-radius: 24px;
+      padding: 1.7rem 2rem 2.1rem 2rem;
+      margin: 0 0 1.4rem 0;
+      box-shadow: 0 20px 44px -26px rgba(27, 44, 193, 0.75);
+      isolation: isolate;
+  }}
+  /* Two quiet shapes in the corner: a cyan ring and an orange dot. */
+  {_IN} .campprep-header::before {{
+      content: "";
+      position: absolute;
+      right: -70px;
+      top: -90px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      border: 34px solid rgba(255, 255, 255, 0.07);
+      z-index: -1;
+  }}
+  {_IN} .campprep-header::after {{
+      content: "";
+      position: absolute;
+      right: 150px;
+      bottom: 26px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: {palette.ORANGE};
+      box-shadow: -60px -54px 0 -3px {palette.CYAN}, 90px -70px 0 -4px {palette.GREEN};
+      opacity: 0.9;
+      z-index: -1;
+  }}
+  {_IN} .campprep-stripe {{
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 6px;
+      background: var(--cp-stripe-dark);
+  }}
   {_IN} .campprep-eyebrow {{
-      display: inline-block;
-      color: {palette.TINT_PRIMARY[1]};
-      background: {palette.TINT_PRIMARY[0]};
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 999px;
-      padding: 0.1rem 0.6rem;
-      font-size: 0.72rem;
+      padding: 0.18rem 0.7rem;
+      font-size: 0.7rem;
       font-weight: 700;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.7rem;
+  }}
+  {_IN} .campprep-eyebrow::before {{
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: {palette.CYAN};
   }}
   {_IN} .campprep-title {{
-      color: {HEADING};
-      font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2.05rem);
-      font-weight: 700;
-      letter-spacing: -0.015em;
-      margin: 0 0 0.2rem 0;
-      line-height: 1.15;
+      color: #FFFFFF;
+      font-size: clamp(1.6rem, 1.2rem + 1.5vw, 2.3rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.3rem 0;
+      line-height: 1.1;
   }}
   {_IN} .campprep-subtitle {{
-      color: {palette.MUTED};
-      font-size: 0.95rem;
+      color: rgba(233, 236, 255, 0.86);
+      font-size: 0.98rem;
       margin: 0;
       max-width: 62ch;
-  }}
-  {_IN} .campprep-rule {{
-      border: none;
-      border-top: 3px solid {ACCENT};
-      border-radius: 3px;
-      width: 64px;
-      margin: 0.85rem 0 0 0;
   }}
 
   /* --- Badges ---------------------------------------------------------- */
   {_IN} .campprep-badge {{
-      display: inline-block;
-      padding: 0.15rem 0.6rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.7rem;
       border-radius: 999px;
       font-size: 0.78rem;
-      font-weight: 600;
+      font-weight: 700;
       line-height: 1.5;
       white-space: nowrap;
   }}
@@ -115,76 +232,122 @@ _STYLES = f"""
   {_IN} .campprep-badges {{
       display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem;
-      margin: 0.2rem 0 0.4rem 0;
-  }}
-
-  /* --- Landing page ---------------------------------------------------- */
-  {_IN} .campprep-hero-title {{
-      font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.9rem);
-      font-weight: 750;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
-      color: {palette.INK};
-      margin: 0.4rem 0 0.8rem 0;
-  }}
-  {_IN} .campprep-hero-title span {{ color: {palette.PRIMARY}; }}
-  {_IN} .campprep-hero-lede {{
-      font-size: 1.05rem;
-      line-height: 1.6;
-      color: {palette.MUTED};
-      max-width: 34rem;
-      margin: 0 0 1.4rem 0;
+      gap: 0.4rem;
+      margin: 0.2rem 0 0.5rem 0;
   }}
 
   /* --- Cards ----------------------------------------------------------- */
   {_IN} .campprep-card {{
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
       border: 1px solid {palette.BORDER};
-      border-left: 4px solid {ACCENT};
-      border-radius: var(--aa-radius);
-      padding: 0.9rem 1.05rem;
-      margin-bottom: 0.6rem;
+      border-radius: var(--cp-radius);
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.7rem;
       background: {palette.SURFACE};
-      box-shadow: var(--aa-shadow);
+      box-shadow: var(--cp-shadow);
+      transition: transform 160ms ease, box-shadow 160ms ease;
+  }}
+  {_IN} .campprep-card:hover {{
+      transform: translateY(-2px);
+      box-shadow: var(--cp-shadow-lift);
+  }}
+  {_IN} .campprep-card-icon {{
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      line-height: 1;
   }}
   {_IN} .campprep-card h4 {{
       color: {HEADING};
-      margin: 0 0 0.25rem 0;
-      font-size: 1rem;
-      font-weight: 650;
+      margin: 0 0 0.2rem 0;
+      padding: 0;
+      font-size: 1.02rem;
+      font-weight: 750;
   }}
   {_IN} .campprep-card p {{
       margin: 0;
       color: {palette.MUTED};
-      font-size: 0.86rem;
-      line-height: 1.5;
+      font-size: 0.88rem;
+      line-height: 1.55;
   }}
 
   {_IN} .campprep-hint {{
-      border-left: 4px solid {palette.HINT};
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
       background: {palette.TINT_HINT[0]};
       color: {palette.TINT_HINT[1]};
-      border-radius: 0 var(--aa-radius) var(--aa-radius) 0;
-      padding: 0.55rem 0.85rem;
+      border: 1px solid rgba(29, 206, 216, 0.45);
+      border-radius: 999px;
+      padding: 0.3rem 0.85rem 0.3rem 0.35rem;
       margin: 0.5rem 0 0.6rem 0;
-      font-size: 0.88rem;
-      font-weight: 600;
+      font-size: 0.86rem;
+      font-weight: 700;
+  }}
+  {_IN} .campprep-hint::before {{
+      content: "?";
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: {palette.HINT};
+      color: #FFFFFF;
+      font-size: 0.78rem;
+      font-weight: 800;
+  }}
+
+  /* --- Bordered containers --------------------------------------------- */
+  /* `st.container(border=True)` becomes a white card on the tinted canvas. */
+  /* Streamlit marks a bordered container only by the scroll attributes it
+     gives it - plain layout blocks never carry them. */
+  .stMainBlockContainer [data-testid="stVerticalBlock"][data-test-scroll-behavior] {{
+      background: {palette.SURFACE};
+      border-color: {palette.BORDER};
+      border-radius: 22px;
+      box-shadow: var(--cp-shadow);
   }}
 
   /* --- Metrics as tiles ------------------------------------------------ */
   /* Streamlit clips a long metric value to an ellipsis. A weakest-topic tile
      reading "Ratio and ..." tells a student nothing, so values wrap instead. */
   [data-testid="stMetric"] {{
+      --cp-tile: {palette.PRIMARY};
+      position: relative;
+      overflow: hidden;
       background: {palette.SURFACE};
       border: 1px solid {palette.BORDER};
-      border-radius: var(--aa-radius);
-      padding: 0.75rem 0.95rem 0.85rem 0.95rem;
+      border-radius: var(--cp-radius);
+      padding: 1rem 1.1rem 1.05rem 1.1rem;
       height: 100%;
-      box-shadow: var(--aa-shadow);
+      box-shadow: var(--cp-shadow), inset 0 4px 0 var(--cp-tile);
   }}
+  /* A soft blob of the tile colour in the corner. */
+  [data-testid="stMetric"]::after {{
+      content: "";
+      position: absolute;
+      right: -22px;
+      top: -22px;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: var(--cp-tile);
+      opacity: 0.1;
+      pointer-events: none;
+  }}
+{_tile_rules}
   [data-testid="stMetricValue"] {{
-      font-size: clamp(1.15rem, 0.9rem + 0.9vw, 1.6rem);
-      line-height: 1.2;
+      font-size: clamp(1.25rem, 0.95rem + 1vw, 1.85rem);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: {palette.INK};
       white-space: normal;
       /* `break-word`, not `anywhere`: `anywhere` also shrinks the tile's
          min-content width, which collapses the column to nothing. */
@@ -198,30 +361,388 @@ _STYLES = f"""
   }}
   [data-testid="stMetricLabel"] p {{
       color: {palette.MUTED};
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.01em;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
   }}
+
+  /* --- Buttons --------------------------------------------------------- */
+  /* Chunky, with a darker lip underneath: a press sinks the button into it.
+     Deliberately playful - the people pressing them are 12 to 15. */
+  .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button,
+  [data-testid="stPageLink"] a {{
+      font-weight: 700;
+      border-radius: 14px;
+      transition: transform 90ms ease, box-shadow 90ms ease,
+                  background-color 150ms ease, border-color 150ms ease;
+  }}
+  .stMainBlockContainer button[kind="secondary"],
+  .stMainBlockContainer button[kind="secondaryFormSubmit"] {{
+      background: {palette.SURFACE};
+      border: 1.5px solid {palette.BORDER};
+      box-shadow: 0 3px 0 #D5DAF3;
+  }}
+  .stMainBlockContainer button[kind="secondary"]:hover,
+  .stMainBlockContainer button[kind="secondaryFormSubmit"]:hover {{
+      border-color: {palette.PRIMARY};
+      color: {palette.PRIMARY};
+      transform: translateY(-1px);
+      box-shadow: 0 4px 0 #C3CAF0;
+  }}
+  button[kind="primary"], button[kind="primaryFormSubmit"] {{
+      background: linear-gradient(180deg, #2A3BDB 0%, {palette.PRIMARY} 100%);
+      border: none;
+      color: #FFFFFF;
+      box-shadow: 0 4px 0 {palette.PRIMARY_LIP},
+                  0 10px 20px -10px rgba(27, 44, 193, 0.7);
+  }}
+  button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{
+      background: linear-gradient(180deg, #3446E4 0%, #2233CC 100%);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 0 {palette.PRIMARY_LIP},
+                  0 14px 24px -12px rgba(27, 44, 193, 0.75);
+  }}
+  .stMainBlockContainer button:active:not(:disabled) {{
+      transform: translateY(3px) !important;
+      box-shadow: 0 1px 0 {palette.PRIMARY_LIP} !important;
+  }}
+  .stMainBlockContainer button[kind^="secondary"]:active:not(:disabled) {{
+      box-shadow: 0 0 0 #C3CAF0 !important;
+  }}
+
+  /* --- Inputs ---------------------------------------------------------- */
+  /* Inputs keep the theme's tinted fill; focus adds a soft primary halo.
+     Streamlit 1.5x draws its widgets with react-aria, so the hooks are the
+     `...RootElement` test ids rather than the old BaseWeb attributes. */
+  .stMainBlockContainer [data-testid$="RootElement"],
+  .stMainBlockContainer [data-testid="stNumberInputContainer"] {{
+      border-radius: 12px;
+      transition: box-shadow 150ms ease;
+  }}
+  .stMainBlockContainer [data-testid$="RootElement"]:focus-within,
+  .stMainBlockContainer [data-testid="stNumberInputContainer"]:focus-within {{
+      box-shadow: 0 0 0 4px rgba(27, 44, 193, 0.12);
+  }}
+  [data-testid="stFileUploaderDropzone"] {{
+      background: {palette.TINT_PRIMARY[0]};
+      border: 2px dashed #AEB6EC;
+      border-radius: var(--cp-radius);
+  }}
+  [data-testid="stWidgetLabel"] p {{ font-weight: 650; }}
 
   /* --- Tabs ------------------------------------------------------------ */
-  .stTabs [data-baseweb="tab-list"] {{
+  /* A segmented control rather than an underlined strip. */
+  [data-testid="stTabs"] [role="tablist"] {{
       gap: 0.25rem;
+      background: {palette.SURFACE_ALT};
+      border: 1px solid {palette.BORDER};
+      border-radius: 14px;
+      padding: 0.3rem;
+      width: fit-content;
+      max-width: 100%;
+      height: auto;
       overflow-x: auto;
       scrollbar-width: thin;
+      box-shadow: none;
   }}
-  .stTabs [data-baseweb="tab"] {{ white-space: nowrap; }}
+  [data-testid="stTab"] {{
+      white-space: nowrap;
+      height: auto;
+      padding: 0.42rem 0.95rem;
+      border-radius: 10px;
+      background: transparent;
+      transition: background-color 150ms ease;
+  }}
+  [data-testid="stTab"] p {{ font-weight: 650; color: {palette.MUTED}; }}
+  [data-testid="stTab"]:hover p {{ color: {palette.PRIMARY}; }}
+  [data-testid="stTab"][aria-selected="true"] {{
+      background: {palette.SURFACE};
+      box-shadow: 0 1px 2px rgba(14, 19, 64, 0.08),
+                  0 4px 10px -6px rgba(27, 44, 193, 0.4);
+  }}
+  [data-testid="stTab"][aria-selected="true"] p {{ color: {palette.PRIMARY}; }}
+  /* The sliding underline - the white pill already says which tab is open. */
+  [data-testid="stTab"] > div:not([data-testid]) {{ display: none; }}
+
+  /* --- Alerts, expanders, tables --------------------------------------- */
+  [data-testid="stAlertContainer"] {{
+      border-radius: 14px;
+      border: 1px solid rgba(14, 19, 64, 0.06);
+  }}
+  [data-testid="stExpander"] details {{
+      background: {palette.SURFACE};
+      border-radius: 14px;
+      border-color: {palette.BORDER};
+  }}
+  [data-testid="stExpander"] summary p {{ font-weight: 650; }}
+  [data-testid="stDataFrame"], [data-testid="stTable"] {{
+      border-radius: 14px;
+      overflow-x: auto;
+  }}
+  [data-testid="stProgress"] [role="progressbar"] > div > div > div {{
+      background: linear-gradient(90deg, {palette.CYAN}, {palette.PRIMARY});
+  }}
 
   /* --- Sidebar --------------------------------------------------------- */
-  [data-testid="stSidebarNavLink"] {{ border-radius: 8px; }}
-  [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
-  {_IN} .campprep-brand {{
-      font-size: 0.78rem;
+  /* One dark rail: blue at the top fading to night at the foot. */
+  {_SIDEBAR} {{
+      background: linear-gradient(185deg, {palette.BLUE_DEEP} 0%, #16209F 38%,
+                  {palette.NIGHT} 100%);
+  }}
+  {_SIDEBAR} [data-testid="stSidebarContent"],
+  {_SIDEBAR} [data-testid="stSidebarHeader"] {{ background: transparent; }}
+  {_SIDEBAR}::after {{
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      background: var(--cp-stripe-dark);
+      pointer-events: none;
+  }}
+  [data-testid="stSidebarNavLink"] {{
+      border-radius: 12px;
+      margin: 1px 0;
+      transition: background-color 150ms ease;
+  }}
+  [data-testid="stSidebarNavLink"]:hover {{ background: rgba(255, 255, 255, 0.08); }}
+  [data-testid="stSidebarNavLink"][aria-current="page"] {{
+      background: rgba(29, 206, 216, 0.16);
+      box-shadow: inset 3px 0 0 {palette.CYAN};
+  }}
+  [data-testid="stSidebarNavLink"][aria-current="page"] span {{
+      color: #FFFFFF !important;
       font-weight: 700;
-      letter-spacing: 0.08em;
+  }}
+  [data-testid="stNavSectionHeader"] p {{
+      font-size: 0.68rem !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: {palette.MUTED};
+      color: rgba(233, 236, 255, 0.55) !important;
+  }}
+  [data-testid="stSidebarNavSeparator"] {{ border-color: rgba(255, 255, 255, 0.1); }}
+  [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
+  {_SIDEBAR} [data-testid="stCaptionContainer"] p {{ color: rgba(233, 236, 255, 0.68); }}
+  {_SIDEBAR} hr {{ border-color: rgba(255, 255, 255, 0.12) !important; }}
+  {_SIDEBAR} button[kind="secondary"] {{
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #FFFFFF;
+      box-shadow: 0 3px 0 rgba(4, 8, 48, 0.55);
+  }}
+  {_SIDEBAR} button[kind="secondary"]:hover {{
+      background: rgba(255, 255, 255, 0.14);
+      border-color: {palette.CYAN};
+      color: #FFFFFF;
+  }}
+  {_SIDEBAR} button[kind="secondary"]:active {{
+      transform: translateY(3px);
+      box-shadow: 0 0 0 transparent;
+  }}
+  {_IN} .campprep-brand {{
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(233, 236, 255, 0.55);
       margin: 0 0 0.2rem 0;
   }}
+
+  /* --- Landing page ---------------------------------------------------- */
+  {_IN} .campprep-hero-eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: {palette.PRIMARY};
+      background: {palette.SURFACE};
+      border: 1px solid {palette.BORDER};
+      box-shadow: var(--cp-shadow);
+      border-radius: 999px;
+      padding: 0.25rem 0.85rem 0.25rem 0.35rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+  }}
+  {_IN} .campprep-hero-eyebrow b {{
+      background: {palette.GREEN};
+      color: #FFFFFF;
+      border-radius: 999px;
+      padding: 0.05rem 0.55rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+  }}
+  {_IN} .campprep-hero-title {{
+      font-size: clamp(2.2rem, 1.4rem + 3vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.02;
+      letter-spacing: -0.045em;
+      color: {palette.INK};
+      margin: 1.1rem 0 1rem 0;
+  }}
+  {_IN} .campprep-hero-title span {{
+      background: linear-gradient(95deg, {palette.PRIMARY} 10%, {palette.CYAN} 95%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+  }}
+  /* An orange marker swipe under one word. */
+  {_IN} .campprep-hero-title em {{
+      font-style: normal;
+      white-space: nowrap;
+      background: linear-gradient(180deg, transparent 64%,
+                  rgba(255, 145, 0, 0.55) 64%, rgba(255, 145, 0, 0.55) 88%,
+                  transparent 88%);
+  }}
+  {_IN} .campprep-hero-lede {{
+      font-size: 1.08rem;
+      line-height: 1.65;
+      color: {palette.MUTED};
+      max-width: 34rem;
+      margin: 0 0 1.3rem 0;
+  }}
+  {_IN} .campprep-chips {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 1.6rem 0;
+  }}
+  {_IN} .campprep-chip {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: {palette.SURFACE};
+      border: 1px solid {palette.BORDER};
+      border-radius: 999px;
+      padding: 0.3rem 0.8rem 0.3rem 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 650;
+      color: {palette.INK};
+  }}
+  {_IN} .campprep-chip i {{
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-style: normal;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #FFFFFF;
+  }}
+  {_IN} .campprep-steps {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin: 0.4rem 0 1.2rem 0;
+  }}
+  {_IN} .campprep-step {{
+      background: {palette.SURFACE};
+      border: 1px solid {palette.BORDER};
+      border-radius: var(--cp-radius);
+      padding: 1rem 1rem 1.05rem 1rem;
+      box-shadow: var(--cp-shadow);
+  }}
+  {_IN} .campprep-step b {{
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      color: #FFFFFF;
+      font-weight: 800;
+      margin-bottom: 0.6rem;
+  }}
+  {_IN} .campprep-step h5 {{
+      margin: 0 0 0.2rem 0;
+      padding: 0;
+      font-size: 0.95rem;
+      font-weight: 750;
+      color: {palette.INK};
+  }}
+  {_IN} .campprep-step p {{
+      margin: 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: {palette.MUTED};
+  }}
+  /* The welcome panel above the sign-in forms. */
+  {_IN} .campprep-panel-head {{
+      position: relative;
+      overflow: hidden;
+      background: {_BANNER};
+      border-radius: 16px;
+      padding: 1.2rem 1.3rem 1.35rem 1.3rem;
+      margin: 0 0 0.6rem 0;
+      color: #FFFFFF;
+  }}
+  {_IN} .campprep-panel-head h3 {{
+      color: #FFFFFF;
+      margin: 0 0 0.15rem 0;
+      padding: 0;
+      font-size: 1.3rem;
+      font-weight: 800;
+  }}
+  {_IN} .campprep-panel-head p {{
+      margin: 0;
+      color: rgba(233, 236, 255, 0.85);
+      font-size: 0.88rem;
+  }}
+  /* A small, static "what you get" card under the sign-in panel. */
+  {_IN} .campprep-preview {{
+      background: {palette.SURFACE};
+      border: 1px solid {palette.BORDER};
+      border-radius: 22px;
+      padding: 1.1rem 1.2rem 1.2rem 1.2rem;
+      margin-top: 0.4rem;
+      box-shadow: var(--cp-shadow-lift);
+      position: relative;
+      overflow: hidden;
+  }}
+  {_IN} .campprep-preview::before {{
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 5px;
+      background: var(--cp-stripe);
+  }}
+  {_IN} .campprep-preview-head {{
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0.2rem 0 0.8rem 0;
+  }}
+  {_IN} .campprep-preview-head strong {{ font-size: 0.95rem; color: {palette.INK}; }}
+  {_IN} .campprep-preview-head span {{ font-size: 0.75rem; color: {palette.MUTED}; font-weight: 600; }}
+  {_IN} .campprep-bar {{ margin: 0 0 0.7rem 0; }}
+  {_IN} .campprep-bar-label {{
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 650;
+      color: {palette.INK};
+      margin-bottom: 0.3rem;
+  }}
+  {_IN} .campprep-bar-track {{
+      height: 10px;
+      border-radius: 999px;
+      background: {palette.SURFACE_ALT};
+      overflow: hidden;
+  }}
+  {_IN} .campprep-bar-track i {{ display: block; height: 100%; border-radius: 999px; }}
+  {_IN} .campprep-preview-foot {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.9rem;
+  }}
+  {_IN} .campprep-logo {{ margin: 0 0 1.6rem 0; }}
+  {_IN} .campprep-logo img {{ height: 34px; width: auto; }}
 
   /* --- Responsive ------------------------------------------------------ */
   /* Columns wrap rather than compress once the row would get tight. */
@@ -238,7 +759,7 @@ _STYLES = f"""
   /* Below the stack breakpoint every column is its own full-width row. */
   @media (max-width: {_STACK_BREAKPOINT}) {{
       .stMainBlockContainer {{
-          padding-top: 1.4rem;
+          padding-top: 1.2rem;
           padding-left: 1rem;
           padding-right: 1rem;
           padding-bottom: 2.5rem;
@@ -254,13 +775,13 @@ _STYLES = f"""
       .stFormSubmitButton > button {{
           width: 100% !important;
       }}
-      [data-testid="stMetric"] {{ padding: 0.65rem 0.8rem 0.75rem 0.8rem; }}
+      [data-testid="stTabs"] [role="tablist"] {{ width: 100%; }}
+      [data-testid="stMetric"] {{ padding: 0.8rem 0.9rem 0.85rem 0.9rem; }}
+      {_IN} .campprep-header {{ padding: 1.3rem 1.2rem 1.7rem 1.2rem; border-radius: 20px; }}
+      {_IN} .campprep-header::after {{ display: none; }}
       {_IN} .campprep-subtitle {{ font-size: 0.9rem; }}
+      {_IN} .campprep-steps {{ grid-template-columns: 1fr; }}
   }}
-
-  /* Wide tables scroll inside themselves rather than pushing the page
-     sideways. */
-  [data-testid="stDataFrame"], [data-testid="stTable"] {{ overflow-x: auto; }}
 
   @media (prefers-reduced-motion: reduce) {{
       * {{
@@ -289,7 +810,7 @@ def page_header(
     help_text: str = "",
     eyebrow: Optional[str] = None,
 ) -> None:
-    """Standard page heading used by every page.
+    """Standard page banner used by every page.
 
     The eyebrow is the small capitalised label above the title, and it says
     where in the workflow this page sits. Left alone it is read off the
@@ -305,7 +826,7 @@ def page_header(
     parts.append(f'<p class="campprep-title">{title}</p>')
     if subtitle:
         parts.append(f'<p class="campprep-subtitle">{subtitle}</p>')
-    parts.append('<hr class="campprep-rule" /></div>')
+    parts.append('<span class="campprep-stripe"></span></div>')
     st.markdown("".join(parts), unsafe_allow_html=True)
     if help_text:
         st.caption(help_text)
@@ -455,9 +976,22 @@ def badge_row(badges: Iterable[str]) -> None:
     st.markdown(f'<div class="campprep-badges">{html}</div>', unsafe_allow_html=True)
 
 
-def info_card(title: str, body: str) -> None:
+def info_card(title: str, body: str, icon: str = "", tone: str = "primary") -> None:
+    """A white card with an optional coloured icon tile beside the text.
+
+    `icon` is a short glyph (an emoji or a character or two); `tone` picks the
+    tile colour from the palette roles - primary, hint, correct, warning or
+    incorrect.
+    """
+    tile = ""
+    if icon:
+        background, colour = _TONES.get(tone, _TONES["primary"])
+        tile = (
+            f'<span class="campprep-card-icon" '
+            f'style="background:{background};color:{colour};">{icon}</span>'
+        )
     st.markdown(
-        f'<div class="campprep-card"><h4>{title}</h4><p>{body}</p></div>',
+        f'<div class="campprep-card">{tile}<div><h4>{title}</h4><p>{body}</p></div></div>',
         unsafe_allow_html=True,
     )
 

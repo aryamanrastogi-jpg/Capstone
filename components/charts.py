@@ -21,7 +21,7 @@ from utils import palette
 
 # The same stack as `.streamlit/config.toml`, so chart text and page text are
 # set in one typeface rather than two.
-_FONT = "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+_FONT = "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
 
 _GRID = palette.BORDER
 
@@ -51,6 +51,9 @@ def style(figure, height: Optional[int] = None, legend: bool = True):
             font=dict(size=11),
         ),
         showlegend=legend,
+        # Rounded bar ends, to match the soft corners everywhere else.
+        barcornerradius=6,
+        bargap=0.28,
     )
     if height is not None:
         figure.update_layout(height=height)

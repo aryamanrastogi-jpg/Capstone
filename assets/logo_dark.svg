@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 212 36" width="212" height="36" role="img" aria-label="CampPrep AI">
+  <!-- The light-background version, for the landing page. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B2CC1"/>
+      <stop offset="1" stop-color="#2F39A9"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="3" width="28" height="28" rx="9" fill="url(#g)"/>
+  <path d="M8.2 24.5 14 11.5l5.8 13" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M10.6 19.6h6.8" fill="none" stroke="#1DCED8" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="23.5" cy="8" r="2.6" fill="#FF9100"/>
+  <text x="37" y="24" font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="800" letter-spacing="-0.4" fill="#0E1340">CampPrep <tspan fill="#1B2CC1">AI</tspan></text>
+</svg>
