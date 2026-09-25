@@ -1,9 +1,9 @@
-# AssessAI
+# CampPrep AI
 
 **AI-assisted study support for Cambridge IGCSE students, with teacher oversight.**
 
 Students upload the work they have already done — homework, class exercises, mock
-exams — and AssessAI shows them where they are actually weak across the whole term,
+exams — and CampPrep AI shows them where they are actually weak across the whole term,
 then builds a short study camp to fix it. Teachers get an oversight view of their
 class and a second pair of eyes on their marking.
 
@@ -29,7 +29,7 @@ upload past work  →  weakness dashboard  →  study camp  →  measured improv
 ```
 
 And a design constraint that runs through the whole thing: **pointers, not answers**.
-AssessAI tells a student where they went wrong and what to practise. It does not do
+CampPrep AI tells a student where they went wrong and what to practise. It does not do
 their homework for them.
 
 ---
@@ -78,7 +78,7 @@ their homework for them.
 
 ### The mark mismatch panel
 
-When a student records the mark their teacher gave alongside their work, AssessAI
+When a student records the mark their teacher gave alongside their work, CampPrep AI
 compares it against its own reading. A gap of more than 15 percentage points is
 surfaced to the teacher.
 

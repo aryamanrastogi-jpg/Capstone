@@ -1,4 +1,4 @@
-"""AssessAI - teacher-facing AI-assisted assessment platform.
+"""CampPrep AI - teacher-facing AI-assisted assessment platform.
 
 Entry point. Run with:
 

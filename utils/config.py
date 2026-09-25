@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=False)
 
-APP_NAME = "AssessAI"
+APP_NAME = "CampPrep AI"
 APP_TAGLINE = "Teacher-reviewed AI assessment support for Grades 7-9"
 
 # Upload guardrails

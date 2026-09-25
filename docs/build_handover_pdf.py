@@ -1,4 +1,4 @@
-"""Render docs/handover.html into docs/AssessAI-Handover.pdf.
+"""Render docs/handover.html into docs/CampPrep-AI-Handover.pdf.
 
     python docs/build_handover_pdf.py
 
@@ -16,14 +16,14 @@ import pymupdf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.path.join(HERE, "handover.html")
-OUTPUT = os.path.join(HERE, "AssessAI-Handover.pdf")
+OUTPUT = os.path.join(HERE, "CampPrep-AI-Handover.pdf")
 
 # A4 with a generous margin: this is meant to be read, and printed if somebody
 # wants it on paper.
 PAGE = pymupdf.paper_rect("a4")
 MARGIN = 56  # points, ~20mm
 
-TITLE = "AssessAI - Capstone Handover"
+TITLE = "CampPrep AI - Capstone Handover"
 
 
 def build() -> str:

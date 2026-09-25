@@ -38,7 +38,7 @@ def report_downloads(
     csv_col.download_button(
         "Download CSV",
         data=reports.to_csv(report),
-        file_name="assessai_results.csv",
+        file_name="campprep_ai_results.csv",
         mime="text/csv",
         icon=":material/table_view:",
         width="stretch",
@@ -51,7 +51,7 @@ def report_downloads(
     pdf_col.download_button(
         "Download PDF",
         data=pdf,
-        file_name="assessai_results.pdf",
+        file_name="campprep_ai_results.pdf",
         mime="application/pdf",
         icon=":material/picture_as_pdf:",
         width="stretch",

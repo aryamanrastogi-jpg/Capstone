@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "assessai",
+      "name": "campprep",
       "runtimeExecutable": ".venv/Scripts/streamlit.exe",
       "runtimeArgs": [
         "run",
@@ -15,7 +15,7 @@
       "port": 8501
     },
     {
-      "name": "assessai-ui",
+      "name": "campprep-ui",
       "runtimeExecutable": ".venv/Scripts/streamlit.exe",
       "runtimeArgs": [
         "run",

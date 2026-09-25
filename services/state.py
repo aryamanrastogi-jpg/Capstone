@@ -25,7 +25,7 @@ CURRENT_USER_ID = "current_user_id"
 DEMO_MODE = "demo_mode"
 BACKEND_MESSAGE = "backend_message"
 BACKEND_IS_ERROR = "backend_is_error"
-INITIALISED = "_assessai_initialised"
+INITIALISED = "_campprep_initialised"
 # Set once a visitor leaves the landing page for the sample data.
 ENTERED_DEMO = "entered_demo"
 # The student's in-progress or last mock exam. Practice only, never persisted.

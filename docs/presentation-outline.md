@@ -5,8 +5,8 @@ About 15 minutes: 10 minutes of slides and a 5-minute live demo, then questions.
 ## Slide outline
 
 ### 1. Title
-**AssessAI - AI-assisted study support for Grade 7-9 maths, with teacher oversight.** Name, course, date.
-*Notes:* One sentence: "AssessAI shows students where they are actually weak across a whole term, and lets teachers check every AI mark before it counts."
+**CampPrep AI - AI-assisted study support for Grade 7-9 maths, with teacher oversight.** Name, course, date.
+*Notes:* One sentence: "CampPrep AI shows students where they are actually weak across a whole term, and lets teachers check every AI mark before it counts."
 
 ### 2. The problem
 - A student can ask a chatbot about one question, but not "across five months of homework, what am I bad at?"

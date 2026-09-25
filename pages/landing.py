@@ -1,4 +1,4 @@
-"""Welcome page - what AssessAI is, plus sign in, sign up or try the demo.
+"""Welcome page - what CampPrep AI is, plus sign in, sign up or try the demo.
 
 Shown by app.py to anyone who is not signed in and has not chosen the demo.
 The sign-in forms are the same ones as on the Sign In page. Sign-up collects a
@@ -22,10 +22,10 @@ intro, auth = st.columns([1.15, 1], gap="large")
 
 with intro:
     st.markdown(
-        f'''<span class="assessai-eyebrow">{APP_TAGLINE}</span>
-<p class="assessai-hero-title">Know where you went wrong.
+        f'''<span class="campprep-eyebrow">{APP_TAGLINE}</span>
+<p class="campprep-hero-title">Know where you went wrong.
 <span>Fix it before the exam.</span></p>
-<p class="assessai-hero-lede">AssessAI marks your work, shows you which topics
+<p class="campprep-hero-lede">CampPrep AI marks your work, shows you which topics
 are slipping and points you at what to practise. Pointers, not answers - and a
 teacher confirms every mark.</p>''',
         unsafe_allow_html=True,
@@ -49,7 +49,7 @@ with auth:
             auth_forms()
             privacy_details()
         else:
-            st.markdown("#### Try AssessAI")
+            st.markdown("#### Try CampPrep AI")
             st.info(
                 "Accounts are not available on this instance because it is not "
                 "connected to Supabase. You can still explore everything with "

@@ -65,8 +65,8 @@ _STYLES = f"""
   }}
 
   /* --- Page header ----------------------------------------------------- */
-  {_IN} .assessai-header {{ margin: 0 0 1.15rem 0; }}
-  {_IN} .assessai-eyebrow {{
+  {_IN} .campprep-header {{ margin: 0 0 1.15rem 0; }}
+  {_IN} .campprep-eyebrow {{
       display: inline-block;
       color: {palette.TINT_PRIMARY[1]};
       background: {palette.TINT_PRIMARY[0]};
@@ -78,7 +78,7 @@ _STYLES = f"""
       text-transform: uppercase;
       margin-bottom: 0.5rem;
   }}
-  {_IN} .assessai-title {{
+  {_IN} .campprep-title {{
       color: {HEADING};
       font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2.05rem);
       font-weight: 700;
@@ -86,13 +86,13 @@ _STYLES = f"""
       margin: 0 0 0.2rem 0;
       line-height: 1.15;
   }}
-  {_IN} .assessai-subtitle {{
+  {_IN} .campprep-subtitle {{
       color: {palette.MUTED};
       font-size: 0.95rem;
       margin: 0;
       max-width: 62ch;
   }}
-  {_IN} .assessai-rule {{
+  {_IN} .campprep-rule {{
       border: none;
       border-top: 3px solid {ACCENT};
       border-radius: 3px;
@@ -101,7 +101,7 @@ _STYLES = f"""
   }}
 
   /* --- Badges ---------------------------------------------------------- */
-  {_IN} .assessai-badge {{
+  {_IN} .campprep-badge {{
       display: inline-block;
       padding: 0.15rem 0.6rem;
       border-radius: 999px;
@@ -112,7 +112,7 @@ _STYLES = f"""
   }}
   /* Badges are laid out by the browser, not by st.columns: any number of them
      wraps onto the next line instead of overflowing a fixed column. */
-  {_IN} .assessai-badges {{
+  {_IN} .campprep-badges {{
       display: flex;
       flex-wrap: wrap;
       gap: 0.35rem;
@@ -120,7 +120,7 @@ _STYLES = f"""
   }}
 
   /* --- Landing page ---------------------------------------------------- */
-  {_IN} .assessai-hero-title {{
+  {_IN} .campprep-hero-title {{
       font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.9rem);
       font-weight: 750;
       line-height: 1.1;
@@ -128,8 +128,8 @@ _STYLES = f"""
       color: {palette.INK};
       margin: 0.4rem 0 0.8rem 0;
   }}
-  {_IN} .assessai-hero-title span {{ color: {palette.PRIMARY}; }}
-  {_IN} .assessai-hero-lede {{
+  {_IN} .campprep-hero-title span {{ color: {palette.PRIMARY}; }}
+  {_IN} .campprep-hero-lede {{
       font-size: 1.05rem;
       line-height: 1.6;
       color: {palette.MUTED};
@@ -138,7 +138,7 @@ _STYLES = f"""
   }}
 
   /* --- Cards ----------------------------------------------------------- */
-  {_IN} .assessai-card {{
+  {_IN} .campprep-card {{
       border: 1px solid {palette.BORDER};
       border-left: 4px solid {ACCENT};
       border-radius: var(--aa-radius);
@@ -147,20 +147,20 @@ _STYLES = f"""
       background: {palette.SURFACE};
       box-shadow: var(--aa-shadow);
   }}
-  {_IN} .assessai-card h4 {{
+  {_IN} .campprep-card h4 {{
       color: {HEADING};
       margin: 0 0 0.25rem 0;
       font-size: 1rem;
       font-weight: 650;
   }}
-  {_IN} .assessai-card p {{
+  {_IN} .campprep-card p {{
       margin: 0;
       color: {palette.MUTED};
       font-size: 0.86rem;
       line-height: 1.5;
   }}
 
-  {_IN} .assessai-hint {{
+  {_IN} .campprep-hint {{
       border-left: 4px solid {palette.HINT};
       background: {palette.TINT_HINT[0]};
       color: {palette.TINT_HINT[1]};
@@ -214,7 +214,7 @@ _STYLES = f"""
   /* --- Sidebar --------------------------------------------------------- */
   [data-testid="stSidebarNavLink"] {{ border-radius: 8px; }}
   [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
-  {_IN} .assessai-brand {{
+  {_IN} .campprep-brand {{
       font-size: 0.78rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -255,7 +255,7 @@ _STYLES = f"""
           width: 100% !important;
       }}
       [data-testid="stMetric"] {{ padding: 0.65rem 0.8rem 0.75rem 0.8rem; }}
-      {_IN} .assessai-subtitle {{ font-size: 0.9rem; }}
+      {_IN} .campprep-subtitle {{ font-size: 0.9rem; }}
   }}
 
   /* Wide tables scroll inside themselves rather than pushing the page
@@ -299,13 +299,13 @@ def page_header(
     inject_styles()
     if eyebrow is None:
         eyebrow = _section_for(title)
-    parts = ['<div class="assessai-header">']
+    parts = ['<div class="campprep-header">']
     if eyebrow:
-        parts.append(f'<span class="assessai-eyebrow">{eyebrow}</span>')
-    parts.append(f'<p class="assessai-title">{title}</p>')
+        parts.append(f'<span class="campprep-eyebrow">{eyebrow}</span>')
+    parts.append(f'<p class="campprep-title">{title}</p>')
     if subtitle:
-        parts.append(f'<p class="assessai-subtitle">{subtitle}</p>')
-    parts.append('<hr class="assessai-rule" /></div>')
+        parts.append(f'<p class="campprep-subtitle">{subtitle}</p>')
+    parts.append('<hr class="campprep-rule" /></div>')
     st.markdown("".join(parts), unsafe_allow_html=True)
     if help_text:
         st.caption(help_text)
@@ -331,7 +331,7 @@ def sidebar_status() -> None:
         # The wordmark is drawn above the navigation by `st.logo` in app.py, so
         # all this block owes the reader is what the app is for and whether it
         # is talking to a real backend.
-        st.markdown('<p class="assessai-brand">About</p>', unsafe_allow_html=True)
+        st.markdown('<p class="campprep-brand">About</p>', unsafe_allow_html=True)
         st.caption(APP_TAGLINE)
 
         if status["demo_mode"]:
@@ -452,12 +452,12 @@ def badge_row(badges: Iterable[str]) -> None:
     html = "".join(badges)
     if not html:
         return
-    st.markdown(f'<div class="assessai-badges">{html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="campprep-badges">{html}</div>', unsafe_allow_html=True)
 
 
 def info_card(title: str, body: str) -> None:
     st.markdown(
-        f'<div class="assessai-card"><h4>{title}</h4><p>{body}</p></div>',
+        f'<div class="campprep-card"><h4>{title}</h4><p>{body}</p></div>',
         unsafe_allow_html=True,
     )
 
@@ -468,7 +468,7 @@ def hint_note(text: str) -> None:
     Hints get their own colour so a student can tell at a glance that what
     follows is a nudge, not a verdict on their answer.
     """
-    st.markdown(f'<div class="assessai-hint">{text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="campprep-hint">{text}</div>', unsafe_allow_html=True)
 
 
 def empty_state(message: str, hint: str = "", icon: str = ":material/info:") -> None:

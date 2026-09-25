@@ -23,7 +23,7 @@ Goal: find out whether teachers and students can do the core jobs without help, 
 - Anyone can stop at any time without giving a reason.
 
 **Consent form (short):**
-> I agree to take part in testing AssessAI, a student capstone project. I will use made-up data only. My name will not appear in any report; I will be referred to by a code. Notes [and a screen recording, if ticked] will be kept privately and deleted by [date]. I can stop at any time.
+> I agree to take part in testing CampPrep AI, a student capstone project. I will use made-up data only. My name will not appear in any report; I will be referred to by a code. Notes [and a screen recording, if ticked] will be kept privately and deleted by [date]. I can stop at any time.
 > Name / signature / date. [ ] I agree to screen recording. (Under 18: parent/guardian signature too.)
 
 ## 3. Session setup

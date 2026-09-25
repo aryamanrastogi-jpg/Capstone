@@ -1,4 +1,4 @@
-# Streamlit Fundamentals - Study Notes for AssessAI
+# Streamlit Fundamentals - Study Notes for CampPrep AI
 
 Short notes on the Streamlit ideas this codebase depends on. Each section points to real files. Exercises are at the end.
 

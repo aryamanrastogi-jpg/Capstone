@@ -18,7 +18,7 @@ from utils.validation import file_extension, sanitize_filename, validate_upload
 MIN_USABLE_CHARS = 15
 
 NO_TEXT_MESSAGE = (
-    "No readable text was found in this PDF. AssessAI reads digital PDFs only - "
+    "No readable text was found in this PDF. CampPrep AI reads digital PDFs only - "
     "handwritten or image-only (scanned/photographed) pages are not supported in "
     "this version. Please type or paste the response instead."
 )

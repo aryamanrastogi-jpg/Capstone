@@ -30,7 +30,7 @@ _SUBMISSION_STYLES = {
 
 def _badge_html(background: str, colour: str, text: str) -> str:
     return (
-        f'<span class="assessai-badge" style="background:{background};color:{colour};">'
+        f'<span class="campprep-badge" style="background:{background};color:{colour};">'
         f"{text}</span>"
     )
 

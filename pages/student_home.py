@@ -54,7 +54,7 @@ page_header(
 )
 
 st.info(
-    "AssessAI gives you **pointers, not answers**. It will tell you where you went "
+    "CampPrep AI gives you **pointers, not answers**. It will tell you where you went "
     "wrong and what to practise - it will not do your homework for you.",
     icon=":material/lightbulb:",
 )
@@ -144,7 +144,7 @@ if not assessment.is_gradable:
     # at each question, built from the question text alone.
     missing = len(assessment.questions_missing_model_answers)
     st.info(
-        f"**{assessment.title}** has no answers saved against it, so AssessAI "
+        f"**{assessment.title}** has no answers saved against it, so CampPrep AI "
         "cannot score it. Here is how to approach each question instead.",
         icon=":material/lightbulb:",
     )
@@ -234,7 +234,7 @@ if state.can_attempt:
         "How do you want to add your answers?",
         ["Question by question", "One block of text", "Upload a file"],
         horizontal=True,
-        help="Answering question by question is better: it lets AssessAI tell you "
+        help="Answering question by question is better: it lets CampPrep AI tell you "
         "exactly which questions to try again.",
     )
 
@@ -312,7 +312,7 @@ if state.can_attempt:
 
     known_mark = st.checkbox(
         "My teacher already marked this",
-        help="Adding the mark you were given lets AssessAI flag if it reads the work "
+        help="Adding the mark you were given lets CampPrep AI flag if it reads the work "
         "very differently - worth asking your teacher about.",
     )
     teacher_mark = None

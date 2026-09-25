@@ -1,6 +1,6 @@
 # Database
 
-Phase 2 storage for AssessAI. Two files, applied in order.
+Phase 2 storage for CampPrep AI. Two files, applied in order.
 
 | File | What it does |
 |---|---|

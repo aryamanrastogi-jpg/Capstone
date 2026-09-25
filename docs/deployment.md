@@ -141,7 +141,7 @@ Push `main` to the GitHub repository (currently `origin` = `github.com/aryamanra
 1. Go to **share.streamlit.io**, sign in with GitHub.
 2. **Create app -> Deploy a public app from GitHub** (or "Yup, I have an app").
 3. Repository: `aryamanrastogi-jpg/Capstone`. Branch: `main`. **Main file path: `app.py`**.
-4. **App URL**: pick a subdomain, e.g. `assessai-capstone`. This is the URL you put in Supabase Site URL (A8).
+4. **App URL**: pick a subdomain, e.g. `campprep-ai-capstone`. This is the URL you put in Supabase Site URL (A8).
 5. Open **Advanced settings**:
    - **Python version**: `3.13` (matches the local `.venv`, Python 3.13.5). `3.12` also works if 3.13 is not offered.
    - **Secrets**: paste the block below (template in `.streamlit/secrets.toml.example`).

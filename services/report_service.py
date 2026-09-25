@@ -206,7 +206,7 @@ def pdf_available() -> bool:
     return _load_pymupdf() is not None
 
 
-def to_pdf(report: Report, title: str = "AssessAI results report") -> Optional[bytes]:
+def to_pdf(report: Report, title: str = "CampPrep AI results report") -> Optional[bytes]:
     """A plain, paginated text PDF grouped by student. None if PyMuPDF is absent.
 
     Built from wrapped lines rather than a table layout: feedback is free text
