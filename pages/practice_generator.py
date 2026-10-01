@@ -69,18 +69,25 @@ elif _is_student:
 else:
     _visible = service.list_assessments_for_teacher()
     roster = service.list_students_for_teacher(_viewer.id)
-    choices = {"Whole class": None, **{u.display_name: u.id for u in roster}}
-    who = st.selectbox(
+    # Keyed by id, not display name: two students can share a name.
+    _names = [u.display_name for u in roster]
+    choices = {None: "Whole class"}
+    for u in roster:
+        choices[u.id] = (
+            f"{u.display_name} ({u.id})" if _names.count(u.display_name) > 1 else u.display_name
+        )
+    who_id = st.selectbox(
         "Whose results should the practice target?",
         list(choices.keys()),
+        format_func=lambda key: choices[key],
         help="Only results you have reviewed count - unreviewed AI suggestions are left out.",
     )
     frame = analytics.results_dataframe(
         service.list_grading_results(), _visible, service.list_submissions()
     )
-    if choices[who] is not None:
-        frame = frame[frame["student_id"] == choices[who]]
-        whose = f"{who}'s"
+    if who_id is not None:
+        frame = frame[frame["student_id"] == who_id]
+        whose = f"{choices[who_id]}'s"
     else:
         whose = "the class's"
 

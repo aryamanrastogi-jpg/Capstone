@@ -158,19 +158,45 @@ if not exam.is_submitted:
             placeholder="Show your working.",
         )
 
+    answers = {
+        item.question.id: st.session_state.get(_answer_key(item.question.id), "")
+        for item in exam.items
+    }
+    blank_count = sum(1 for text in answers.values() if not (text or "").strip())
+    confirm_key = f"mock_confirm_blank_{exam.id}"
+
+    def _submit() -> None:
+        st.session_state.pop(confirm_key, None)
+        try:
+            exams.submit_exam(exam, answers)
+        except ValueError as exc:
+            st.error(str(exc), icon=":material/error:")
+        else:
+            st.rerun()
+
+    # A blank answer scores 0 and the paper is compared as a real result, so
+    # handing in with gaps takes a second, deliberate click.
+    if st.session_state.get(confirm_key) and blank_count:
+        st.warning(
+            f"{blank_count} of {len(exam.items)} question(s) are blank and will "
+            "score 0. Submit anyway?",
+            icon=":material/warning:",
+        )
+        confirm_col, back_col = st.columns([1, 1])
+        if confirm_col.button("Submit anyway", type="primary", width="stretch"):
+            _submit()
+        if back_col.button("Keep working", width="stretch"):
+            st.session_state.pop(confirm_key, None)
+            st.rerun()
+
     col_a, col_b = st.columns([3, 1])
     with col_a:
         if st.button("Submit my answers", type="primary"):
-            answers = {
-                item.question.id: st.session_state.get(_answer_key(item.question.id), "")
-                for item in exam.items
-            }
-            try:
-                exams.submit_exam(exam, answers)
-            except ValueError as exc:
-                st.error(str(exc), icon=":material/error:")
-            else:
+            if blank_count:
+                st.session_state[confirm_key] = True
                 st.rerun()
+            else:
+                _submit()
     with col_b:
         if st.button("Abandon", width="stretch"):
             store.set_mock_exam(None)

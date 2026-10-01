@@ -134,6 +134,12 @@ def test_a_student_can_sit_and_submit_a_mock_exam():
     next(b for b in at.button if b.label == "Submit my answers").click()
     at.run()
     assert not at.exception, at.exception
+    # Any question left blank asks for a second, deliberate click.
+    anyway = [b for b in at.button if b.label == "Submit anyway"]
+    if anyway:
+        anyway[0].click()
+        at.run()
+        assert not at.exception, at.exception
 
     exam = at.session_state["mock_exam"]
     assert exam.is_submitted and exam.results

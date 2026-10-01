@@ -228,8 +228,11 @@ def copy_assessment_to(assessment: Assessment, owner_id: str) -> Assessment:
         questions=[
             Question(
                 question_text=q.question_text,
-                model_answer=q.model_answer,
-                marking_criteria=q.marking_criteria,
+                # The owner's answers and marking are theirs alone - "your
+                # answers are never shared". The copy starts without them and
+                # behaves like any set with no answers saved (guidance, no score).
+                model_answer="",
+                marking_criteria="",
                 max_marks=q.max_marks,
             )
             for q in assessment.questions
