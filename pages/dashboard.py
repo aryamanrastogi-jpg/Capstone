@@ -49,9 +49,15 @@ metric_row(
     [
         ("Students", len(roster), "Students on your roster."),
         (
-            "Awaiting review",
+            "Submissions awaiting review",
             metrics["awaiting_review"],
             "Submissions with AI suggestions that still need your sign-off.",
+        ),
+        (
+            "Flagged",
+            metrics["flagged"],
+            "Results you flagged for a second look. They count as unscored until "
+            "you approve or edit them.",
         ),
         (
             "Class average",
@@ -75,8 +81,13 @@ with cta_a:
             f"{metrics['awaiting_review']} submission(s) are waiting for your review.",
             icon=":material/pending_actions:",
         )
-    else:
+    elif not metrics["flagged"]:
         st.success("Everything submitted has been reviewed.", icon=":material/task_alt:")
+    if metrics["flagged"]:
+        st.warning(
+            f"{metrics['flagged']} flagged result(s) still need a decision.",
+            icon=":material/flag:",
+        )
 with cta_b:
     if st.button("Review grading", type="primary", width="stretch"):
         goto("Review Grading")
@@ -103,12 +114,11 @@ if mismatches.empty:
     )
 else:
     for _, row in mismatches.iterrows():
-        tone = st.warning if abs(row["gap"]) < 30 else st.error
-        tone(
+        st.warning(
             f"**{row['student_identifier']}** · {row['assessment_title']} — "
             f"marked **{row['teacher_score']:g}/{row['max_marks']:g}** "
             f"({row['teacher_pct']}%), AI reads it as **{row['ai_score']:g}/"
-            f"{row['max_marks']:g}** ({row['ai_pct']}%). "
+            f"{row['ai_max_marks']:g}** ({row['ai_pct']}%). "
             f"{row['direction']} by {abs(row['gap'])} points.",
             icon=":material/compare_arrows:",
         )

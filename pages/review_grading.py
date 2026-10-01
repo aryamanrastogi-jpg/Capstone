@@ -103,7 +103,7 @@ titles = {a.id: a.title for a in assessments}
 filter_col, sub_col = st.columns([1, 2])
 with filter_col:
     only_pending = st.toggle(
-        "Show only items awaiting review",
+        "Show only items awaiting review or flagged",
         value=True,
         help="Turn this off to revisit results you have already approved, edited or flagged.",
     )
@@ -117,7 +117,8 @@ for _result in all_results:
 
 def _has_pending(submission_id: str) -> bool:
     results = results_by_submission.get(submission_id, [])
-    return (not results) or any(not r.is_reviewed for r in results)
+    # Flagged results still need a decision, so they stay in the queue.
+    return (not results) or any(not r.is_finalised for r in results)
 
 
 candidates = [s for s in submissions if (not only_pending) or _has_pending(s.id)]

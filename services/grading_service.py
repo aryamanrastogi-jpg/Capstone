@@ -497,6 +497,14 @@ def student_safe_view(
         "rating_label": result.rating_label,
         "confidence": result.confidence,
         "is_estimate": not result.is_finalised,
+        # Flagged results carry no score: the teacher withheld approval.
+        "is_flagged": result.review_status == ReviewStatus.FLAGGED,
+        # The teacher's feedback, only once they have signed the result off.
+        # Never the model answer or marking scheme - just what the teacher
+        # approved under "Feedback the student will see".
+        "teacher_feedback": (
+            result.final_feedback.strip() or None if result.is_finalised else None
+        ),
         # Keep only praise that does not restate the expected numbers.
         "strengths": [
             item for item in result.correct_elements if not _leaks(item)
