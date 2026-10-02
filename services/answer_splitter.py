@@ -185,7 +185,7 @@ def split_answers(text: str, questions: Sequence[Question]) -> AnswerSplit:
         # one per question. Otherwise "(a)" and "(b)" are more likely parts of a
         # single answer than answers to Q1 and Q2.
         return _not_confident(
-            f"The text is lettered (a), (b), ... with {len(numbers)} part(s), but this "
+            f"The text is lettered (a), (b), ... with {len(numbers)} part{'s' if len(numbers) != 1 else ''}, but this "
             f"assessment has {total} questions, so the letters cannot be matched to "
             "questions safely.",
             numbers,
@@ -193,7 +193,7 @@ def split_answers(text: str, questions: Sequence[Question]) -> AnswerSplit:
     needed = max(2, (total + 1) // 2)
     if len(numbers) < needed:
         return _not_confident(
-            f"Only {len(numbers)} question marker(s) were found for {total} questions, "
+            f"Only {len(numbers)} question marker{'s were' if len(numbers) != 1 else ' was'} found for {total} questions, "
             "which is too few to split reliably.",
             numbers,
         )

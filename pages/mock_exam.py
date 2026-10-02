@@ -249,13 +249,13 @@ if rows:
         name="Before",
         x=[t["topic"] for t in rows],
         y=[t["before"] for t in rows],
-        marker_color=NAVY,
+        marker_color=palette.PRIMARY,
     )
     figure.add_bar(
         name="Mock exam",
         x=[t["topic"] for t in rows],
         y=[t["after"] for t in rows],
-        marker_color=TEAL,
+        marker_color=palette.ORANGE,
     )
     figure.update_layout(barmode="group", yaxis=dict(range=[0, 105], title="Score (%)"))
     charts.render(figure, height=300)

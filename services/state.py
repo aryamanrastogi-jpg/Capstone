@@ -126,7 +126,45 @@ def get_current_user() -> Optional[User]:
     return next((u for u in get_users() if u.id == user_id), None)
 
 
+# Session keys that hold one person's in-progress work: uploads, drafts, mock
+# exam answers, flash messages. Cleared whenever the person using the app
+# changes, so nothing one user typed or uploaded is shown to the next.
+_PER_USER_KEYS = (
+    MOCK_EXAM,
+    "upload_extracted",
+    "my_questions_rows",
+    "my_questions_extracted",
+    "create_assessment_rows",
+    "practice_request",
+    "_roster_notice",
+    "_profile_flash",
+)
+_PER_USER_PREFIXES = (
+    "student_upload_extracted",
+    "mock_answer_",
+    "answer_",
+    "student_split_",
+    "upload_split_",
+    "hints_",
+    "mq_",
+    "ca_",
+)
+
+
+def clear_user_session_keys() -> None:
+    """Forget every per-user draft, upload and mock exam in this session."""
+    try:
+        keys = list(st.session_state.keys())
+    except Exception:  # noqa: BLE001 - no session state available
+        return
+    for key in keys:
+        if key in _PER_USER_KEYS or str(key).startswith(_PER_USER_PREFIXES):
+            st.session_state.pop(key, None)
+
+
 def set_current_user(user_id: str) -> None:
+    if st.session_state.get(CURRENT_USER_ID) != user_id:
+        clear_user_session_keys()
     st.session_state[CURRENT_USER_ID] = user_id
 
 
@@ -163,6 +201,7 @@ def enter_demo() -> None:
 
 
 def leave_demo() -> None:
+    clear_user_session_keys()
     st.session_state[ENTERED_DEMO] = False
 
 
@@ -181,6 +220,15 @@ def backend_status() -> Dict[str, Any]:
 
 
 def reset_to_samples() -> None:
-    """Restore the seeded demo dataset (used by the sidebar reset control)."""
+    """Restore the seeded demo dataset (used by the sidebar reset control).
+
+    Keeps whoever is using the app (if they exist in the seed) instead of
+    silently switching to the demo student, and drops per-user drafts, uploads
+    and the mock exam, which would otherwise outlive the data they refer to.
+    """
+    keep_user_id = st.session_state.get(CURRENT_USER_ID)
+    clear_user_session_keys()
     st.session_state[INITIALISED] = False
     init_session_state(load_samples=True)
+    if keep_user_id and any(u.id == keep_user_id for u in get_users()):
+        st.session_state[CURRENT_USER_ID] = keep_user_id

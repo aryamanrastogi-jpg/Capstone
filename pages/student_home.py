@@ -47,6 +47,8 @@ student = store.get_current_user()
 if student is None or not student.is_student:
     st.error("Sign in as a student to use this page.", icon=":material/error:")
     st.stop()
+# Upload text is per user, so it never shows up for the next person here.
+EXTRACTED_KEY = f"{EXTRACTED_KEY}:{student.id}"
 
 page_header(
     "My Work",
@@ -158,7 +160,7 @@ if not assessment.is_gradable:
         guidance = hint_service.guidance_for_questions(assessment.questions, assessment.subject)
     guidance_list(guidance)
     st.caption(
-        f"{missing} question(s) have no answer stored. Add the answers on My "
+        f"{missing} question{'s have' if missing != 1 else ' has'} no answer stored. Add the answers on My "
         "Questions when you have the mark scheme, and this set becomes scorable."
     )
     guide_col, _ = st.columns([1, 3])
@@ -188,7 +190,7 @@ if state.has_started:
     )
 
 if settled:
-    with st.expander(f"Settled — {len(settled)} question(s) you got right"):
+    with st.expander(f"Settled — {len(settled)} question{'s' if len(settled) != 1 else ''} you got right"):
         st.caption(
             "These are done. They are left out of your next attempt so you can "
             "put your time into what is left."
@@ -205,7 +207,7 @@ if settled:
 if state.is_complete:
     st.success(
         f"**{assessment.title}** is finished — every question settled in "
-        f"{state.attempts_used} attempt(s). Pick another set, or build a study "
+        f"{state.attempts_used} attempt{'s' if state.attempts_used != 1 else ''}. Pick another set, or build a study "
         "camp to keep it there.",
         icon=":material/military_tech:",
     )
@@ -213,7 +215,7 @@ if state.is_complete:
 if state.is_exhausted:
     st.warning(
         f"You have used all {state.max_attempts} attempts on **{assessment.title}** "
-        f"and {len(outstanding)} question(s) are still not right. That usually "
+        f"and {len(outstanding)} question{'s are' if len(outstanding) != 1 else ' is'} still not right. That usually "
         "means another go at the same question is not what will help. Take a "
         "break, then bring these to your teacher — or use the guidance below to "
         "work out where the method is going wrong.",

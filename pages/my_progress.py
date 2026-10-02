@@ -158,6 +158,15 @@ with right:
         ),
         hide_index=True,
         width="stretch",
+        # Key columns first and compact widths, so "Standing" stays visible on
+        # a 360px phone without scrolling inside the table (BUG-024).
+        column_order=["Topic", "Standing", "Average (%)", "Questions"],
+        column_config={
+            "Topic": st.column_config.TextColumn(width=130),
+            "Standing": st.column_config.TextColumn(width=90),
+            "Average (%)": st.column_config.NumberColumn("Avg %", width=55, format="%.0f"),
+            "Questions": st.column_config.NumberColumn("Qs", width=45),
+        },
     )
 
 if weakest:
@@ -245,6 +254,10 @@ with st.expander("Every question, in full"):
         ),
         hide_index=True,
         width="stretch",
+        column_order=["Topic", "%", "Score", "Out of", "Teacher confirmed", "Work", "Question", "Date"],
+        column_config={"%": st.column_config.NumberColumn(width="small", format="%.0f"),
+                       "Score": st.column_config.NumberColumn(width="small"),
+                       "Out of": st.column_config.NumberColumn(width="small")},
     )
 
 privacy_notice()

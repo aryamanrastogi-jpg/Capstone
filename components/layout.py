@@ -23,6 +23,7 @@ Responsiveness, in three moves:
 
 from __future__ import annotations
 
+from html import escape
 from typing import Iterable, Optional, Sequence
 
 import streamlit as st
@@ -43,7 +44,9 @@ _WRAP_BREAKPOINT = "1100px"
 # inside this container, and Streamlit's own rule for the paragraphs in it is
 # more specific than a bare class. Prefixing our selectors with it is what makes
 # a heading actually render as a heading.
-_IN = '[data-testid="stMarkdownContainer"]'
+# `st.html` blocks (used where content must paint without waiting for the
+# markdown renderer, e.g. the welcome page) are matched the same way.
+_IN = ':is([data-testid="stMarkdownContainer"], [data-testid="stHtml"])'
 
 _SIDEBAR = '[data-testid="stSidebar"]'
 
@@ -206,7 +209,11 @@ _STYLES = f"""
       font-weight: 800;
       letter-spacing: -0.03em;
       margin: 0 0 0.3rem 0;
+      padding: 0;
       line-height: 1.1;
+  }}
+  {_IN} .campprep-header [data-testid="stHeaderActionElements"] {{
+      display: none;
   }}
   {_IN} .campprep-subtitle {{
       color: rgba(233, 236, 255, 0.86);
@@ -582,6 +589,7 @@ _STYLES = f"""
       letter-spacing: -0.045em;
       color: {palette.INK};
       margin: 1.1rem 0 1rem 0;
+      padding: 0;
   }}
   {_IN} .campprep-hero-title span {{
       background: linear-gradient(95deg, {palette.PRIMARY} 10%, {palette.CYAN} 95%);
@@ -690,6 +698,43 @@ _STYLES = f"""
       margin: 0;
       color: rgba(233, 236, 255, 0.85);
       font-size: 0.88rem;
+  }}
+  /* Welcome-page stand-ins for st.info / st.divider / st.caption, drawn
+     with st.html so the whole page paints in one go (BUG-023). */
+  {_IN} .campprep-notice {{
+      border-radius: 1rem;
+      padding: 1rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0 0 0.5rem 0;
+  }}
+  {_IN} .campprep-rule {{
+      border: none;
+      border-top: 1px solid {palette.BORDER};
+      margin: 1.5rem 0 1rem 0;
+  }}
+  {_IN} .campprep-small {{
+      color: {palette.MUTED};
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin: 0 0 0.6rem 0;
+  }}
+  {_IN} .campprep-foot {{ margin-top: 1.5rem; }}
+  {_IN} .campprep-card-pair {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+  }}
+  @media (max-width: {_STACK_BREAKPOINT}) {{
+      {_IN} .campprep-card-pair {{ grid-template-columns: 1fr; }}
+  }}
+  /* The welcome page keeps Streamlit's own page geometry (top padding, full
+     wide width). Everything on it is drawn before this stylesheet arrives, so
+     a different padding or max-width made the whole page jump once it did. */
+  .stMainBlockContainer:has(.campprep-hero-title) {{
+      max-width: none;
+      padding-top: 6rem;
   }}
   /* A small, static "what you get" card under the sign-in panel. */
   {_IN} .campprep-preview {{
@@ -800,8 +845,12 @@ def inject_styles() -> None:
     `page_header` so that a page rendered on its own - as the tests do - is
     still styled. Every other helper assumes the block is already there rather
     than adding another copy of it to the DOM on each call.
+
+    `st.html` rather than `st.markdown`: a style-only st.html block takes no
+    space in the layout, and it arrives together with the welcome page's own
+    st.html content instead of after it (BUG-023, welcome page CLS 0.54).
     """
-    st.markdown(_STYLES, unsafe_allow_html=True)
+    st.html(_STYLES)
 
 
 def page_header(
@@ -822,10 +871,11 @@ def page_header(
         eyebrow = _section_for(title)
     parts = ['<div class="campprep-header">']
     if eyebrow:
-        parts.append(f'<span class="campprep-eyebrow">{eyebrow}</span>')
-    parts.append(f'<p class="campprep-title">{title}</p>')
+        parts.append(f'<span class="campprep-eyebrow">{escape(eyebrow)}</span>')
+    # A real <h1>: one per page, for screen readers and document outline.
+    parts.append(f'<h1 class="campprep-title">{escape(title)}</h1>')
     if subtitle:
-        parts.append(f'<p class="campprep-subtitle">{subtitle}</p>')
+        parts.append(f'<p class="campprep-subtitle">{escape(subtitle)}</p>')
     parts.append('<span class="campprep-stripe"></span></div>')
     st.markdown("".join(parts), unsafe_allow_html=True)
     if help_text:
@@ -860,10 +910,18 @@ def sidebar_status() -> None:
         else:
             st.success("Connected to Supabase", icon=":material/cloud_done:")
 
+        # User-facing copy only. The backend message is setup advice for
+        # whoever deploys the app (env vars, pip), so it stays out of the UI.
         if status["is_error"]:
-            st.error(status["message"], icon=":material/error:")
+            st.error(
+                "We couldn't reach the account service, so you are in demo "
+                "mode - sample data, nothing is saved.",
+                icon=":material/error:",
+            )
+        elif status["demo_mode"]:
+            st.caption("Demo mode — sample data, nothing is saved.")
         else:
-            st.caption(status["message"])
+            st.caption("Your work is saved to your account.")
 
         st.divider()
         _identity_switcher()
@@ -976,6 +1034,21 @@ def badge_row(badges: Iterable[str]) -> None:
     st.markdown(f'<div class="campprep-badges">{html}</div>', unsafe_allow_html=True)
 
 
+def info_card_html(title: str, body: str, icon: str = "", tone: str = "primary") -> str:
+    """The markup behind `info_card`, for pages that draw several in one block."""
+    tile = ""
+    if icon:
+        background, colour = _TONES.get(tone, _TONES["primary"])
+        tile = (
+            f'<span class="campprep-card-icon" '
+            f'style="background:{background};color:{colour};">{escape(icon)}</span>'
+        )
+    return (
+        f'<div class="campprep-card">{tile}<div><h4>{escape(title)}</h4>'
+        f'<p>{escape(body)}</p></div></div>'
+    )
+
+
 def info_card(title: str, body: str, icon: str = "", tone: str = "primary") -> None:
     """A white card with an optional coloured icon tile beside the text.
 
@@ -983,17 +1056,9 @@ def info_card(title: str, body: str, icon: str = "", tone: str = "primary") -> N
     tile colour from the palette roles - primary, hint, correct, warning or
     incorrect.
     """
-    tile = ""
-    if icon:
-        background, colour = _TONES.get(tone, _TONES["primary"])
-        tile = (
-            f'<span class="campprep-card-icon" '
-            f'style="background:{background};color:{colour};">{icon}</span>'
-        )
-    st.markdown(
-        f'<div class="campprep-card">{tile}<div><h4>{title}</h4><p>{body}</p></div></div>',
-        unsafe_allow_html=True,
-    )
+    # st.html, not markdown: raw-HTML markdown waits for a lazily loaded plugin
+    # and then pushes already-drawn content down (BUG-023).
+    st.html(info_card_html(title, body, icon, tone))
 
 
 def hint_note(text: str) -> None:
@@ -1002,7 +1067,7 @@ def hint_note(text: str) -> None:
     Hints get their own colour so a student can tell at a glance that what
     follows is a nudge, not a verdict on their answer.
     """
-    st.markdown(f'<div class="campprep-hint">{text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="campprep-hint">{escape(text)}</div>', unsafe_allow_html=True)
 
 
 def empty_state(message: str, hint: str = "", icon: str = ":material/info:") -> None:

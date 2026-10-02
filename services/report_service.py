@@ -162,6 +162,21 @@ def _summary_line(title: str, rows: Sequence[ReportRow]) -> SummaryRow:
 # --------------------------------------------------------------------------
 # CSV
 # --------------------------------------------------------------------------
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: object) -> object:
+    """Neutralise spreadsheet formulas in text cells (CSV injection).
+
+    A text cell starting with = + - @ tab or CR is run as a formula by Excel
+    and Sheets; a leading apostrophe makes it display as plain text. Numbers
+    are left alone, so a negative score stays a number.
+    """
+    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 def to_csv(report: Report) -> bytes:
     """Results table, a blank line, then the class summary.
 
@@ -178,13 +193,13 @@ def to_csv(report: Report) -> bytes:
     writer.writerow(REPORT_COLUMNS)
     for row in report.rows:
         values = asdict(row)
-        writer.writerow([values[c] for c in REPORT_COLUMNS])
+        writer.writerow([_csv_safe(values[c]) for c in REPORT_COLUMNS])
     writer.writerow([])
     writer.writerow(["Class summary"])
     writer.writerow(SUMMARY_COLUMNS)
     for line in report.summary:
         values = asdict(line)
-        writer.writerow([values[c] for c in SUMMARY_COLUMNS])
+        writer.writerow([_csv_safe(values[c]) for c in SUMMARY_COLUMNS])
     return buffer.getvalue().encode("utf-8-sig")
 
 

@@ -89,3 +89,8 @@ maxUploadSize = 5
 
 [browser]
 gatherUsageStats = false
+
+# Hide Streamlit's developer toolbar (Deploy button, rerun/settings menu) from
+# students and teachers; only the app's own menu items remain.
+[client]
+toolbarMode = "minimal"

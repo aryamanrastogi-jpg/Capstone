@@ -161,11 +161,26 @@ def list_assessments_for_student(student_id: str) -> List[Assessment]:
     On the Supabase backend `assessments_select` in db/policies.sql enforces the
     same rule, so the database would not return the rows either. The filter is
     kept because it is the only thing enforcing it in demo mode.
+
+    Teacher sets are scoped by the student's *current* teacher: after leaving
+    a class they stop appearing. Sets with no owner (the demo seed) belong to
+    whichever class the student is in, so they need a teacher too.
     """
+    repo = get_repository()
+    student = next((u for u in repo.list_users() if u.id == student_id), None)
+
+    def _from_my_teacher(a: Assessment) -> bool:
+        if student is None:
+            return True  # profile not visible here; RLS scopes it instead
+        if not student.teacher_id:
+            return False
+        return a.owner_id is None or a.owner_id == student.teacher_id
+
     return [
         a
-        for a in get_repository().list_assessments()
-        if not a.student_created or a.owner_id == student_id
+        for a in repo.list_assessments()
+        if (a.owner_id == student_id)
+        or (not a.student_created and _from_my_teacher(a))
     ]
 
 
@@ -268,10 +283,38 @@ def list_submissions(
 
     Pass `student_id` for anything a student sees: scoping here rather than in
     the page means one student's work can never leak into another's view.
+
+    Without `student_id`, a teacher only gets their roster's work (plus
+    responses they uploaded under an anonymous code): a student who left the
+    class drops out of the queue, dashboard and analytics.
     """
-    return get_repository().list_submissions(
+    subs = get_repository().list_submissions(
         assessment_id=assessment_id, student_id=student_id
     )
+    if student_id is None:
+        subs = scope_to_teacher_roster(subs)
+    return subs
+
+
+def _viewing_teacher_roster() -> Optional[set]:
+    """Roster ids when a teacher is the viewer, else None (no scoping)."""
+    try:
+        from services.state import get_current_user
+
+        viewer = get_current_user()
+    except Exception:  # no Streamlit session (scripts, plain unit tests)
+        return None
+    if viewer is None or not viewer.is_teacher:
+        return None
+    return {u.id for u in list_students_for_teacher(viewer.id)}
+
+
+def scope_to_teacher_roster(submissions: Sequence[Submission]) -> List[Submission]:
+    """Drop submissions from students who are not on the viewing teacher's roster."""
+    roster = _viewing_teacher_roster()
+    if roster is None:
+        return list(submissions)
+    return [s for s in submissions if s.student_id is None or s.student_id in roster]
 
 
 def get_submission(submission_id: str) -> Optional[Submission]:
@@ -298,6 +341,9 @@ def list_grading_results(
     if student_id:
         owned = {s.id for s in list_submissions(student_id=student_id)}
         results = [r for r in results if r.submission_id in owned]
+    elif submission_id is None and _viewing_teacher_roster() is not None:
+        visible = {s.id for s in list_submissions()}
+        results = [r for r in results if r.submission_id in visible]
     return results
 
 

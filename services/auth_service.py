@@ -335,6 +335,9 @@ def sign_out() -> None:
         except Exception:  # noqa: BLE001 - signing out must always succeed
             pass
     _clear_cached_profile()
+    from services.state import clear_user_session_keys
+
+    clear_user_session_keys()
     # Drop the client too, so the next sign-in starts from a clean session
     # rather than inheriting anything from the last one.
     try:

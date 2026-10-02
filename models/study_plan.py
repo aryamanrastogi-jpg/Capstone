@@ -55,7 +55,8 @@ class StudyCamp(BaseModel):
     started_on: date = Field(default_factory=date.today)
     duration_days: int = Field(ge=1, le=14)
     # Where the student stood when the camp was created. Fixed forever.
-    baseline_percentage: float = Field(ge=0, le=100)
+    # None = no marked work on these topics yet ("no baseline yet").
+    baseline_percentage: Optional[float] = Field(default=None, ge=0, le=100)
     sessions: List[StudySession] = Field(default_factory=list)
 
     @computed_field  # type: ignore[prop-decorator]
@@ -79,7 +80,7 @@ class StudyCamp(BaseModel):
     def improvement(self) -> Optional[float]:
         """Percentage points gained since the camp started."""
         latest = self.latest_percentage
-        if latest is None:
+        if latest is None or self.baseline_percentage is None:
             return None
         return round(latest - self.baseline_percentage, 1)
 

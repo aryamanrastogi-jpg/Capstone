@@ -224,7 +224,7 @@ if save_clicked:
             st.session_state.pop(EXTRACTED_KEY, None)
             st.success(
                 f"Saved **{assessment.title}** — {assessment.question_count} "
-                f"question(s), {assessment.max_marks:g} marks.",
+                f"question{'s' if assessment.question_count != 1 else ''}, {assessment.max_marks:g} marks.",
                 icon=":material/check_circle:",
             )
             if assessment.is_gradable:
@@ -264,7 +264,7 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
             st.markdown(f"**{assessment.title}**")
             st.caption(
                 f"{assessment.topic} · {assessment.assessment_type.label} · "
-                f"{assessment.question_count} question(s) · "
+                f"{assessment.question_count} question{'s' if assessment.question_count != 1 else ''} · "
                 f"{assessment.max_marks:g} marks · "
                 f"saved {assessment.created_at.strftime('%d %b %Y')}"
             )
@@ -273,7 +273,7 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
             else:
                 missing = len(assessment.questions_missing_model_answers)
                 st.caption(
-                    f":material/info: {missing} question(s) have no answer, so "
+                    f":material/info: {missing} question{'s have' if missing != 1 else ' has'} no answer, so "
                     "this set cannot be scored yet."
                 )
             if assessment.is_copy:
@@ -339,7 +339,7 @@ else:
                 st.markdown(f"**{assessment.title}**")
                 st.caption(
                     f"{assessment.topic} · {assessment.assessment_type.label} · "
-                    f"{assessment.question_count} question(s) · "
+                    f"{assessment.question_count} question{'s' if assessment.question_count != 1 else ''} · "
                     f"{assessment.max_marks:g} marks"
                 )
                 st.caption(

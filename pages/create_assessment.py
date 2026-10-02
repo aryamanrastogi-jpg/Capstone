@@ -178,7 +178,7 @@ if save_clicked:
             )
         else:
             st.success(
-                f"Saved **{assessment.title}** with {assessment.question_count} question(s) "
+                f"Saved **{assessment.title}** with {assessment.question_count} question{'s' if assessment.question_count != 1 else ''} "
                 f"worth {assessment.max_marks} marks in total.",
                 icon=":material/check_circle:",
             )

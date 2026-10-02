@@ -79,8 +79,8 @@ their homework for them.
 ### The mark mismatch panel
 
 When a student records the mark their teacher gave alongside their work, CampPrep AI
-compares it against its own reading. A gap of more than 15 percentage points is
-surfaced to the teacher.
+compares it against its own reading. A gap of 15 percentage points or more
+(either way) is surfaced to the teacher.
 
 It does **not** claim the teacher was wrong. It says the two readings disagree
 enough to be worth a second look — in either direction.
@@ -365,10 +365,13 @@ A prototype. A privacy notice on every page says what is stored and who can see 
 
 ## Current limitations
 
-- **No AI provider yet.** The AI grading pipeline (prompt, validation, fallback)
-  is built, but no model is registered, so grading is rule-based keyword and
-  numeric matching. On `data/grading_eval.json` it is within half a mark of the
-  teacher 76% of the time (`python scripts/evaluate_grading.py`).
+- **AI grading needs a Gemini key.** With `LLM_API_KEY` and `LLM_MODEL` set,
+  Gemini grades answers and writes hints and practice questions. Without them -
+  or whenever a call fails, is rate-limited or breaks the output rules - the
+  rule-based keyword and numeric grader is used instead. On
+  `data/grading_eval.json` that fallback is within half a mark of the teacher
+  76% of the time (`python scripts/evaluate_grading.py`). Every AI mark is still
+  a suggestion until a teacher approves it.
 - **Demo mode has no real authentication.** The sidebar role switch is a demo
   convenience; real accounts need Supabase and the migrations in
   [docs/deployment.md](docs/deployment.md).
@@ -391,15 +394,17 @@ A prototype. A privacy notice on every page says what is stored and who can see 
 - **Guidance is shape-matched, not understood.** Eight recognised question shapes
   plus a generic fallback. It reads "find the area" and gives the area method; it
   does not know what the question is actually about.
-- **Practice generation is template-based.** It is targeted by each student's
-  results, but the questions come from templates for six topics.
+- **Practice questions are limited to six topics.** Gemini writes them when a
+  key is set, targeted by each student's results; otherwise they come from
+  templates. Study camps stay on the six template topics so the templates can
+  always stand in.
 
 ---
 
 ## Planned next steps
 
-1. **Register an AI provider** in `services/ai_grading_service.py` and beat the
-   rule-based baseline on `scripts/evaluate_grading.py`.
+1. **Measure the Gemini grader** against the rule-based baseline on
+   `scripts/evaluate_grading.py`, then raise the settle threshold.
 2. **Apply the Supabase migrations and deploy** — step by step in
    [docs/deployment.md](docs/deployment.md).
 3. **Teacher user testing** — plan in [docs/user-testing-plan.md](docs/user-testing-plan.md),
