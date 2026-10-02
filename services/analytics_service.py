@@ -373,6 +373,7 @@ def mark_mismatches(
         "teacher_score",
         "ai_score",
         "max_marks",
+        "ai_max_marks",
         "teacher_pct",
         "ai_pct",
         "gap",
@@ -397,14 +398,21 @@ def mark_mismatches(
 
         ai_total = sum(r.suggested_score for r in own)
         teacher_total = float(submission.teacher_awarded_score)
+        # The teacher's mark is for the whole paper, so it is out of the
+        # whole paper's marks - even on a re-attempt that only re-graded the
+        # outstanding questions.
+        assessment = assessments_by_id.get(submission.assessment_id)
+        paper_marks = (
+            float(assessment.max_marks) if assessment and assessment.max_marks else available
+        )
         ai_pct = round(100 * ai_total / available, 1)
-        teacher_pct = round(100 * teacher_total / available, 1)
+        teacher_pct = round(100 * teacher_total / paper_marks, 1)
         gap = round(ai_pct - teacher_pct, 1)
 
-        if abs(gap) < threshold_pct:
+        # Only gaps of MORE than the threshold are worth a second look.
+        if abs(gap) <= threshold_pct:
             continue
 
-        assessment = assessments_by_id.get(submission.assessment_id)
         rows.append(
             {
                 "submission_id": submission.id,
@@ -412,7 +420,8 @@ def mark_mismatches(
                 "assessment_title": assessment.title if assessment else "Unknown assessment",
                 "teacher_score": teacher_total,
                 "ai_score": round(ai_total, 2),
-                "max_marks": available,
+                "max_marks": paper_marks,
+                "ai_max_marks": available,
                 "teacher_pct": teacher_pct,
                 "ai_pct": ai_pct,
                 "gap": gap,

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Sequence
 
-from models import Assessment, GradingResult, Question, Submission
+from models import Assessment, GradingResult, Question, ReviewStatus, Submission
 from models.attempt import AttemptState, QuestionStanding, is_settling_score
 
 # Ten attempts per question set. See the module docstring for why.
@@ -67,11 +67,14 @@ def build_state(
 
     standings: List[QuestionStanding] = []
     for question in assessment.questions:
-        scored = by_question.get(question.id, [])
+        tried = by_question.get(question.id, [])
+        # A flagged result is unscored: the teacher withheld approval, so it
+        # can never settle a question (it still used up an attempt).
+        scored = [r for r in tried if not is_flagged(r)]
         standing = QuestionStanding(
             question_id=question.id,
             max_marks=question.max_marks,
-            attempts_used=len(scored),
+            attempts_used=len(tried),
         )
         if scored:
             # Best result wins, not the latest: a student who got it right and
@@ -88,6 +91,23 @@ def build_state(
         attempts_used=len(attempts),
         standings=standings,
     )
+
+
+def is_flagged(result: GradingResult) -> bool:
+    """A teacher flagged this result: it carries no score at all."""
+    return result.review_status == ReviewStatus.FLAGGED
+
+
+def question_number(assessment: Assessment, question: Question) -> int:
+    """The question's real 1-based number in its set.
+
+    Not its position among one attempt's results: a re-attempt covering only
+    Q2 and Q3 must still label them Q2 and Q3.
+    """
+    for number, candidate in enumerate(assessment.questions, start=1):
+        if candidate.id == question.id:
+            return number
+    return 0
 
 
 def outstanding_questions(
@@ -138,7 +158,11 @@ def attempt_history(
                 "answer": submission.answer_for(question_id),
                 "score": result.effective_score,
                 "max_marks": result.max_marks,
-                "is_settled": is_settling_score(result.effective_score, result.max_marks),
+                "is_settled": (
+                    not is_flagged(result)
+                    and is_settling_score(result.effective_score, result.max_marks)
+                ),
+                "is_flagged": is_flagged(result),
                 "result": result,
             }
         )

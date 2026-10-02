@@ -40,6 +40,8 @@ from services.grading_service import grade_submission, student_safe_view
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 EXTRACTED_KEY = "student_upload_extracted"
+# A success message set just before st.rerun(), shown once on the next run.
+FLASH_KEY = "student_home_flash"
 
 student = store.get_current_user()
 if student is None or not student.is_student:
@@ -52,6 +54,10 @@ page_header(
     "Add work you have already done and get an instant estimate of how it would "
     "score, plus what to work on. Your teacher's mark is always the real one.",
 )
+
+_flash = st.session_state.pop(FLASH_KEY, None)
+if _flash:
+    st.success(_flash, icon=":material/check_circle:")
 
 st.info(
     "CampPrep AI gives you **pointers, not answers**. It will tell you where you went "
@@ -324,7 +330,14 @@ if state.can_attempt:
         "very differently - worth asking your teacher about.",
     )
     teacher_mark = None
-    if known_mark:
+    if known_mark and state.has_started:
+        # A re-attempt only re-grades the outstanding questions, so a mark for
+        # the whole paper cannot be compared with it. Record it on attempt 1.
+        st.caption(
+            "Add your teacher's mark on your first attempt only - a re-attempt "
+            "covers just the questions still outstanding."
+        )
+    elif known_mark:
         teacher_mark = st.number_input(
             f"Mark your teacher gave (out of {assessment.max_marks})",
             min_value=0.0,
@@ -381,9 +394,7 @@ if state.can_attempt:
                 ):
                     service.save_grading_result(result)
                 st.session_state.pop(EXTRACTED_KEY, None)
-                st.success(
-                    "Added. Your estimate is below.", icon=":material/check_circle:"
-                )
+                st.session_state[FLASH_KEY] = "Added. Your estimate is below."
                 st.rerun()
 
 st.divider()
@@ -445,13 +456,15 @@ for submission in recent:
     if not results:
         continue
 
-    awarded = sum(r.effective_score for r in results)
-    available = sum(r.max_marks for r in results)
+    # Flagged results are unscored, so they stay out of the total.
+    scored = [r for r in results if not attempt_service.is_flagged(r)]
+    awarded = sum(r.effective_score for r in scored)
+    available = sum(r.max_marks for r in scored)
     official = all(r.is_finalised for r in results)
 
     header = (
         f"{parent.title} · {submission.submitted_at.strftime('%d %b %Y')} · "
-        f"{awarded:g}/{available:g}"
+        + (f"{awarded:g}/{available:g}" if scored else "no score yet")
     )
     with st.expander(header, expanded=submission is recent[0]):
         if official:
@@ -472,19 +485,30 @@ for submission in recent:
                 continue
             view = student_safe_view(result, question)
 
-            st.markdown(f"**Q{index}.** {view['question_text']}")
+            number = attempt_service.question_number(parent, question)
+            st.markdown(f"**Q{number}.** {view['question_text']}")
             score_col, detail_col = st.columns([1, 3])
             with score_col:
-                st.metric(
-                    "Rating (estimate)" if view["is_estimate"] else "Rating",
-                    f"{view['rating']} / 5",
-                    help="How good this answer is, from 1 (not there yet) to 5 (spot on).",
-                )
-                st.caption(
-                    f"{view['rating_label']} · {view['score']:g}/{view['max_marks']:g} marks"
-                )
-                confidence_badge(view["confidence"])
+                if view["is_flagged"]:
+                    st.metric("Rating", "—")
+                    st.caption(
+                        "Your teacher flagged this for a second look, so it has "
+                        "no score yet."
+                    )
+                else:
+                    st.metric(
+                        "Rating (estimate)" if view["is_estimate"] else "Rating",
+                        f"{view['rating']} / 5",
+                        help="How good this answer is, from 1 (not there yet) to 5 (spot on).",
+                    )
+                    st.caption(
+                        f"{view['rating_label']} · {view['score']:g}/{view['max_marks']:g} marks"
+                    )
+                    confidence_badge(view["confidence"])
             with detail_col:
+                if view["teacher_feedback"]:
+                    st.markdown("*Your teacher's feedback*")
+                    st.markdown(view["teacher_feedback"])
                 st.markdown("*What went well*")
                 for item in view["strengths"]:
                     st.markdown(f"- {item}")

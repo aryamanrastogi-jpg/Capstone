@@ -55,7 +55,7 @@ metric_row(
             "Share of your reviewed results where you kept the AI score and wording exactly.",
         ),
         (
-            "Awaiting review",
+            "Results awaiting review",
             len(analytics.pending_results(results)),
             "Not counted in any chart on this page.",
         ),
