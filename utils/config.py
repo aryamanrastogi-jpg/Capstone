@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(override=False)
 
 APP_NAME = "CampPrep AI"
-APP_TAGLINE = "Teacher-reviewed AI assessment support for Grades 7-9"
+APP_TAGLINE = "Teacher-reviewed AI assessment support for IGCSE maths (Years 10–11)"
 
 # Upload guardrails
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB

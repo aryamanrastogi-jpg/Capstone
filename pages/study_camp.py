@@ -117,11 +117,25 @@ if camp is None:
 
     if chosen:
         baseline = camps.baseline_for(frame, chosen)
-        st.caption(
-            f"Your current average across those topics is **{baseline}%**. "
-            f"That becomes the baseline the camp measures against, and it will "
-            f"start you at **{camps.difficulty_for(baseline)}** difficulty."
-        )
+        missing = camps.topics_without_baseline(frame, chosen)
+        if baseline is None:
+            st.caption(
+                "You have no marked work on those topics yet, so there is no "
+                "baseline yet - the camp will start you at "
+                f"**{camps.difficulty_for(baseline)}** difficulty."
+            )
+        else:
+            st.caption(
+                f"Your current average across those topics is **{baseline}%**. "
+                f"That becomes the baseline the camp measures against, and it will "
+                f"start you at **{camps.difficulty_for(baseline)}** difficulty."
+                + (
+                    f" No baseline yet for {', '.join(missing)}, so "
+                    f"{'it is' if len(missing) == 1 else 'they are'} not counted in it."
+                    if missing
+                    else ""
+                )
+            )
 
     if st.button("Start my study camp", type="primary", disabled=not chosen):
         try:
@@ -162,10 +176,12 @@ with head_b:
 
 latest = summary["latest"]
 improvement = summary["improvement"]
+has_baseline = summary["baseline"] is not None
+baseline_label = f"{summary['baseline']}%" if has_baseline else "No baseline yet"
 
 metric_row(
     [
-        ("Starting point", f"{summary['baseline']}%", "Your average when the camp began."),
+        ("Starting point", baseline_label, "Your average when the camp began."),
         (
             "Where you are now",
             f"{latest}%" if latest is not None else "—",
@@ -174,7 +190,9 @@ metric_row(
         (
             "Change",
             f"{improvement:+g} pts" if improvement is not None else "—",
-            "Percentage points gained since starting.",
+            "Percentage points gained since starting."
+            if has_baseline
+            else "Shown once there is a baseline to compare against.",
         ),
         (
             "Sessions done",
@@ -193,6 +211,12 @@ if summary["is_complete"]:
             f"a gain of {improvement:+g} points.",
             icon=":material/celebration:",
         )
+    elif not has_baseline:
+        st.info(
+            f"Camp complete - you averaged {latest}% across the sessions. "
+            "This becomes your starting point for the next camp.",
+            icon=":material/flag:",
+        )
     else:
         st.info(
             "Camp complete. The scores have not moved much yet - it may be worth "
@@ -201,12 +225,12 @@ if summary["is_complete"]:
         )
 
 # --- Before / after ---------------------------------------------------------
-if latest is not None:
+if latest is not None and has_baseline:
     figure = go.Figure()
     figure.add_bar(
         x=["Starting point", "Now"],
         y=[summary["baseline"], latest],
-        marker_color=[NAVY, TEAL],
+        marker_color=[palette.PRIMARY, palette.ORANGE],
         text=[f"{summary['baseline']}%", f"{latest}%"],
         textposition="outside",
     )

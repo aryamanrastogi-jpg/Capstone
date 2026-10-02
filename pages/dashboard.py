@@ -72,7 +72,7 @@ cta_a, cta_b, cta_c = st.columns([2, 1, 1])
 with cta_a:
     if metrics["awaiting_review"]:
         st.info(
-            f"{metrics['awaiting_review']} submission(s) are waiting for your review.",
+            f"{metrics['awaiting_review']} submission{'s are' if metrics['awaiting_review'] != 1 else ' is'} waiting for your review.",
             icon=":material/pending_actions:",
         )
     else:

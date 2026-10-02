@@ -247,7 +247,7 @@ def _reason(
     if error_count and not from_overall:
         parts.append(
             f"{error_type.label} came up {error_count} time{'s' if error_count != 1 else ''} "
-            f"in this topic, out of {evidence.total_errors} error(s) recorded."
+            f"in this topic, out of {evidence.total_errors} error{'s' if evidence.total_errors != 1 else ''} recorded."
         )
     elif error_count:
         parts.append(

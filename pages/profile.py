@@ -19,6 +19,8 @@ WHAT IS SHOWN
 
 from __future__ import annotations
 
+import html
+
 import streamlit as st
 
 from components.layout import page_header
@@ -56,7 +58,7 @@ with photo_col:
     if user.avatar_url:
         st.image(user.avatar_url, width=160)
     else:
-        initial = user.display_name[:1].upper()
+        initial = html.escape(user.display_name[:1].upper())
         st.markdown(
             f'<div style="width:160px;height:160px;border-radius:50%;'
             f"background:{palette.SURFACE_ALT};color:{palette.PRIMARY};"

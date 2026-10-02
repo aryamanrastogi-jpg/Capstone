@@ -84,27 +84,40 @@ def available_topics_for(frame: pd.DataFrame) -> List[str]:
     return seen + rest
 
 
-def baseline_for(frame: pd.DataFrame, topics: Sequence[str]) -> float:
+def baseline_for(frame: pd.DataFrame, topics: Sequence[str]) -> Optional[float]:
     """The student's current average across the chosen topics.
 
     Captured once, when the camp is created, so improvement is measured against
-    a fixed starting point rather than a moving one.
+    a fixed starting point rather than a moving one. Topics the student has no
+    marked work on are left out; None means there is no baseline yet at all
+    (never 0%, which would turn any first score into a fake "improvement").
     """
     if frame.empty or not topics:
-        return 0.0
+        return None
     rows = frame[frame["topic"].isin(list(topics))]
     if rows.empty:
-        return 0.0
+        return None
     return round(float(rows["percentage"].mean()), 1)
 
 
-def difficulty_for(baseline: float) -> str:
+def topics_without_baseline(frame: pd.DataFrame, topics: Sequence[str]) -> List[str]:
+    """Chosen topics the student has no marked work on yet."""
+    if frame.empty:
+        return list(topics)
+    seen = set(frame["topic"])
+    return [t for t in topics if t not in seen]
+
+
+def difficulty_for(baseline: Optional[float]) -> str:
     """Start where the student actually is, not where the syllabus is.
 
     A camp is built on a student's *weak* topics, so the bands are deliberately
     generous: someone averaging 75% on their worst topic still needs practice
-    at the standard level, not extension work.
+    at the standard level, not extension work. With no baseline yet, start at
+    the standard level rather than assuming the student is struggling.
     """
+    if baseline is None:
+        return "Core"
     if baseline < 55:
         return "Foundation"
     if baseline < 80:

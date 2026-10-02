@@ -171,6 +171,13 @@ with topic_col:
             ),
             hide_index=True,
             width="stretch",
+            # Key columns first, compact widths: readable at 360px (BUG-024).
+            column_order=["Topic", "Average (%)", "Results"],
+            column_config={
+                "Topic": st.column_config.TextColumn(width=170),
+                "Average (%)": st.column_config.NumberColumn("Avg %", width=60, format="%.0f"),
+                "Results": st.column_config.NumberColumn(width=65),
+            },
         )
 
 with student_col:
@@ -191,6 +198,13 @@ with student_col:
             ),
             hide_index=True,
             width="stretch",
+            column_order=["Student", "Percentage", "Awarded", "Available"],
+            column_config={
+                "Student": st.column_config.TextColumn(width=110),
+                "Percentage": st.column_config.NumberColumn("%", width=55, format="%.0f"),
+                "Awarded": st.column_config.NumberColumn(width=75),
+                "Available": st.column_config.NumberColumn("Out of", width=60),
+            },
         )
 
 with st.expander("Approved results (raw table)"):
@@ -222,6 +236,10 @@ with st.expander("Approved results (raw table)"):
         ),
         hide_index=True,
         width="stretch",
+        column_order=["Student", "Final", "Out of", "%", "Status", "Assessment", "Question", "AI suggested", "Confidence"],
+        column_config={"%": st.column_config.NumberColumn(width="small", format="%.0f"),
+                       "Final": st.column_config.NumberColumn(width="small"),
+                       "Out of": st.column_config.NumberColumn(width="small")},
     )
 
 st.divider()

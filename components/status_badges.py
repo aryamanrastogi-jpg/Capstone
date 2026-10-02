@@ -6,6 +6,7 @@ level is shown in, so the whole app stays visually consistent.
 
 from __future__ import annotations
 
+from html import escape
 from typing import Tuple
 
 import streamlit as st
@@ -31,7 +32,7 @@ _SUBMISSION_STYLES = {
 def _badge_html(background: str, colour: str, text: str) -> str:
     return (
         f'<span class="campprep-badge" style="background:{background};color:{colour};">'
-        f"{text}</span>"
+        f"{escape(text)}</span>"
     )
 
 

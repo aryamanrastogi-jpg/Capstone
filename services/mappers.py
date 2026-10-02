@@ -303,7 +303,11 @@ def study_camp_to_rows(camp: StudyCamp) -> Tuple[Row, List[Row]]:
         "topics": list(camp.topics),
         "started_on": camp.started_on.isoformat(),
         "duration_days": camp.duration_days,
-        "baseline_percentage": camp.baseline_percentage,
+        # The column is NOT NULL; "no baseline yet" is stored as 0 until the
+        # schema allows null (the in-memory demo store keeps None).
+        "baseline_percentage": camp.baseline_percentage
+        if camp.baseline_percentage is not None
+        else 0.0,
     }
     session_rows = [
         {

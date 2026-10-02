@@ -35,7 +35,7 @@ from services.state import (  # noqa: E402
 from utils.config import APP_NAME, APP_TAGLINE  # noqa: E402
 
 st.set_page_config(
-    page_title=APP_NAME,
+    # No page_title: each st.Page's own title names the browser tab (BUG-031).
     page_icon=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
     layout="wide",
     # "auto", not "expanded": on a phone an expanded sidebar covers the page,

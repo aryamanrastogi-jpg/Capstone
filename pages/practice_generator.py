@@ -162,6 +162,13 @@ if mode == FROM_RESULTS:
                 ],
                 hide_index=True,
                 width="stretch",
+                # Compact numbers first so the key columns fit a 360px phone (BUG-024).
+                column_order=["Topic", "Average %", "Answers graded", "Most common errors"],
+                column_config={
+                    "Topic": st.column_config.TextColumn(width=130),
+                    "Average %": st.column_config.NumberColumn("Avg %", width=55, format="%.0f"),
+                    "Answers graded": st.column_config.NumberColumn("Graded", width=60),
+                },
             )
             if plan.unsupported_topics:
                 st.caption(
@@ -178,7 +185,7 @@ if mode == FROM_RESULTS:
             )
         else:
             topics = list(dict.fromkeys(t.topic for t in plan.targets))
-            st.subheader(f"{len(plan.items)} practice question(s) · {', '.join(topics)}")
+            st.subheader(f"{len(plan.items)} practice question{'s' if len(plan.items) != 1 else ''} · {', '.join(topics)}")
             st.caption(
                 "Written from the questions that lost the most marks. New graded "
                 "work changes the mix."
@@ -248,7 +255,7 @@ else:
             st.error(str(exc), icon=":material/error:")
         else:
             st.subheader(
-                f"{len(questions)} practice question(s) · {request['topic']} · "
+                f"{len(questions)} practice question{'s' if len(questions) != 1 else ''} · {request['topic']} · "
                 f"{request['difficulty']}"
             )
             for question in questions:
