@@ -20,6 +20,7 @@ Run them in order, in the Supabase SQL editor. Each is idempotent.
 | `004_profile_details.sql` | Name at sign-up becomes the display name, `profiles.avatar_url`, the `avatars` storage bucket, and `delete_my_account()` |
 | `005_teacher_invites.sql` | Hashed, expiring teacher invite codes and `redeem_teacher_invite(code)` - the only route to the teacher role besides an operator |
 | `006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
+| `007_bug_fixes.sql` | Audit fixes: students read teacher/shared questions via `student_questions` (BUG-001), teachers read only their own and their students' questions (BUG-002), a student's submission freezes once reviewed (BUG-016) |
 
 After the migrations, re-run `db/policies.sql`.
 

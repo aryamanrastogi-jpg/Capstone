@@ -16,6 +16,11 @@ from models import Role
 STUDENT = Role.STUDENT
 TEACHER = Role.TEACHER
 
+# Session key holding the page a visitor asked for before they were signed in
+# or in the demo (BUG-006). app.py sets it on the welcome page and honours it
+# once they are in.
+REQUESTED_PAGE = "_requested_page"
+
 # `roles` controls who sees each page. `default` is per role: the first page
 # listed for a role that has default=True becomes its landing page.
 PAGE_SPECS: List[Dict[str, Any]] = [
@@ -141,21 +146,28 @@ PAGE_SPECS: List[Dict[str, Any]] = [
 ]
 
 
-def pages_for(role: Role, signed_in: Optional[bool] = None) -> List[Dict[str, Any]]:
+def pages_for(
+    role: Role, signed_in: Optional[bool] = None, accounts_available: bool = True
+) -> List[Dict[str, Any]]:
     """Pages for a role. With `signed_in` given, pages marked for the other
-    state are left out: Profile only when signed in, Sign In only when not."""
+    state are left out: Profile only when signed in, Sign In only when not.
+    With `accounts_available=False` (no Supabase) Sign In is left out too, since
+    it could only say that accounts are unavailable (BUG-032)."""
     return [
         spec
         for spec in PAGE_SPECS
         if role in spec["roles"]
         and (signed_in is None or spec.get("signed_in", signed_in) == signed_in)
+        and (accounts_available or spec["path"] != "pages/sign_in.py")
     ]
 
 
-def build_navigation(role: Role, signed_in: bool = False):
+def build_navigation(
+    role: Role, signed_in: bool = False, accounts_available: bool = True
+):
     """Build the grouped navigation object for the signed-in role."""
     sections: Dict[str, List] = {}
-    for spec in pages_for(role, signed_in):
+    for spec in pages_for(role, signed_in, accounts_available):
         page = st.Page(
             spec["path"],
             title=spec["title"],

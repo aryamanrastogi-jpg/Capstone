@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 import re
+import threading
 import time
 from typing import Any, Dict, Optional, Tuple
 
@@ -59,6 +60,18 @@ MIN_PASSWORD_CHARS = 8
 # limit, which opening a new browser session cannot reset. This one it can.
 MAX_FAILED_SIGN_INS = 5
 LOCKOUT_SECONDS = 60
+
+# BUG-017: the per-session counter above resets on a browser refresh, because a
+# refresh is a new Streamlit session. So failures are ALSO counted per email in
+# this process-wide table, which outlives any one session. It is still only a
+# speed bump - it lives in one server process and is lost on restart - and
+# Supabase Auth's own rate limit remains the real defence. Guarded by a lock
+# because one process serves every browser session from several threads.
+# email -> (failures in the current window, window start, locked until)
+_EMAIL_FAILURES: Dict[str, Tuple[int, float, float]] = {}
+_EMAIL_FAILURES_LOCK = threading.Lock()
+# Bound the table so a stream of made-up emails cannot grow it without limit.
+_MAX_TRACKED_EMAILS = 10_000
 
 INVALID_INVITE_MESSAGE = "That invite code is not valid."
 
@@ -147,17 +160,74 @@ def password_problem(password: str) -> Optional[str]:
     return None
 
 
-def sign_in_locked_for() -> int:
-    """Seconds until this session may try to sign in again; 0 if it may now."""
+def _email_key(email: Optional[str]) -> str:
+    return (email or "").strip().lower()[:MAX_EMAIL_CHARS]
+
+
+def _email_locked_until(email: Optional[str]) -> float:
+    key = _email_key(email)
+    if not key:
+        return 0.0
+    with _EMAIL_FAILURES_LOCK:
+        entry = _EMAIL_FAILURES.get(key)
+    return entry[2] if entry else 0.0
+
+
+def sign_in_locked_for(email: Optional[str] = None) -> int:
+    """Seconds until this session (or, given one, this email) may try again.
+
+    0 if it may now. The email lock is process-wide, so it survives a refresh.
+    """
     try:
         until = float(st.session_state.get(LOCKED_UNTIL) or 0)
     except Exception:  # noqa: BLE001 - no session state available
-        return 0
+        until = 0.0
+    until = max(until, _email_locked_until(email))
     remaining = until - time.time()
     return math.ceil(remaining) if remaining > 0 else 0
 
 
-def _record_failed_sign_in() -> None:
+def _record_failed_email(email: Optional[str]) -> None:
+    key = _email_key(email)
+    if not key:
+        return
+    now = time.time()
+    with _EMAIL_FAILURES_LOCK:
+        if key not in _EMAIL_FAILURES and len(_EMAIL_FAILURES) >= _MAX_TRACKED_EMAILS:
+            # Drop entries whose window and lock have both lapsed.
+            for stale in [
+                k for k, (_, start, until) in _EMAIL_FAILURES.items()
+                if until <= now and now - start > LOCKOUT_SECONDS
+            ]:
+                del _EMAIL_FAILURES[stale]
+            if len(_EMAIL_FAILURES) >= _MAX_TRACKED_EMAILS:
+                _EMAIL_FAILURES.pop(next(iter(_EMAIL_FAILURES)))
+        failures, start, until = _EMAIL_FAILURES.get(key, (0, now, 0.0))
+        # Failures count within a rolling window of LOCKOUT_SECONDS, so a
+        # handful of typos spread over a day never adds up to a lock.
+        if now - start > LOCKOUT_SECONDS:
+            failures, start = 0, now
+        failures += 1
+        if failures >= MAX_FAILED_SIGN_INS:
+            until = now + LOCKOUT_SECONDS
+            failures, start = 0, now
+        _EMAIL_FAILURES[key] = (failures, start, until)
+
+
+def _reset_failed_email(email: Optional[str]) -> None:
+    key = _email_key(email)
+    with _EMAIL_FAILURES_LOCK:
+        _EMAIL_FAILURES.pop(key, None)
+
+
+def _reset_process_lockouts() -> None:
+    """Test hook: forget every per-email failure count."""
+    with _EMAIL_FAILURES_LOCK:
+        _EMAIL_FAILURES.clear()
+
+
+def _record_failed_sign_in(email: Optional[str] = None) -> None:
+    _record_failed_email(email)
     try:
         failures = int(st.session_state.get(FAILED_SIGN_INS) or 0) + 1
         if failures >= MAX_FAILED_SIGN_INS:
@@ -168,7 +238,9 @@ def _record_failed_sign_in() -> None:
         pass
 
 
-def _reset_failed_sign_ins() -> None:
+def _reset_failed_sign_ins(email: Optional[str] = None) -> None:
+    if email is not None:
+        _reset_failed_email(email)
     try:
         st.session_state.pop(FAILED_SIGN_INS, None)
         st.session_state.pop(LOCKED_UNTIL, None)
@@ -177,7 +249,7 @@ def _reset_failed_sign_ins() -> None:
 
 
 def sign_in(email: str, password: str) -> AuthOutcome:
-    locked = sign_in_locked_for()
+    locked = sign_in_locked_for(email)
     if locked:
         # Checked before the client is touched, so a locked session sends
         # nothing to Supabase at all.
@@ -187,7 +259,7 @@ def sign_in(email: str, password: str) -> AuthOutcome:
     if len(email) > MAX_EMAIL_CHARS or len(password) > MAX_PASSWORD_CHARS:
         # Same wording as a wrong password: an over-long input is just another
         # way of not matching an account.
-        _record_failed_sign_in()
+        _record_failed_sign_in(email)
         return AuthOutcome(False, "That email and password do not match an account.")
 
     client = session_client()
@@ -199,10 +271,10 @@ def sign_in(email: str, password: str) -> AuthOutcome:
             {"email": email.strip(), "password": password}
         )
     except Exception as exc:  # noqa: BLE001 - shown to the user
-        _record_failed_sign_in()
+        _record_failed_sign_in(email)
         return AuthOutcome(False, _readable_auth_error(exc))
 
-    _reset_failed_sign_ins()
+    _reset_failed_sign_ins(email)
     _clear_cached_profile()
     if current_user() is None:
         # Authentication worked but there is no profile row. That means the
@@ -284,10 +356,17 @@ def current_user() -> Optional[User]:
     """
     try:
         cached = st.session_state.get(PROFILE)
-        if cached is not None:
-            return cached
     except Exception:  # noqa: BLE001 - no session state available
         cached = None
+    if cached is not None:
+        # BUG-020: the cache is only good while the session behind it is. If
+        # the token expired and could not be refreshed, returning the profile
+        # would keep the user "signed in" while the repository silently fell
+        # back to demo data. Drop it and treat them as signed out instead.
+        if is_signed_in():
+            return cached
+        _clear_cached_profile()
+        return None
 
     client = authenticated_client()
     if client is None:

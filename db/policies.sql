@@ -175,9 +175,11 @@ create policy assessments_delete_own on public.assessments
 -- ---------------------------------------------------------------------------
 -- questions
 -- ---------------------------------------------------------------------------
--- Direct reads are for teachers and for the person who authored the set. A
--- student reads questions through public.student_questions instead, which does
--- not carry the model answer. See "MODEL ANSWERS" at the bottom.
+-- Direct reads are for the person who authored the set, for a teacher on sets
+-- their students own, and for a teacher on the unowned seed set - not for
+-- every teacher on everything (BUG-002, migration 007). A student reads other
+-- people's questions through public.student_questions instead, which does not
+-- carry the model answer. See "MODEL ANSWERS" at the bottom.
 drop policy if exists questions_select on public.questions;
 create policy questions_select on public.questions
     for select to authenticated
@@ -185,7 +187,11 @@ create policy questions_select on public.questions
         exists (
             select 1 from public.assessments a
              where a.id = questions.assessment_id
-               and (a.owner_id = public.app_profile_id() or public.app_is_teacher())
+               and (a.owner_id = public.app_profile_id()
+                    or public.app_teaches(a.owner_id)
+                    or (a.owner_id is null
+                        and not a.student_created
+                        and public.app_is_teacher()))
         )
     );
 
@@ -229,7 +235,9 @@ create view public.student_questions as
      where a.owner_id = public.app_profile_id()
         or (not a.student_created and a.owner_id is null)
         or (not a.student_created and a.owner_id = public.app_my_teacher_id())
-        or public.app_teaches(a.owner_id);
+        or public.app_teaches(a.owner_id)
+        -- Shared library sets, matching assessments_select (BUG-001, 007).
+        or (a.is_shared and a.student_created);
 
 grant select on public.student_questions to authenticated;
 
@@ -292,6 +300,135 @@ create policy submission_answers_all on public.submission_answers
                     or public.app_teaches(s.student_id))
         )
     );
+
+-- ---------------------------------------------------------------------------
+-- Freezing a student's own submission (BUG-016, migration 007)
+-- ---------------------------------------------------------------------------
+-- submissions_update and submission_answers_all let a student write their own
+-- rows, and Postgres has no column-level RLS. These triggers narrow that for
+-- the student only: teacher-uploaded work is read-only to them, everything is
+-- frozen once a result is approved or edited, identity columns never change,
+-- and only a teacher can make a submission 'reviewed'. The reasoning is in
+-- db/migrations/007_bug_fixes.sql.
+create or replace function public.app_submission_finalised(p_submission_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+    select exists (
+        select 1 from public.grading_results g
+         where g.submission_id = p_submission_id
+           and g.review_status in ('approved', 'edited')
+    );
+$fn$;
+
+create or replace function public.submissions_guard_student_write()
+returns trigger
+language plpgsql
+set search_path = public
+as $fn$
+declare
+    v_me text := public.app_profile_id();
+    v_student_id text;
+begin
+    if tg_op = 'INSERT' then
+        v_student_id := new.student_id;
+    else
+        v_student_id := old.student_id;
+    end if;
+
+    -- Only the student writing their own row is restricted here. Teachers,
+    -- and the service role / SQL editor (no profile), are left to RLS.
+    if v_me is null
+       or v_student_id is distinct from v_me
+       or public.app_is_teacher() then
+        return new;
+    end if;
+
+    if tg_op = 'INSERT' then
+        if not new.is_self_study or new.status = 'reviewed' then
+            raise exception 'Students can only add their own self-study work.'
+                using errcode = '42501';
+        end if;
+        return new;
+    end if;
+
+    -- UPDATE by the student themselves.
+    if not old.is_self_study then
+        raise exception 'Only your teacher can change work they uploaded.'
+            using errcode = '42501';
+    end if;
+    if public.app_submission_finalised(old.id) then
+        raise exception 'This work has been reviewed by your teacher and can no longer be changed.'
+            using errcode = '42501';
+    end if;
+    if new.id is distinct from old.id
+       or new.student_id is distinct from old.student_id
+       or new.assessment_id is distinct from old.assessment_id
+       or new.is_self_study is distinct from old.is_self_study
+       or new.attempt_number is distinct from old.attempt_number then
+        raise exception 'These details of a submission cannot be changed.'
+            using errcode = '42501';
+    end if;
+    if new.status = 'reviewed' and old.status is distinct from 'reviewed' then
+        raise exception 'Only a teacher can mark work as reviewed.'
+            using errcode = '42501';
+    end if;
+    return new;
+end;
+$fn$;
+
+drop trigger if exists submissions_guard_student_write on public.submissions;
+create trigger submissions_guard_student_write
+    before insert or update on public.submissions
+    for each row
+    execute function public.submissions_guard_student_write();
+
+-- The answers are part of the submission, so they freeze with it.
+create or replace function public.submission_answers_guard_student_write()
+returns trigger
+language plpgsql
+set search_path = public
+as $fn$
+declare
+    v_me text := public.app_profile_id();
+    v_submission_id text;
+    v_sub public.submissions%rowtype;
+begin
+    if tg_op = 'DELETE' then
+        v_submission_id := old.submission_id;
+    else
+        v_submission_id := new.submission_id;
+    end if;
+
+    select * into v_sub from public.submissions s where s.id = v_submission_id;
+
+    -- No parent row: this is the cascade from deleting the submission itself,
+    -- which submissions_delete_own already allowed. Otherwise only the student
+    -- writing their own answers is restricted, as above.
+    if found
+       and v_me is not null
+       and v_sub.student_id = v_me
+       and not public.app_is_teacher()
+       and (not v_sub.is_self_study or public.app_submission_finalised(v_sub.id)) then
+        raise exception 'This work can no longer be changed.'
+            using errcode = '42501';
+    end if;
+
+    if tg_op = 'DELETE' then
+        return old;
+    end if;
+    return new;
+end;
+$fn$;
+
+drop trigger if exists submission_answers_guard_student_write on public.submission_answers;
+create trigger submission_answers_guard_student_write
+    before insert or update or delete on public.submission_answers
+    for each row
+    execute function public.submission_answers_guard_student_write();
 
 -- ---------------------------------------------------------------------------
 -- grading_results

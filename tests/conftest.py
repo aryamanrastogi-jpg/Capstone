@@ -36,3 +36,14 @@ def _fresh_settings():
     yield
     get_settings.cache_clear()
     llm_service.clear_cache()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_sign_in_lockouts():
+    # The per-email lockout is process-wide (BUG-017), so it would otherwise
+    # carry failed sign-ins from one test into the next.
+    from services import auth_service
+
+    auth_service._reset_process_lockouts()
+    yield
+    auth_service._reset_process_lockouts()

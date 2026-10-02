@@ -151,6 +151,10 @@ if save_clicked:
                 topic=topic,
                 rows=rows,
                 assessment_type=AssessmentType.from_label(assessment_type_label),
+                # BUG-003: assessments_insert_own requires owner_id to be the
+                # signed-in profile; an unowned set would also be visible to
+                # every student.
+                owner_id=_viewer.id,
             )
             service.save_assessment(assessment)
         except PydanticValidationError as exc:
@@ -160,6 +164,12 @@ if save_clicked:
                 st.markdown(f"- **{field}**: {issue['msg']}")
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
+        except Exception:  # noqa: BLE001 - a database refusal, shown plainly
+            st.error(
+                "This assessment could not be saved. Check that you are still "
+                "signed in as a teacher, then try again.",
+                icon=":material/error:",
+            )
         else:
             st.success(
                 f"Saved **{assessment.title}** with {assessment.question_count} question(s) "

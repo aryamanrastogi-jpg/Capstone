@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from models import (
     Assessment,
     GradingResult,
+    Role,
     StudyCamp,
     Submission,
     SubmissionStatus,
@@ -330,8 +331,12 @@ class SupabaseRepository(Repository):
        hundred round trips.
     """
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, student_reads: bool = False) -> None:
         self._client = client
+        # BUG-001: a student cannot read `questions` for a set they do not own
+        # (that table carries the model answers), so their reads go through
+        # the `student_questions` view instead. See `_question_rows`.
+        self._student_reads = student_reads
 
     # --- small helpers -------------------------------------------------
     def _rows(self, table: str) -> List[Dict[str, Any]]:
@@ -359,14 +364,37 @@ class SupabaseRepository(Repository):
             self._client.table(table).insert(rows).execute()
 
     # --- Assessments ---------------------------------------------------
+    def _question_rows(self, assessment_ids: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+        """Question rows for a batch of assessments, grouped by assessment id.
+
+        For a student (BUG-001) the rows come from `student_questions`, which
+        has no model_answer or marking_criteria, so a teacher's or a shared set
+        loads without its answers. Their OWN sets are then read from
+        `questions` as well - RLS returns only those - and override the view
+        rows by id, because grading a student's own typed-up set needs the
+        answers they wrote.
+        """
+        if not self._student_reads:
+            return self._children("questions", "assessment_id", assessment_ids)
+        grouped = self._children("student_questions", "assessment_id", assessment_ids)
+        owned = self._children("questions", "assessment_id", assessment_ids)
+        for assessment_id, rows in owned.items():
+            if not rows:
+                continue
+            by_id = {r["id"]: r for r in grouped.get(assessment_id, [])}
+            by_id.update({r["id"]: r for r in rows})
+            grouped[assessment_id] = list(by_id.values())
+        return grouped
+
     def list_assessments(self) -> List[Assessment]:
         rows = self._rows("assessments")
-        questions = self._children(
-            "questions", "assessment_id", [r["id"] for r in rows]
-        )
+        questions = self._question_rows([r["id"] for r in rows])
+        # A set whose questions this user cannot read is left out rather than
+        # failing the whole listing ("must contain at least one question").
         return [
-            mappers.assessment_from_rows(row, questions.get(row["id"], []))
+            mappers.assessment_from_rows(row, questions[row["id"]])
             for row in rows
+            if questions.get(row["id"])
         ]
 
     def get_assessment(self, assessment_id: str) -> Optional[Assessment]:
@@ -380,14 +408,9 @@ class SupabaseRepository(Repository):
         )
         if not rows:
             return None
-        questions = (
-            self._client.table("questions")
-            .select("*")
-            .eq("assessment_id", assessment_id)
-            .execute()
-            .data
-            or []
-        )
+        questions = self._question_rows([assessment_id]).get(assessment_id, [])
+        if not questions:
+            return None
         return mappers.assessment_from_rows(rows[0], questions)
 
     def save_assessment(self, assessment: Assessment) -> Assessment:
@@ -639,10 +662,14 @@ def get_repository() -> Repository:
     if _forced is not None:
         return _forced
 
-    from services.auth_service import authenticated_client
+    from services.auth_service import authenticated_client, current_role
 
     client = authenticated_client()
-    return SupabaseRepository(client) if client is not None else SessionRepository()
+    if client is None:
+        return SessionRepository()
+    # Anything other than a confirmed teacher reads like a student: the
+    # narrower path is the safe default.
+    return SupabaseRepository(client, student_reads=current_role() is not Role.TEACHER)
 
 
 def set_repository(repository: Optional[Repository]) -> None:
