@@ -11,10 +11,12 @@ from components.navigation import goto
 from services import assessment_service as service
 from services import document_service
 from services import state as store
+from services.attempt_service import attempts_for
 from services.grading_service import grade_submission
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 EXTRACTED_KEY = "upload_extracted"
+JUST_SAVED_KEY = "upload_just_saved"
 
 # Teacher-only page. Navigation already keeps students out; this is the second
 # line of defence if the page is reached directly.
@@ -78,13 +80,25 @@ with id_col:
     if roster:
         # Picking from the roster links the submission to a student account, so
         # it shows up in their own progress view as well as yours.
-        codes = {u.display_name: u.id for u in roster}
-        student_identifier = st.selectbox(
+        # Keyed by id, not display name: two students can share a name.
+        by_id = {u.id: u for u in roster}
+        name_counts: dict = {}
+        for u in roster:
+            name_counts[u.display_name] = name_counts.get(u.display_name, 0) + 1
+
+        def _student_label(user_id: str) -> str:
+            user = by_id[user_id]
+            if name_counts[user.display_name] > 1:
+                return f"{user.display_name} ({user.id})"
+            return user.display_name
+
+        selected_student_id = st.selectbox(
             "Student *",
-            options=list(codes.keys()),
+            options=list(by_id.keys()),
+            format_func=_student_label,
             help="Anonymous codes only. Picking a student links this to their progress.",
         )
-        selected_student_id = codes.get(student_identifier)
+        student_identifier = by_id[selected_student_id].display_name
     else:
         student_identifier = st.text_input(
             "Anonymous student identifier *",
@@ -176,6 +190,22 @@ if st.button("Confirm submission", type="primary"):
         for problem in problems:
             st.markdown(f"- {problem}")
     else:
+        # A teacher upload is an attempt at the set like any other, so it takes
+        # the next attempt number rather than defaulting to 1 every time.
+        attempt_number = 1
+        if selected_student_id:
+            attempt_number = (
+                len(
+                    attempts_for(
+                        selected_student_id,
+                        assessment.id,
+                        service.list_submissions(
+                            assessment_id=assessment.id, student_id=selected_student_id
+                        ),
+                    )
+                )
+                + 1
+            )
         try:
             submission = service.build_submission(
                 assessment_id=assessment.id,
@@ -185,6 +215,7 @@ if st.button("Confirm submission", type="primary"):
                 student_id=selected_student_id,
                 answers=answers,
                 questions=assessment.questions,
+                attempt_number=attempt_number,
             )
             service.save_submission(submission)
         except PydanticValidationError as exc:
@@ -212,8 +243,14 @@ if st.button("Confirm submission", type="primary"):
                 )
 
             st.session_state.pop(EXTRACTED_KEY, None)
-            if st.button("Go to Review Grading"):
-                goto("Review Grading")
+            st.session_state[JUST_SAVED_KEY] = True
+
+# Outside the confirm branch - clicking this is a new run in which the confirm
+# button is no longer pressed, so it must still be drawn then.
+if st.session_state.get(JUST_SAVED_KEY):
+    if st.button("Go to Review Grading"):
+        st.session_state.pop(JUST_SAVED_KEY, None)
+        goto("Review Grading")
 
 # ---------------------------------------------------------------------------
 # Existing submissions for this assessment

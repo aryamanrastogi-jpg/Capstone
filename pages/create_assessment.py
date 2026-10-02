@@ -14,6 +14,7 @@ from services import state as store
 from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "create_assessment_rows"
+JUST_SAVED_KEY = "create_assessment_just_saved"
 
 BLANK_ROWS = pd.DataFrame(
     [
@@ -38,6 +39,17 @@ page_header(
 
 if EDITOR_KEY not in st.session_state:
     st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+
+
+def _clear_form() -> None:
+    """Runs as an on_click callback, i.e. before the widgets are created again,
+    which is the only point where their session-state keys may be changed."""
+    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+    st.session_state.pop("ca_editor", None)  # the data editor's pending edits
+    st.session_state.pop(JUST_SAVED_KEY, None)
+    for key in ("ca_title", "ca_topic"):
+        st.session_state[key] = ""
+
 
 # ---------------------------------------------------------------------------
 # Assessment details
@@ -125,13 +137,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 save_col, clear_col, _ = st.columns([1, 1, 3])
 save_clicked = save_col.button("Save assessment", type="primary", width="stretch")
-clear_clicked = clear_col.button("Clear form", width="stretch")
-
-if clear_clicked:
-    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
-    for key in ("ca_title", "ca_topic"):
-        st.session_state[key] = ""
-    st.rerun()
+clear_col.button("Clear form", width="stretch", on_click=_clear_form)
 
 if save_clicked:
     result = validate_assessment_draft(
@@ -177,8 +183,14 @@ if save_clicked:
                 icon=":material/check_circle:",
             )
             st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
-            if st.button("Go to Upload Responses"):
-                goto("Upload Responses")
+            st.session_state[JUST_SAVED_KEY] = True
+
+# Outside `if save_clicked:` - the click on this button is a fresh run in which
+# save_clicked is False, so the button has to survive that run to act on it.
+if st.session_state.get(JUST_SAVED_KEY):
+    if st.button("Go to Upload Responses"):
+        st.session_state.pop(JUST_SAVED_KEY, None)
+        goto("Upload Responses")
 
 # ---------------------------------------------------------------------------
 # Existing assessments

@@ -34,6 +34,8 @@ from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "my_questions_rows"
 EXTRACTED_KEY = "my_questions_extracted"
+FLASH_KEY = "my_questions_flash"
+CONFIRM_DELETE_KEY = "my_questions_confirm_delete"
 
 BLANK_ROWS = pd.DataFrame(
     [
@@ -63,6 +65,22 @@ st.info(
 
 if EDITOR_KEY not in st.session_state:
     st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+
+# A confirmation set just before an st.rerun() would never be seen, so it is
+# carried across the rerun in session state and shown here.
+_flash = st.session_state.pop(FLASH_KEY, None)
+if _flash:
+    st.success(_flash, icon=":material/check_circle:")
+
+
+def _clear_form() -> None:
+    """Runs as an on_click callback, i.e. before the widgets are created again,
+    which is the only point where their session-state keys may be changed."""
+    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+    st.session_state.pop(EXTRACTED_KEY, None)
+    st.session_state.pop("mq_editor", None)  # the data editor's pending edits
+    for key in ("mq_title", "mq_topic"):
+        st.session_state[key] = ""
 
 # ---------------------------------------------------------------------------
 # Optional: start from a file
@@ -165,14 +183,7 @@ summary_c.metric(
 
 save_col, clear_col, _ = st.columns([1, 1, 3])
 save_clicked = save_col.button("Save this set", type="primary", width="stretch")
-clear_clicked = clear_col.button("Clear form", width="stretch")
-
-if clear_clicked:
-    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
-    st.session_state.pop(EXTRACTED_KEY, None)
-    for key in ("mq_title", "mq_topic"):
-        st.session_state[key] = ""
-    st.rerun()
+clear_col.button("Clear form", width="stretch", on_click=_clear_form)
 
 if save_clicked:
     result = validate_assessment_draft(
@@ -280,8 +291,26 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
                 service.set_shared(assessment.id, shared)
                 st.rerun()
         with action_col:
-            if st.button("Delete", key=f"delete_{assessment.id}", width="stretch"):
-                service.delete_assessment(assessment.id)
+            # Destructive, so it takes two clicks: Delete, then confirm.
+            if st.session_state.get(CONFIRM_DELETE_KEY) == assessment.id:
+                st.caption("Delete this set? This cannot be undone.")
+                if st.button(
+                    "Yes, delete",
+                    key=f"confirm_delete_{assessment.id}",
+                    type="primary",
+                    width="stretch",
+                ):
+                    service.delete_assessment(assessment.id)
+                    st.session_state.pop(CONFIRM_DELETE_KEY, None)
+                    st.session_state[FLASH_KEY] = f"Deleted **{assessment.title}**."
+                    st.rerun()
+                if st.button(
+                    "Cancel", key=f"cancel_delete_{assessment.id}", width="stretch"
+                ):
+                    st.session_state.pop(CONFIRM_DELETE_KEY, None)
+                    st.rerun()
+            elif st.button("Delete", key=f"delete_{assessment.id}", width="stretch"):
+                st.session_state[CONFIRM_DELETE_KEY] = assessment.id
                 st.rerun()
 
 st.divider()
@@ -313,11 +342,10 @@ else:
                     f"{assessment.question_count} question(s) · "
                     f"{assessment.max_marks:g} marks"
                 )
-                if not assessment.is_gradable:
-                    st.caption(
-                        ":material/info: No answers on this set, so a copy will "
-                        "give you guidance rather than a score."
-                    )
+                st.caption(
+                    ":material/info: Answers are never copied, so a copy gives "
+                    "you guidance rather than a score until you add your own."
+                )
                 with st.expander("See the questions"):
                     for index, question in enumerate(assessment.questions, start=1):
                         st.markdown(
@@ -329,10 +357,7 @@ else:
                     "Take a copy", key=f"copy_{assessment.id}", width="stretch"
                 ):
                     copy = service.copy_assessment_to(assessment, student.id)
-                    st.success(
-                        f"Copied **{copy.title}** into your sets.",
-                        icon=":material/check_circle:",
-                    )
+                    st.session_state[FLASH_KEY] = f"Copied **{copy.title}** into your sets."
                     st.rerun()
 
 if st.button("Go to My Work", type="primary"):
