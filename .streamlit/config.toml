@@ -1,4 +1,4 @@
-# CampPrep AI theme.
+# Camp Prep AI theme.
 #
 # Everything visual that Streamlit can express natively lives here rather than
 # in CSS: colours, radii, type scale and the chart sequence. The colour values

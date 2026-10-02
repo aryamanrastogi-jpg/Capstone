@@ -1,4 +1,4 @@
-"""Pydantic domain models for CampPrep AI."""
+"""Pydantic domain models for Camp Prep AI."""
 
 from models.assessment import (
     CURRICULA,

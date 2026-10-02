@@ -5,7 +5,7 @@ These show layout only, not styling. Key: `[Button]`, `[____]` input, `[v]` drop
 ## 1. Landing / Sign in
 ```
 +------------------------------------------------------------+
-| CampPrep AI                                                |
+| Camp Prep AI                                                |
 |  AI-assisted study support, with teacher oversight         |
 |  upload work -> weak topics -> study camp -> improvement   |
 +----------------------------+-------------------------------+
@@ -22,7 +22,7 @@ These show layout only, not styling. Key: `[Button]`, `[____]` input, `[v]` drop
 ```
 +-----------+------------------------------------------------+
 | SIDEBAR   | My Work                                        |
-| CampPrep  | Question set [v]   Type of work [v homework]   |
+| Camp Prep | Question set [v]   Type of work [v homework]   |
 | My Work   | Your work [ drop .txt / .pdf ]                 |
 | My Quest. | Mark your teacher gave (optional) [__]         |
 | Progress  | [Get estimate]                                 |

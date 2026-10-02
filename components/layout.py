@@ -500,6 +500,15 @@ _STYLES = f"""
   }}
   {_SIDEBAR} [data-testid="stSidebarContent"],
   {_SIDEBAR} [data-testid="stSidebarHeader"] {{ background: transparent; }}
+  /* st.logo tops out at 32px, too small for the emblem's detail. The name is
+     left off here on purpose, so the emblem can take the room instead. */
+  {_SIDEBAR} [data-testid="stSidebarHeader"] {{ height: auto; padding-top: 1.1rem; }}
+  {_SIDEBAR} [data-testid="stSidebarLogo"] {{
+      height: 4.5rem;
+      width: auto;
+      max-width: none;
+      filter: drop-shadow(0 4px 10px rgba(4, 8, 48, 0.45));
+  }}
   {_SIDEBAR}::after {{
       content: "";
       position: absolute;
@@ -787,7 +796,7 @@ _STYLES = f"""
       margin-top: 0.9rem;
   }}
   {_IN} .campprep-logo {{ margin: 0 0 1.6rem 0; }}
-  {_IN} .campprep-logo img {{ height: 34px; width: auto; }}
+  {_IN} .campprep-logo img {{ height: 80px; width: auto; max-width: 100%; }}
 
   /* --- Responsive ------------------------------------------------------ */
   /* Columns wrap rather than compress once the row would get tight. */
@@ -899,7 +908,7 @@ def sidebar_status() -> None:
     """Backend status, the demo identity switch and the privacy notice."""
     status = store.backend_status()
     with st.sidebar:
-        # The wordmark is drawn above the navigation by `st.logo` in app.py, so
+        # The emblem is drawn above the navigation by `st.logo` in app.py, so
         # all this block owes the reader is what the app is for and whether it
         # is talking to a real backend.
         st.markdown('<p class="campprep-brand">About</p>', unsafe_allow_html=True)

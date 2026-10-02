@@ -16,7 +16,9 @@ from dotenv import load_dotenv
 
 load_dotenv(override=False)
 
-APP_NAME = "CampPrep AI"
+APP_NAME = "Camp Prep AI"
+# The strapline under the wordmark in assets/logo_full.svg and logo_dark.svg.
+APP_SLOGAN = "Persistent Diagnostics & Intensive Mastery"
 APP_TAGLINE = "Teacher-reviewed AI assessment support for IGCSE maths (Years 10–11)"
 
 # Upload guardrails

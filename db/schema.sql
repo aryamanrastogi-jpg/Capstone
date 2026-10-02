@@ -1,4 +1,4 @@
--- CampPrep AI - Phase 2 schema
+-- Camp Prep AI - Phase 2 schema
 --
 -- Apply this in the Supabase SQL editor BEFORE db/policies.sql.
 -- Safe to re-run: every statement is idempotent.

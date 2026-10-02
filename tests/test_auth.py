@@ -425,7 +425,7 @@ def test_the_sign_in_page_renders_and_offers_no_role_choice(
     # rather than in st.title.
     body = " ".join(m.value for m in at.markdown)
     assert "Sign In" in body
-    assert "Sign in to CampPrep AI" in body
+    assert "Sign in to Camp Prep AI" in body
     assert [b.label for b in at.button] == ["Sign in", "Create account"]
 
     labels = " ".join(

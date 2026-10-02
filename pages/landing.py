@@ -1,4 +1,4 @@
-"""Welcome page - what CampPrep AI is, plus sign in, sign up or try the demo.
+"""Welcome page - what Camp Prep AI is, plus sign in, sign up or try the demo.
 
 Shown by app.py to anyone who is not signed in and has not chosen the demo.
 The sign-in forms are the same ones as on the Sign In page. Sign-up collects a
@@ -19,15 +19,15 @@ from components.layout import info_card_html
 from services import state as store
 from services.supabase_client import get_connection_status
 from utils import palette
-from utils.config import APP_NAME, PRIVACY_NOTICE
+from utils.config import APP_NAME, APP_SLOGAN, PRIVACY_NOTICE
 
 # Styles are injected once by app.py; a second copy here only added work.
 # Everything static below is drawn with st.html rather than st.markdown: it
 # paints immediately, while raw-HTML markdown waits for a lazily loaded plugin
 # and then pushed the already-drawn widgets down (BUG-023, CLS 0.54).
 
-# There is no sidebar here, so `st.logo` never shows: the wordmark is drawn
-# inline, from the light-background version of the logo.
+# There is no sidebar here, so `st.logo` never shows: the full lockup (emblem,
+# name and strapline) is drawn inline, from the light-background version.
 _LOGO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo_dark.svg")
 with open(_LOGO, "rb") as handle:
     _logo_uri = "data:image/svg+xml;base64," + base64.b64encode(handle.read()).decode()
@@ -53,7 +53,7 @@ intro, auth = st.columns([1.2, 1], gap="large")
 
 with intro:
     st.html(
-        f'''<div class="campprep-logo"><img src="{_logo_uri}" alt="{APP_NAME}" height="34"></div>
+        f'''<div class="campprep-logo"><img src="{_logo_uri}" alt="{APP_NAME} - {APP_SLOGAN}" height="80"></div>
 <span class="campprep-hero-eyebrow"><b>New</b> IGCSE Years 10–11 · teacher-reviewed</span>
 <h1 class="campprep-hero-title">Know where you went <em>wrong</em>.
 <span>Fix it before the exam.</span></h1>

@@ -27,3 +27,6 @@ Thumbs.db
 # Uploads / scratch
 uploads/
 *.log
+
+# Logo build input (download link in tools/build_logo.py)
+tools/*.ttf

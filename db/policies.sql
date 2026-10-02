@@ -1,4 +1,4 @@
--- CampPrep AI - Phase 2 Row Level Security
+-- Camp Prep AI - Phase 2 Row Level Security
 --
 -- Apply this in the Supabase SQL editor AFTER db/schema.sql.
 -- Safe to re-run.

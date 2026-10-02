@@ -1,4 +1,4 @@
--- CampPrep AI - every pending database change, in one script
+-- Camp Prep AI - every pending database change, in one script
 --
 -- Generated 2026-10-02 from db/migrations/* and db/policies.sql.
 -- Paste the whole file into the Supabase SQL editor and press Run.
@@ -551,7 +551,7 @@ alter table public.submissions
 -- db/policies.sql - re-run; now also carries the 007 policies, view and triggers
 -- source: db/policies.sql
 -- ===========================================================================
--- CampPrep AI - Phase 2 Row Level Security
+-- Camp Prep AI - Phase 2 Row Level Security
 --
 -- Apply this in the Supabase SQL editor AFTER db/schema.sql.
 -- Safe to re-run.

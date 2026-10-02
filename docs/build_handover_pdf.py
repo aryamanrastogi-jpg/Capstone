@@ -9,6 +9,7 @@ the app does not already need.
 
 from __future__ import annotations
 
+import io
 import os
 import sys
 
@@ -16,6 +17,8 @@ import pymupdf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.path.join(HERE, "handover.html")
+# Images in the HTML (the cover logo) are resolved from assets/.
+ASSETS = os.path.join(os.path.dirname(HERE), "assets")
 OUTPUT = os.path.join(HERE, "CampPrep-AI-Handover.pdf")
 
 # A4 with a generous margin: this is meant to be read, and printed if somebody
@@ -23,15 +26,17 @@ OUTPUT = os.path.join(HERE, "CampPrep-AI-Handover.pdf")
 PAGE = pymupdf.paper_rect("a4")
 MARGIN = 56  # points, ~20mm
 
-TITLE = "CampPrep AI - Capstone Handover"
+TITLE = "Camp Prep AI - Capstone Handover"
 
 
 def build() -> str:
     with open(SOURCE, encoding="utf-8") as handle:
         html = handle.read()
 
-    story = pymupdf.Story(html=html)
-    writer = pymupdf.DocumentWriter(OUTPUT)
+    story = pymupdf.Story(html=html, archive=pymupdf.Archive(ASSETS))
+    # Laid out in memory, then written once: see _stamp_page_numbers.
+    buffer = io.BytesIO()
+    writer = pymupdf.DocumentWriter(buffer)
     frame = PAGE + (MARGIN, MARGIN, -MARGIN, -MARGIN)
 
     more = True
@@ -49,12 +54,12 @@ def build() -> str:
 
     # Page numbers are added afterwards: the Story engine lays out a flow, and
     # only once it is finished do we know how many pages there are.
-    _stamp_page_numbers()
+    _stamp_page_numbers(buffer.getvalue())
     return OUTPUT
 
 
-def _stamp_page_numbers() -> None:
-    document = pymupdf.open(OUTPUT)
+def _stamp_page_numbers(laid_out: bytes) -> None:
+    document = pymupdf.open("pdf", laid_out)
     document.set_metadata({"title": TITLE, "subject": "Code and product handover"})
     total = document.page_count
     for index, page in enumerate(document, start=1):
@@ -66,7 +71,9 @@ def _stamp_page_numbers() -> None:
             fontsize=8,
             color=(0.28, 0.33, 0.41),
         )
-    document.saveIncr()
+    # Compressed on save: the Story engine stores the cover logo as raw
+    # pixels, which is ~10 MB until deflated.
+    document.save(OUTPUT, garbage=3, deflate=True, deflate_images=True)
     document.close()
 
 

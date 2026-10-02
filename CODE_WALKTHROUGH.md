@@ -1,6 +1,6 @@
 # Code walkthrough
 
-A guided tour of the CampPrep AI codebase. Read this before the next session — you
+A guided tour of the Camp Prep AI codebase. Read this before the next session — you
 don't need to understand every line, but by the end you should know **where to
 look** when you want to change something.
 
