@@ -48,7 +48,12 @@ if not status.connected:
         icon=":material/science:",
     )
     if status.is_error:
-        st.error(status.message, icon=":material/error:")
+        # The raw message names config keys; it belongs in the logs, not here.
+        st.error(
+            "We couldn't reach the account service, so accounts are "
+            "unavailable right now.",
+            icon=":material/error:",
+        )
     st.stop()
 
 signed_in_user = auth_service.current_user()

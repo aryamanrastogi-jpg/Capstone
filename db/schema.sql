@@ -189,7 +189,7 @@ create table if not exists public.study_camps (
     topics              text[] not null default '{}',
     started_on          date not null default current_date,
     duration_days       integer not null check (duration_days between 1 and 14),
-    baseline_percentage numeric(5, 2) not null check (baseline_percentage between 0 and 100),
+    baseline_percentage numeric(5, 2) check (baseline_percentage between 0 and 100),
     created_at          timestamptz not null default now()
 );
 

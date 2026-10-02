@@ -73,6 +73,16 @@ def _attempt_column(
     subject: Subject,
 ) -> None:
     """One attempt's tile: score, verdict, what was written, what was flagged."""
+    if entry.get("is_flagged"):
+        # A flagged result carries no score until the teacher decides (BUG-007).
+        st.metric(f"Attempt {entry['attempt_number']}", "—")
+        st.caption("Your teacher is taking a second look at this one, so it has no score yet.")
+        outcome_badge(False)
+        answer = (entry["answer"] or "").strip()
+        st.caption("What you wrote")
+        st.text(answer if answer else "(left blank)")
+        return
+
     previous = _previous_score(history, entry)
     rating = entry["result"].rating
     delta = None
@@ -103,6 +113,9 @@ def _attempt_column(
 def _previous_score(history: Sequence[dict], entry: dict) -> float | None:
     """The score on the attempt before this one, or None for the first."""
     index = list(history).index(entry)
-    if index == 0:
-        return None
-    return history[index - 1]["score"]
+    # Compare against the last attempt that actually has a score: a flagged
+    # attempt in between has none.
+    for earlier in reversed(list(history)[:index]):
+        if not earlier.get("is_flagged"):
+            return earlier["score"]
+    return None

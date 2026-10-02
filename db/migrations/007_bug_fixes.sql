@@ -1,11 +1,13 @@
--- 007 - access-control fixes from the QA audit (BUG-001, BUG-002, BUG-016)
+-- 007 - fixes from the QA audit (BUG-001, BUG-002, BUG-010, BUG-016)
 --
 -- Run in the Supabase SQL editor after 001-006 and db/policies.sql.
 -- Safe to re-run: every statement is drop-if-exists / create-or-replace.
 -- db/policies.sql carries the same final definitions, so a fresh install that
 -- runs schema.sql + migrations + policies.sql ends up at the same shape.
 --
--- Nothing here touches data; it only changes who may read and write what.
+-- Nothing here changes existing rows: it changes who may read and write what,
+-- and lets study_camps.baseline_percentage be NULL (BUG-010).
+-- Run this BEFORE deploying the matching app code.
 
 begin;
 
@@ -211,5 +213,11 @@ create trigger submission_answers_guard_student_write
     before insert or update or delete on public.submission_answers
     for each row
     execute function public.submission_answers_guard_student_write();
+
+-- ---------------------------------------------------------------------------
+-- BUG-010: a study camp on topics with no marked work has no baseline.
+-- Store that as NULL instead of a misleading 0%.
+-- ---------------------------------------------------------------------------
+alter table public.study_camps alter column baseline_percentage drop not null;
 
 commit;

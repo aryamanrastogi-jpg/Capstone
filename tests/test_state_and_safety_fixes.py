@@ -88,8 +88,10 @@ def test_topics_without_data_are_left_out_of_a_mixed_baseline():
 def test_a_camp_without_a_baseline_survives_the_database_mapping():
     camp = StudyCamp(student_id="s1", topics=["Percentages"], duration_days=3)
     row, _ = mappers.study_camp_to_rows(camp)
-    # The column is NOT NULL, so the row must still carry a number.
-    assert row["baseline_percentage"] == 0.0
+    # Migration 007 makes the column nullable: "no baseline" round-trips as None.
+    assert row["baseline_percentage"] is None
+    restored = mappers.study_camp_from_rows(row, [])
+    assert restored.baseline_percentage is None
 
 
 def test_the_study_camp_page_says_no_baseline_yet():

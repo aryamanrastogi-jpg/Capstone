@@ -303,11 +303,9 @@ def study_camp_to_rows(camp: StudyCamp) -> Tuple[Row, List[Row]]:
         "topics": list(camp.topics),
         "started_on": camp.started_on.isoformat(),
         "duration_days": camp.duration_days,
-        # The column is NOT NULL; "no baseline yet" is stored as 0 until the
-        # schema allows null (the in-memory demo store keeps None).
-        "baseline_percentage": camp.baseline_percentage
-        if camp.baseline_percentage is not None
-        else 0.0,
+        # None means "no baseline yet" (no marked work on these topics).
+        # Needs migration 007, which makes the column nullable.
+        "baseline_percentage": camp.baseline_percentage,
     }
     session_rows = [
         {
@@ -333,7 +331,7 @@ def study_camp_from_rows(row: Row, session_rows: Sequence[Row]) -> StudyCamp:
         topics=list(row.get("topics") or []),
         started_on=_as_date(row.get("started_on")),
         duration_days=int(row["duration_days"]),
-        baseline_percentage=_as_float(row.get("baseline_percentage")),
+        baseline_percentage=_optional_float(row.get("baseline_percentage")),
         sessions=[
             StudySession(
                 day=int(s["day"]),

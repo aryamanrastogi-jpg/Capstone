@@ -79,7 +79,7 @@ their homework for them.
 ### The mark mismatch panel
 
 When a student records the mark their teacher gave alongside their work, CampPrep AI
-compares it against its own reading. A gap of 15 percentage points or more
+compares it against its own reading. A gap of more than 15 percentage points
 (either way) is surfaced to the teacher.
 
 It does **not** claim the teacher was wrong. It says the two readings disagree

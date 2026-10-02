@@ -160,3 +160,22 @@ def test_mismatch_uses_whole_paper_marks_for_teacher_mark_on_reattempt():
 def test_question_number_is_position_in_the_set(index, expected):
     a = _assessment(marks=(1, 2, 3))
     assert attempt_service.question_number(a, a.questions[index]) == expected
+
+
+def test_submission_scores_keeps_same_named_students_apart():
+    """BUG-018: two students called the same must not merge into one row."""
+    import pandas as pd
+    from services import analytics_service as analytics
+
+    frame = pd.DataFrame(
+        [
+            {"student_id": "usr_aaaaaa", "student_identifier": "Alex Tan", "score": 2.0, "max_marks": 4.0},
+            {"student_id": "usr_bbbbbb", "student_identifier": "Alex Tan", "score": 4.0, "max_marks": 4.0},
+            {"student_id": None, "student_identifier": "S-8201", "score": 1.0, "max_marks": 2.0},
+        ]
+    )
+    scores = analytics.submission_scores(frame)
+    assert len(scores) == 3
+    alex = scores[scores["student_identifier"].str.startswith("Alex Tan")]
+    assert sorted(alex["percentage"]) == [50.0, 100.0]
+    assert alex["student_identifier"].nunique() == 2

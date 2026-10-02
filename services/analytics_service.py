@@ -440,9 +440,30 @@ def submission_scores(frame: pd.DataFrame) -> pd.DataFrame:
     """Per-student totals across approved questions."""
     if frame.empty:
         return pd.DataFrame(columns=["student_identifier", "awarded", "available", "percentage"])
-    grouped = (
-        frame.groupby("student_identifier", as_index=False)
-        .agg(awarded=("score", "sum"), available=("max_marks", "sum"))
+    # Group by account, not by display name: two students called "Alex Tan"
+    # must not merge into one row. Anonymous uploads (no account) fall back to
+    # the code the teacher typed.
+    work = frame.copy()
+    if "student_id" not in work.columns:
+        work["student_id"] = None
+    work["_key"] = work["student_id"].where(
+        work["student_id"].notna(), "anon:" + work["student_identifier"].astype(str)
     )
+    grouped = (
+        work.groupby("_key", as_index=False)
+        .agg(
+            student_identifier=("student_identifier", "first"),
+            awarded=("score", "sum"),
+            available=("max_marks", "sum"),
+        )
+    )
+    duplicated = grouped["student_identifier"].duplicated(keep=False)
+    grouped.loc[duplicated, "student_identifier"] = (
+        grouped.loc[duplicated, "student_identifier"]
+        + " ("
+        + grouped.loc[duplicated, "_key"].astype(str).str.replace("anon:", "", regex=False).str[-6:]
+        + ")"
+    )
+    grouped = grouped.drop(columns="_key")
     grouped["percentage"] = (100 * grouped["awarded"] / grouped["available"]).round(1)
     return grouped.sort_values("percentage", ascending=False, ignore_index=True)

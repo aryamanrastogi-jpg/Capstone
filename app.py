@@ -49,14 +49,6 @@ st.set_page_config(
     menu_items={"about": f"{APP_NAME} - {APP_TAGLINE}"},
 )
 
-# The wordmark sits above the navigation, where a brand belongs; the square
-# mark is what shows once the sidebar is collapsed.
-st.logo(
-    os.path.join(PROJECT_ROOT, "assets", "logo.svg"),
-    icon_image=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
-    size="large",
-)
-
 # One style block per rerun, before anything draws.
 inject_styles()
 
@@ -101,6 +93,15 @@ if should_show_landing():
     ]
     st.navigation([welcome, *deep_links], position="hidden").run()
     st.stop()
+
+# Drawn only once past the welcome page: on the welcome page it would flash
+# an empty sidebar and shift the layout (BUG-023). The wordmark sits above the navigation, where a brand belongs; the square
+# mark is what shows once the sidebar is collapsed.
+st.logo(
+    os.path.join(PROJECT_ROOT, "assets", "logo.svg"),
+    icon_image=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
+    size="large",
+)
 
 # The sidebar owns the demo role switch, so it must run before navigation is
 # built - switching role changes which pages exist.
