@@ -41,6 +41,9 @@ $fn$;
 comment on function public.app_profile_id() is
     'The signed-in user''s application profile id, or null when not signed in.';
 
+revoke all on function public.app_profile_id() from public, anon;
+grant execute on function public.app_profile_id() to authenticated;
+
 create or replace function public.app_is_teacher()
 returns boolean
 language sql
@@ -53,6 +56,9 @@ as $fn$
         false);
 $fn$;
 
+revoke all on function public.app_is_teacher() from public, anon;
+grant execute on function public.app_is_teacher() to authenticated;
+
 -- The teacher whose roster the signed-in student is on. Null for a teacher.
 create or replace function public.app_my_teacher_id()
 returns text
@@ -63,6 +69,9 @@ set search_path = public
 as $fn$
     select teacher_id from public.profiles where auth_user_id = auth.uid();
 $fn$;
+
+revoke all on function public.app_my_teacher_id() from public, anon;
+grant execute on function public.app_my_teacher_id() to authenticated;
 
 -- Is this profile a student on the signed-in teacher's roster?
 create or replace function public.app_teaches(student_profile_id text)
@@ -79,6 +88,28 @@ as $fn$
            and s.teacher_id = public.app_profile_id()
     ) and public.app_is_teacher();
 $fn$;
+
+revoke all on function public.app_teaches(text) from public, anon;
+grant execute on function public.app_teaches(text) to authenticated;
+
+create or replace function public.app_submission_finalised(p_submission_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+    select exists (
+        select 1
+          from public.grading_results g
+          join public.submissions s on s.id = g.submission_id
+         where g.submission_id = p_submission_id
+           and s.student_id = public.app_profile_id()
+           and g.review_status in ('approved', 'edited', 'flagged')
+    );
+$fn$;
+revoke all on function public.app_submission_finalised(text) from public, anon;
+grant execute on function public.app_submission_finalised(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Turn RLS on everywhere
@@ -144,11 +175,16 @@ drop policy if exists assessments_select on public.assessments;
 create policy assessments_select on public.assessments
     for select to authenticated
     using (
-        owner_id = public.app_profile_id()
-        or (not student_created and owner_id is null)
-        or (not student_created and owner_id = public.app_my_teacher_id())
-        or public.app_teaches(owner_id)
-        or (is_shared and student_created)
+        (not is_archived and owner_id = public.app_profile_id())
+        or (not is_archived and not student_created and owner_id is null)
+        or (not is_archived and not student_created and owner_id = public.app_my_teacher_id())
+        or (not is_archived and public.app_teaches(owner_id))
+        or (not is_archived and is_shared and student_created)
+        or (is_archived and exists (
+            select 1 from public.submissions s
+             where s.assessment_id = assessments.id
+               and s.student_id = public.app_profile_id()
+        ))
     );
 
 -- Anyone signed in can author a set, but only as themselves, and a student
@@ -187,11 +223,11 @@ create policy questions_select on public.questions
         exists (
             select 1 from public.assessments a
              where a.id = questions.assessment_id
-               and (a.owner_id = public.app_profile_id()
+               and (not a.is_archived and (a.owner_id = public.app_profile_id()
                     or public.app_teaches(a.owner_id)
                     or (a.owner_id is null
                         and not a.student_created
-                        and public.app_is_teacher()))
+                        and public.app_is_teacher())))
         )
     );
 
@@ -232,12 +268,17 @@ create view public.student_questions as
            q.max_marks
       from public.questions q
       join public.assessments a on a.id = q.assessment_id
-     where a.owner_id = public.app_profile_id()
-        or (not a.student_created and a.owner_id is null)
-        or (not a.student_created and a.owner_id = public.app_my_teacher_id())
-        or public.app_teaches(a.owner_id)
+     where (not a.is_archived and a.owner_id = public.app_profile_id())
+        or (not a.is_archived and not a.student_created and a.owner_id is null)
+        or (not a.is_archived and not a.student_created and a.owner_id = public.app_my_teacher_id())
+        or (not a.is_archived and public.app_teaches(a.owner_id))
         -- Shared library sets, matching assessments_select (BUG-001, 007).
-        or (a.is_shared and a.student_created);
+        or (a.is_shared and a.student_created and not a.is_archived)
+        or (a.is_archived and exists (
+            select 1 from public.submissions s
+             where s.assessment_id = a.id
+               and s.student_id = public.app_profile_id()
+        ));
 
 grant select on public.student_questions to authenticated;
 
@@ -261,8 +302,12 @@ drop policy if exists submissions_insert_own on public.submissions;
 create policy submissions_insert_own on public.submissions
     for insert to authenticated
     with check (
-        student_id = public.app_profile_id()
-        or public.app_teaches(student_id)
+        exists (
+            select 1 from public.assessments a
+             where a.id = submissions.assessment_id and not a.is_archived
+        )
+        and (student_id = public.app_profile_id()
+             or public.app_teaches(student_id))
     );
 
 drop policy if exists submissions_update on public.submissions;
@@ -274,7 +319,8 @@ create policy submissions_update on public.submissions
 drop policy if exists submissions_delete_own on public.submissions;
 create policy submissions_delete_own on public.submissions
     for delete to authenticated
-    using (student_id = public.app_profile_id());
+    using (student_id = public.app_profile_id()
+        and not public.app_submission_finalised(id));
 
 -- ---------------------------------------------------------------------------
 -- submission_answers
@@ -310,20 +356,6 @@ create policy submission_answers_all on public.submission_answers
 -- frozen once a result is approved or edited, identity columns never change,
 -- and only a teacher can make a submission 'reviewed'. The reasoning is in
 -- db/migrations/007_bug_fixes.sql.
-create or replace function public.app_submission_finalised(p_submission_id text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $fn$
-    select exists (
-        select 1 from public.grading_results g
-         where g.submission_id = p_submission_id
-           and g.review_status in ('approved', 'edited')
-    );
-$fn$;
-
 create or replace function public.submissions_guard_student_write()
 returns trigger
 language plpgsql
@@ -454,7 +486,8 @@ drop policy if exists grading_results_insert on public.grading_results;
 create policy grading_results_insert on public.grading_results
     for insert to authenticated
     with check (
-        exists (
+        suggested_score <= max_marks
+        and exists (
             select 1 from public.submissions s
              where s.id = grading_results.submission_id
                and (s.student_id = public.app_profile_id()
@@ -467,7 +500,15 @@ create policy grading_results_insert on public.grading_results
             -- A student may only ever insert an unreviewed, unapproved row.
             or (review_status = 'awaiting_review'
                 and teacher_approved_score is null
-                and teacher_approved_feedback is null)
+                and teacher_approved_feedback is null
+                and exists (
+                    select 1 from public.submissions s
+                    join public.student_questions q on q.assessment_id = s.assessment_id
+                     where s.id = grading_results.submission_id
+                       and s.student_id = public.app_profile_id()
+                       and q.id = grading_results.question_id
+                       and q.max_marks = grading_results.max_marks
+                ))
         )
     );
 
@@ -490,6 +531,36 @@ create policy grading_results_update_teacher on public.grading_results
                and public.app_teaches(s.student_id)
         )
     );
+
+-- Students must never receive teacher-only diagnostics. SECURITY DEFINER views
+-- own their row predicates, while table SELECT is withheld from client roles.
+revoke select on public.grading_results from public, anon, authenticated;
+drop view if exists public.student_grading_results;
+create view public.student_grading_results as
+    select g.submission_id, g.question_id, g.max_marks, g.suggested_score,
+           g.confidence,
+           coalesce((
+               select jsonb_agg(jsonb_build_object(
+                   'error_type', item->>'error_type',
+                   'explanation', 'Review this step.'
+               ))
+                 from jsonb_array_elements(g.errors) as items(item)
+           ), '[]'::jsonb) as errors,
+           g.student_feedback, g.review_status,
+           g.teacher_approved_score, g.teacher_approved_feedback
+      from public.grading_results g
+      join public.submissions s on s.id = g.submission_id
+     where s.student_id = public.app_profile_id()
+       and not public.app_is_teacher();
+grant select on public.student_grading_results to authenticated;
+
+drop view if exists public.teacher_grading_results;
+create view public.teacher_grading_results as
+    select g.*
+      from public.grading_results g
+      join public.submissions s on s.id = g.submission_id
+     where public.app_teaches(s.student_id);
+grant select on public.teacher_grading_results to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- study_camps and study_sessions

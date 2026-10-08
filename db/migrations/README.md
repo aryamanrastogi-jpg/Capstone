@@ -10,7 +10,11 @@ So every change to an applied schema gets a numbered file here, and
 `schema.sql` is kept in step so a brand-new project still gets everything in one
 pass. Both paths have to end up at the same shape.
 
-Run them in order, in the Supabase SQL editor. Each is idempotent.
+Run `001` through `006` in order in the Supabase SQL editor. Apply
+`db/policies.sql` once so its helper functions exist, then run `007` and `008`
+in order. Run `008` before deploying code that depends on its changes. Finally
+re-run `db/policies.sql` to sync the policy/view definitions. Each step is
+idempotent.
 
 | File | What it does |
 |---|---|
@@ -21,8 +25,7 @@ Run them in order, in the Supabase SQL editor. Each is idempotent.
 | `005_teacher_invites.sql` | Hashed, expiring teacher invite codes and `redeem_teacher_invite(code)` - the only route to the teacher role besides an operator |
 | `006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
 | `007_bug_fixes.sql` | Audit fixes: students read teacher/shared questions via `student_questions` (BUG-001), teachers read only their own and their students' questions (BUG-002), a student's submission freezes once reviewed (BUG-016), camp baseline may be NULL (BUG-010) |
-
-After the migrations, re-run `db/policies.sql`.
+| `008_qa_hardening.sql` | Pins student grading rows to real questions, separates student-safe grading reads, preserves student work when a teacher account is deleted, limits class-code guesses, and revokes public execution of helper functions |
 
 ## Checking what you have applied
 

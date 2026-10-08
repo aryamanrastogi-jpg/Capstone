@@ -64,12 +64,13 @@ create table if not exists public.assessments (
     created_at      timestamptz not null default now(),
 
     -- Null for the seeded demo set, which belongs to nobody.
-    owner_id        text references public.profiles (id) on delete cascade,
+    owner_id        text references public.profiles (id) on delete set null,
     student_created boolean not null default false,
 
     -- Shared into the public library, where any student can take a copy.
     -- Private by default: sharing is always a deliberate act by the owner.
     is_shared       boolean not null default false,
+    is_archived     boolean not null default false,
 
     -- Set when this set was copied out of the library. `on delete set null`
     -- so deleting an original never removes anybody's working copy.

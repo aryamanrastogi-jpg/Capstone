@@ -27,6 +27,10 @@ Open **supabase.com -> your project -> SQL Editor -> New query**. For each file 
 
 ### A3. Migrations, in this order
 
+Run migration 008 in the Supabase SQL editor before deploying the code in this
+repository. Existing deployments should apply the earlier pending migrations in
+order first.
+
 | Step | File | What it adds |
 |---|---|---|
 | 1 | `db/migrations/001_shared_library.sql` | `assessments.is_shared`, `assessments.copied_from_id` |
@@ -35,16 +39,18 @@ Open **supabase.com -> your project -> SQL Editor -> New query**. For each file 
 | 4 | `db/migrations/004_profile_details.sql` | Name at sign-up, `profiles.avatar_url`, `delete_my_account()`, the `avatars` storage bucket and its policies |
 | 5 | `db/migrations/005_teacher_invites.sql` | `teacher_invites` table (hashed codes) and `redeem_teacher_invite(code)`. Needs pgcrypto, which the file enables |
 | 6 | `db/migrations/006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
+| 7 | `db/migrations/007_bug_fixes.sql` | Scopes question reads and freezes student submissions after review |
+| 8 | `db/migrations/008_qa_hardening.sql` | Student-safe grading views, guarded question grading writes, class-code rate limits, and archived teacher assessments that preserve student history |
 
 ### A4. (Re-)run the policies
 
-6. `db/policies.sql` - Row Level Security for every table and the `student_questions` view. Re-running it is how an existing project picks up newer rules (for example the shared-library read rule and the `avatar_url` grant).
+Before step 7, run `db/policies.sql` once to install the helpers used by those migrations. After step 8, run it again to sync the final Row Level Security and view definitions. Re-running it is how an existing project picks up newer rules.
 
 ### A5. Verify
 
 Run each query in the SQL editor and compare with the expected result.
 
-**Tables and RLS** - expect `profiles, assessments, questions, submissions, submission_answers, grading_results, study_camps, study_sessions, class_invites, teacher_invites`, all with `rowsecurity = true`:
+**Tables and RLS** - expect `profiles, assessments, questions, submissions, submission_answers, grading_results, study_camps, study_sessions, class_invites, class_join_attempt_windows, teacher_invites`, all with `rowsecurity = true`:
 ```sql
 select tablename, rowsecurity
   from pg_tables
