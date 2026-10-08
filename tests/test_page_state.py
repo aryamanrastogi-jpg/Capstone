@@ -74,6 +74,35 @@ def test_mock_exam_answers_survive_leaving_the_page():
     assert exam.answers[first_id] == "2 + 3 = 5 parts, so 18 and 27"
 
 
+def test_active_exam_navigation_registers_only_the_hidden_exam_page(monkeypatch):
+    from components import navigation
+
+    pages = []
+    options = {}
+
+    class Page:
+        def __init__(self, path, **kwargs):
+            self.path = path
+            self.kwargs = kwargs
+
+    class Nav:
+        def run(self):
+            pass
+
+    def fake_navigation(registered, **kwargs):
+        pages.extend(registered)
+        options.update(kwargs)
+        return Nav()
+
+    monkeypatch.setattr(navigation.st, "Page", Page)
+    monkeypatch.setattr(navigation.st, "navigation", fake_navigation)
+
+    navigation.build_exam_navigation()
+
+    assert [page.path for page in pages] == ["pages/mock_exam.py"]
+    assert options == {"position": "hidden"}
+
+
 def _awaiting_review(at: AppTest) -> int:
     return int(next(m for m in at.metric if m.label == "Submissions awaiting review").value)
 

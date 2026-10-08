@@ -106,7 +106,7 @@ if exam is None:
     )
     st.caption(
         f"You get {exams.MINUTES_PER_QUESTION} minutes per question. The clock starts "
-        "when you press start and keeps running if you leave the page."
+        "when you press start. While the paper is open, use Submit or Abandon to leave."
     )
 
     if st.button("Start the mock exam", type="primary", disabled=not chosen):

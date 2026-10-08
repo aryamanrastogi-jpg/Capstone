@@ -29,6 +29,7 @@ from components.layout import inject_styles, sidebar_status  # noqa: E402
 from components.navigation import (  # noqa: E402
     PAGE_SPECS,
     REQUESTED_PAGE,
+    build_exam_navigation,
     build_navigation,
     pages_for,
 )
@@ -92,6 +93,23 @@ if should_show_landing():
         for spec in PAGE_SPECS
     ]
     st.navigation([welcome, *deep_links], position="hidden").run()
+    st.stop()
+
+# A Streamlit text area only commits its latest draft to session state on blur.
+# Hide every navigation affordance while a paper is in progress, so a click on
+# another page cannot race that commit and discard the student's answer.
+from services.state import get_current_user, get_mock_exam  # noqa: E402
+
+_active_exam = get_mock_exam()
+_active_user = get_current_user()
+if (
+    _active_exam is not None
+    and not _active_exam.is_submitted
+    and _active_user is not None
+    and _active_user.is_student
+    and _active_exam.student_id == _active_user.id
+):
+    build_exam_navigation().run()
     st.stop()
 
 # Drawn only once past the welcome page: on the welcome page it would flash

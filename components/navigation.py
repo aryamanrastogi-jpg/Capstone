@@ -178,6 +178,17 @@ def build_navigation(
     return st.navigation(sections)
 
 
+def build_exam_navigation():
+    """Keep the active timed paper as the only reachable app page."""
+    page = st.Page(
+        "pages/mock_exam.py",
+        title="Mock Exam",
+        icon=":material/timer:",
+        default=True,
+    )
+    return st.navigation([page], position="hidden")
+
+
 def goto(title: str) -> None:
     """Switch to a page by its title - used by call-to-action buttons."""
     match = next((spec for spec in PAGE_SPECS if spec["title"] == title), None)
