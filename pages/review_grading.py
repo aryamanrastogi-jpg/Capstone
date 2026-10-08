@@ -22,6 +22,7 @@ from components.status_badges import (
 from models import GradingResult, ReviewStatus, Submission
 from models.grading import rating_for
 from services import assessment_service as service
+from services import attempt_service
 from services import state as store
 from services.ai_grading_service import describe_grading_engine
 from services.grading_service import apply_teacher_decision, grade_submission
@@ -208,20 +209,35 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Per-question review
 # ---------------------------------------------------------------------------
-for index, result in enumerate(results, start=1):
+for result in results:
     question = assessment.get_question(result.question_id)
     if question is None:
         st.warning(
             f"Question {result.question_id} is no longer part of this assessment; "
-            "its result is shown read-only.",
+            "the saved result is shown below read-only.",
             icon=":material/warning:",
         )
+        with st.container(border=True):
+            st.markdown("#### Removed question · read-only result")
+            review_status_badge(result.review_status)
+            st.metric(
+                "Suggested score",
+                f"{result.suggested_score:g} / {result.max_marks:g}",
+            )
+            st.markdown("**Saved student feedback**")
+            st.text(result.teacher_approved_feedback or result.student_feedback)
+            if result.teacher_approved_score is not None:
+                st.caption(
+                    f"Teacher-approved score: {result.teacher_approved_score:g} "
+                    f"/ {result.max_marks:g}."
+                )
         continue
 
     with st.container(border=True):
         title_col, badge_col = st.columns([3, 1])
         with title_col:
-            st.markdown(f"#### Question {index} · {question.max_marks} marks")
+            question_number = attempt_service.question_number(assessment, question)
+            st.markdown(f"#### Question {question_number} · {question.max_marks} marks")
         with badge_col:
             review_status_badge(result.review_status)
 

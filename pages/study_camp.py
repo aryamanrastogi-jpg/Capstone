@@ -43,8 +43,8 @@ page_header(
 )
 
 st.caption(
-    ":material/construction: Practice questions come from a template generator for "
-    "now. A real AI question writer replaces it in a later phase."
+    ":material/construction: Study Camp uses built-in practice templates. "
+    "It does not send your work to Gemini."
 )
 
 assessments = service.list_assessments_for_student(student.id)

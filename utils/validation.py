@@ -112,6 +112,7 @@ def validate_assessment_draft(
     curriculum: str,
     questions: List[Dict[str, Any]],
     require_model_answers: bool = True,
+    title_label: str = "Assessment title",
 ) -> ValidationResult:
     """Validate an assessment draft before building Pydantic models.
 
@@ -122,7 +123,7 @@ def validate_assessment_draft(
     result = ValidationResult()
 
     if not str(title or "").strip():
-        result.add("Assessment title is required.")
+        result.add(f"{title_label} is required.")
     if not str(topic or "").strip():
         result.add("Topic is required.")
     if not str(curriculum or "").strip():
@@ -130,7 +131,10 @@ def validate_assessment_draft(
 
     usable = [q for q in questions if _row_has_content(q)]
     if not usable:
-        result.add("Add at least one question with text, a model answer and marks.")
+        requirements = "question text and marks"
+        if require_model_answers:
+            requirements = "question text, a model answer and marks"
+        result.add(f"Add at least one question with {requirements}.")
         return result
 
     for index, row in enumerate(usable, start=1):
