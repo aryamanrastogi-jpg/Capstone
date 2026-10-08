@@ -317,6 +317,16 @@ def scope_to_teacher_roster(submissions: Sequence[Submission]) -> List[Submissio
     return [s for s in submissions if s.student_id is None or s.student_id in roster]
 
 
+def list_submissions_for_review() -> List[Submission]:
+    """Submissions a teacher marks: everything except students' self-study.
+
+    Self-study uploads are a student's own past work graded for revision. Their
+    results are AI estimates that never become official marks, so they stay out
+    of the review queue and the "awaiting review" count.
+    """
+    return [s for s in list_submissions() if not s.is_self_study]
+
+
 def get_submission(submission_id: str) -> Optional[Submission]:
     return get_repository().get_submission(submission_id)
 

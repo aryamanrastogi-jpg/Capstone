@@ -146,16 +146,28 @@ if not exam.is_submitted:
 
     _clock()
 
+    def _keep_answer(question_id: str) -> None:
+        """Copy a draft answer onto the exam itself. Streamlit deletes a widget's
+        state when the student moves to another page, but the exam object lives
+        in session state, so the answer survives the trip there and back."""
+        exam.answers[question_id] = st.session_state.get(_answer_key(question_id), "")
+
     for number, item in enumerate(exam.items, start=1):
         st.markdown(
             f"**{number}.** {item.question.question_text}  \n"
             f"*{item.topic} · {item.question.max_marks:g} marks*"
         )
+        key = _answer_key(item.question.id)
+        if key not in st.session_state:
+            # Back from another page: restore the draft before the widget draws.
+            st.session_state[key] = exam.answers.get(item.question.id, "")
         st.text_area(
             f"Answer to question {number}",
-            key=_answer_key(item.question.id),
+            key=key,
             label_visibility="collapsed",
             placeholder="Show your working.",
+            on_change=_keep_answer,
+            args=(item.question.id,),
         )
 
     answers = {

@@ -41,7 +41,15 @@ submissions = service.list_submissions()
 results = service.list_grading_results()
 roster = service.list_students_for_teacher(teacher.id)
 
-metrics = analytics.dashboard_metrics(assessments, submissions, results)
+# Headline numbers cover teacher-marked work only; self-study estimates are
+# excluded, as the caption above says. Mismatches still read every submission.
+review_submissions = service.list_submissions_for_review()
+_review_ids = {s.id for s in review_submissions}
+metrics = analytics.dashboard_metrics(
+    assessments,
+    review_submissions,
+    [r for r in results if r.submission_id in _review_ids],
+)
 average = metrics["average_score_pct"]
 mismatches = analytics.mark_mismatches(submissions, results, assessments)
 

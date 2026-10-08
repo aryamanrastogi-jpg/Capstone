@@ -73,7 +73,7 @@ page_header(
 ai_disclaimer(f"Grading engine: {describe_grading_engine()}.")
 
 assessments = service.list_assessments_for_teacher()
-submissions = service.list_submissions()
+submissions = service.list_submissions_for_review()
 
 if not assessments:
     empty_state(
@@ -109,7 +109,10 @@ with filter_col:
     )
 
 
-all_results = service.list_grading_results()
+_review_ids = {s.id for s in submissions}
+all_results = [
+    r for r in service.list_grading_results() if r.submission_id in _review_ids
+]
 results_by_submission: dict[str, List[GradingResult]] = {}
 for _result in all_results:
     results_by_submission.setdefault(_result.submission_id, []).append(_result)
