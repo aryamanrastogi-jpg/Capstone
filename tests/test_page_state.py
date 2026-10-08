@@ -133,3 +133,4 @@ def test_self_study_work_stays_out_of_the_teacher_review_queue():
     assert not at.exception, at.exception
     assert _awaiting_review(at) == before - 1
     assert _queue_size(at) == queue_before - 1
+

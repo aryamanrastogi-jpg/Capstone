@@ -93,13 +93,29 @@ def test_privacy_page_renders_the_read_only_configured_details():
         assert line.strip("*")[:24] in rendered
 
 
-def test_study_camp_copy_describes_its_template_questions_without_ai_claims():
+def test_study_camp_copy_matches_how_practice_questions_are_written(monkeypatch):
+    # Study Camp asks the AI first and falls back to templates, so the notice
+    # must say both - and must not promise that Gemini is never used.
+    from models import ErrorType
+    from services import ai_practice_service, practice_service
+
+    calls = []
+    monkeypatch.setattr(
+        ai_practice_service, "ai_practice", lambda *args, **kwargs: calls.append(args) or []
+    )
+    practice_service.generate_practice_questions(
+        "Linear Equations", ErrorType.ARITHMETIC_ERROR, "Core", count=1
+    )
+    assert calls, "Study Camp's generator should try the AI writer first"
+
     at = _app_as("student")
     at.switch_page("pages/study_camp.py").run()
     assert not at.exception, at.exception
     captions = " ".join(c.value for c in at.caption)
-    assert "built-in practice templates" in captions
-    assert "does not send your work to Gemini" in captions
+    assert "written by Gemini" in captions
+    assert "never your own answers" in captions
+    assert "built-in templates" in captions
+    assert "does not send your work to Gemini" not in captions
 
 
 def test_demo_reset_clears_exam_and_teacher_class_codes(monkeypatch: pytest.MonkeyPatch):
@@ -116,28 +132,41 @@ def test_demo_reset_clears_exam_and_teacher_class_codes(monkeypatch: pytest.Monk
     assert "class_codes" not in fake
 
 
-def test_review_edits_remain_in_keyed_widgets_after_accept_or_flag():
-    for action in ("Accept as-is", "Flag for review"):
-        at = _app_as("teacher")
-        at.switch_page("pages/review_grading.py").run()
-        assert not at.exception, at.exception
+@pytest.mark.parametrize(
+    "action, draft_survives",
+    [("Accept as-is", False), ("Flag for review", True)],
+)
+def test_review_draft_is_cleared_on_accept_and_kept_on_flag(action, draft_survives):
+    at = _app_as("teacher")
+    at.switch_page("pages/review_grading.py").run()
+    assert not at.exception, at.exception
 
-        score_widget = next(w for w in at.number_input if w.label == "Score to award")
-        feedback_widget = next(
-            w for w in at.text_area if w.label == "Feedback the student will see"
-        )
-        score_key, feedback_key = score_widget.key, feedback_widget.key
-        score_widget.set_value(0.5).run()
-        feedback_widget = next(
-            w for w in at.text_area if w.label == "Feedback the student will see"
-        )
-        feedback_widget.set_value("Retain this draft").run()
+    score_widget = next(w for w in at.number_input if w.label == "Score to award")
+    feedback_widget = next(
+        w for w in at.text_area if w.label == "Feedback the student will see"
+    )
+    score_key, feedback_key = score_widget.key, feedback_widget.key
+    score_widget.set_value(0.5).run()
+    feedback_widget = next(
+        w for w in at.text_area if w.label == "Feedback the student will see"
+    )
+    feedback_widget.set_value("Retain this draft").run()
 
-        action_button = next(b for b in at.button if b.label == action)
-        action_button.click().run()
+    next(b for b in at.button if b.label == action).click().run()
+    assert not at.exception, at.exception
 
-        assert at.session_state[score_key] == 0.5
-        assert at.session_state[feedback_key] == "Retain this draft"
+    def current(key):
+        try:
+            return at.session_state[key]
+        except KeyError:
+            return None
+
+    if draft_survives:
+        assert current(score_key) == 0.5
+        assert current(feedback_key) == "Retain this draft"
+    else:
+        assert current(score_key) != 0.5
+        assert current(feedback_key) != "Retain this draft"
 
 
 def test_orphaned_review_result_is_visible_as_read_only():

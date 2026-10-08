@@ -46,6 +46,18 @@ def _submission_label(
     return f"{submission.student_identifier} · {title} · {progress}"
 
 
+def _forget_edits(result: GradingResult) -> None:
+    """Drop the score and feedback boxes' own state for this result.
+
+    The boxes are keyed, so Streamlit keeps whatever was last typed in them and
+    ignores `value=`. After Accept that would leave abandoned edits on screen
+    next to an approved AI score - and a later "Save my edits" would quietly
+    record them. Dropping the keys redraws the boxes from the saved decision.
+    """
+    for prefix in ("score", "feedback"):
+        st.session_state.pop(f"{prefix}_{result.submission_id}_{result.question_id}", None)
+
+
 def _save_decision(
     result: GradingResult,
     score: float | None,
@@ -335,6 +347,7 @@ for result in results:
                 feedback=result.student_feedback,
                 status=ReviewStatus.APPROVED,
             )
+            _forget_edits(result)
             st.rerun()
 
         if save_col.button(
@@ -359,6 +372,8 @@ for result in results:
             width="stretch",
             help="Park this result. It stays out of analytics until you approve it.",
         ):
+            # The draft stays: a flagged result is parked to come back to, and
+            # the teacher's half-finished edits are the context for that.
             _save_decision(result, score=None, feedback=None, status=ReviewStatus.FLAGGED)
             st.rerun()
 

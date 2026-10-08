@@ -43,8 +43,9 @@ page_header(
 )
 
 st.caption(
-    ":material/construction: Study Camp uses built-in practice templates. "
-    "It does not send your work to Gemini."
+    ":material/auto_awesome: When you are signed in, practice questions are "
+    "written by Gemini from the topic and the kind of mistake - never your own "
+    "answers. In the demo they come from built-in templates."
 )
 
 assessments = service.list_assessments_for_student(student.id)

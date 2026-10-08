@@ -534,7 +534,7 @@ _STYLES = f"""
       font-weight: 700;
   }}
   [data-testid="stNavSectionHeader"] p {{
-      font-size: 0.68rem !important;
+      font-size: 0.8rem !important;  /* 12px: the smallest legible label */
       font-weight: 700 !important;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -560,7 +560,7 @@ _STYLES = f"""
       box-shadow: 0 0 0 transparent;
   }}
   {_IN} .campprep-brand {{
-      font-size: 0.68rem;
+      font-size: 0.8rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -861,6 +861,11 @@ _STYLES = f"""
   [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
       color: #E9ECFF !important;
       font-size: max(12px, 0.8rem) !important;
+  }}
+  /* Alerts carry their own dark-on-tint text (the Demo Mode badge is dark
+     amber on pale yellow); the light sidebar colour above would erase it. */
+  [data-testid="stSidebar"] [data-testid="stAlertContainer"] [data-testid="stMarkdownContainer"] {{
+      color: inherit !important;
   }}
   [data-testid="stSidebar"] a {{ color: #E9ECFF !important; }}
   [data-testid="stSidebar"] a[aria-current="page"] {{ color: #1DCED8 !important; }}
