@@ -271,7 +271,7 @@ _STYLES = f"""
       font-weight: 800;
       line-height: 1;
   }}
-  {_IN} .campprep-card h4 {{
+  {_IN} .campprep-card h2 {{
       color: {HEADING};
       margin: 0 0 0.2rem 0;
       padding: 0;
@@ -673,7 +673,7 @@ _STYLES = f"""
       font-weight: 800;
       margin-bottom: 0.6rem;
   }}
-  {_IN} .campprep-step h5 {{
+  {_IN} .campprep-step h2 {{
       margin: 0 0 0.2rem 0;
       padding: 0;
       font-size: 0.95rem;
@@ -696,7 +696,7 @@ _STYLES = f"""
       margin: 0 0 0.6rem 0;
       color: #FFFFFF;
   }}
-  {_IN} .campprep-panel-head h3 {{
+  {_IN} .campprep-panel-head h2 {{
       color: #FFFFFF;
       margin: 0 0 0.15rem 0;
       padding: 0;
@@ -812,6 +812,20 @@ _STYLES = f"""
 
   /* Below the stack breakpoint every column is its own full-width row. */
   @media (max-width: {_STACK_BREAKPOINT}) {{
+      /* On a phone, put the sign-in/demo action first. The hero remains below
+         it, so the account form is reachable without scrolling past the tour. */
+      .stMainBlockContainer:has(.campprep-hero-title)
+      [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {{
+          order: 2;
+      }}
+      .stMainBlockContainer:has(.campprep-hero-title)
+      [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {{
+          order: 1;
+      }}
+      .stMainBlockContainer:has(.campprep-hero-title) .campprep-steps,
+      .stMainBlockContainer:has(.campprep-hero-title) .campprep-card-pair {{
+          display: none;
+      }}
       .stMainBlockContainer {{
           padding-top: 1.2rem;
           padding-left: 1rem;
@@ -835,7 +849,21 @@ _STYLES = f"""
       {_IN} .campprep-header::after {{ display: none; }}
       {_IN} .campprep-subtitle {{ font-size: 0.9rem; }}
       {_IN} .campprep-steps {{ grid-template-columns: 1fr; }}
+      {_IN} .campprep-step h2 {{ font-size: 1rem; }}
   }}
+
+  /* Sidebar copy inherits Streamlit's muted/disabled styles in a few states.
+     Pin a readable foreground and a 12px floor across labels and captions. */
+  [data-testid="stSidebar"] {{ color: #E9ECFF; }}
+  [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+  [data-testid="stSidebar"] label,
+  [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
+      color: #E9ECFF !important;
+      font-size: max(12px, 0.8rem) !important;
+  }}
+  [data-testid="stSidebar"] a {{ color: #E9ECFF !important; }}
+  [data-testid="stSidebar"] a[aria-current="page"] {{ color: #1DCED8 !important; }}
 
   @media (prefers-reduced-motion: reduce) {{
       * {{
@@ -948,6 +976,7 @@ def sidebar_status() -> None:
 
         st.divider()
         st.caption(PRIVACY_NOTICE)
+        _privacy_page_link("Privacy details", icon=":material/lock:")
 
 
 def _identity_switcher() -> None:
@@ -1006,6 +1035,28 @@ def ai_disclaimer(extra: str = "") -> None:
 
 def privacy_notice() -> None:
     st.caption(f":material/lock: {PRIVACY_NOTICE}")
+    # The active timed paper deliberately registers only itself in Streamlit's
+    # hidden navigation. A second page link would be rejected by that router.
+    from services.state import get_mock_exam
+
+    exam = get_mock_exam()
+    if exam is None or exam.is_submitted:
+        _privacy_page_link("Read the full privacy details")
+
+
+def _privacy_page_link(label: str, icon: str = "") -> None:
+    """Use Streamlit's in-app navigation, with a direct-page test fallback.
+
+    The application registers Privacy in `app.py`. A few focused page tests run
+    an individual script without that navigation registry, where `page_link`
+    raises instead of rendering. The fallback is still a same-app URL.
+    """
+    from streamlit.errors import StreamlitPageNotFoundError
+
+    try:
+        st.page_link("pages/privacy.py", label=label, icon=icon)
+    except StreamlitPageNotFoundError:
+        st.markdown(f"[{escape(label)}](/privacy)")
 
 
 def metric_row(metrics: Sequence[tuple], per_row: int = 4) -> None:
@@ -1053,7 +1104,7 @@ def info_card_html(title: str, body: str, icon: str = "", tone: str = "primary")
             f'style="background:{background};color:{colour};">{escape(icon)}</span>'
         )
     return (
-        f'<div class="campprep-card">{tile}<div><h4>{escape(title)}</h4>'
+        f'<div class="campprep-card">{tile}<div><h2>{escape(title)}</h2>'
         f'<p>{escape(body)}</p></div></div>'
     )
 

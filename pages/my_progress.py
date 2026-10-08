@@ -22,6 +22,7 @@ import streamlit as st
 from components import charts
 from components.layout import empty_state, metric_row, page_header, privacy_notice
 from components.navigation import goto
+from models import ReviewStatus
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
@@ -188,7 +189,9 @@ st.divider()
 st.subheader("The mistakes you repeat")
 st.caption("Knowing the pattern is usually more useful than any single wrong answer.")
 
-errors = analytics.error_frequency(my_results)
+errors = analytics.error_frequency(
+    [result for result in my_results if result.review_status is not ReviewStatus.FLAGGED]
+)
 error_col, type_col = st.columns(2)
 
 with error_col:

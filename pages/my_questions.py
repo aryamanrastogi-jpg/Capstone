@@ -214,6 +214,7 @@ if save_clicked:
         questions=rows,
         # The point of this page: a student has the questions, not the answers.
         require_model_answers=False,
+        title_label="Question set name",
     )
     if not result.ok:
         st.error("Please fix the following before saving:", icon=":material/error:")

@@ -143,6 +143,14 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "default": False,
         "signed_in": False,
     },
+    {
+        "path": "pages/privacy.py",
+        "title": "Privacy",
+        "icon": ":material/lock:",
+        "section": "About",
+        "roles": [STUDENT, TEACHER],
+        "default": False,
+    },
 ]
 
 

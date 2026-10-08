@@ -223,11 +223,12 @@ def reset_to_samples() -> None:
     """Restore the seeded demo dataset (used by the sidebar reset control).
 
     Keeps whoever is using the app (if they exist in the seed) instead of
-    silently switching to the demo student, and drops per-user drafts, uploads
-    and the mock exam, which would otherwise outlive the data they refer to.
+    silently switching to the demo student, and drops per-user drafts, uploads,
+    the mock exam and demo-only class codes, which would outlive the sample data.
     """
     keep_user_id = st.session_state.get(CURRENT_USER_ID)
     clear_user_session_keys()
+    st.session_state.pop(CLASS_CODES, None)
     st.session_state[INITIALISED] = False
     init_session_state(load_samples=True)
     if keep_user_id and any(u.id == keep_user_id for u in get_users()):
