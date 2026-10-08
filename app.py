@@ -123,10 +123,6 @@ st.logo(
     size="large",
 )
 
-# The sidebar owns the demo role switch, so it must run before navigation is
-# built - switching role changes which pages exist.
-sidebar_status()
-
 from services.auth_service import current_user as signed_in_user  # noqa: E402
 from services.supabase_client import get_connection_status  # noqa: E402
 
@@ -138,6 +134,10 @@ navigation = build_navigation(
     # BUG-032: without Supabase there is nothing to sign in to.
     accounts_available=get_connection_status().connected,
 )
+
+# Register navigation before rendering the sidebar's Privacy page link.
+# Identity changes trigger a rerun, which rebuilds the role-specific menu.
+sidebar_status()
 
 # Finish a deep link that had to pass through the welcome page first, as long
 # as the page exists for this role.

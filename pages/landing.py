@@ -67,11 +67,11 @@ teacher confirms every mark.</p>
 </div>
 <div class="campprep-steps">
 <div class="campprep-step"><b style="background:{palette.PRIMARY}">1</b>
-<h5>Add your work</h5><p>Upload homework or a mock exam you have already done.</p></div>
+<h2>Add your work</h2><p>Upload homework or a mock exam you have already done.</p></div>
 <div class="campprep-step"><b style="background:{palette.TINT_HINT[0]};color:{palette.TINT_HINT[1]}">2</b>
-<h5>See what slipped</h5><p>Get an estimate and the topics that cost you marks.</p></div>
+<h2>See what slipped</h2><p>Get an estimate and the topics that cost you marks.</p></div>
 <div class="campprep-step"><b style="background:{palette.TINT_WARNING[0]};color:{palette.TINT_WARNING[1]}">3</b>
-<h5>Fix it in camp</h5><p>Targeted practice until the weak topic is secure.</p></div>
+<h2>Fix it in camp</h2><p>Targeted practice until the weak topic is secure.</p></div>
 </div>
 <div class="campprep-card-pair">{_students_card}{_teachers_card}</div>'''
     )
@@ -84,7 +84,7 @@ with auth:
         )
         if status.connected:
             st.html(
-                '<div class="campprep-panel-head"><h3>Welcome back 👋</h3>'
+                '<div class="campprep-panel-head"><h2>Welcome back 👋</h2>'
                 "<p>Sign in, or make an account in under a minute.</p></div>"
             )
             auth_forms()
@@ -94,7 +94,7 @@ with auth:
             # One block, with a notice in st.info's colours: drawn in one go,
             # so nothing in the panel is painted first and then pushed down.
             panel = (
-                f'<div class="campprep-panel-head"><h3>Try {APP_NAME}</h3>'
+                f'<div class="campprep-panel-head"><h2>Try {APP_NAME}</h2>'
                 "<p>Everything works with sample data - no account needed.</p></div>"
                 f'<div class="campprep-notice" style="background:{palette.TINT_PRIMARY[0]};'
                 f'color:{palette.TINT_PRIMARY[1]}">Accounts are not available on this '
