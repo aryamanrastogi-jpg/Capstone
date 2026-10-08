@@ -33,8 +33,11 @@ page_header(
 )
 
 assessments = service.list_assessments_for_teacher()
-submissions = service.list_submissions()
-results = service.list_grading_results()
+# Teacher-marked work only, the same set as the review queue and the dashboard:
+# students' self-study results are AI estimates and never awaiting review here.
+submissions = service.list_submissions_for_review()
+_review_ids = {s.id for s in submissions}
+results = [r for r in service.list_grading_results() if r.submission_id in _review_ids]
 
 frame = analytics.results_dataframe(results, assessments, submissions)
 approved_count = len(analytics.approved_results(results))

@@ -16,6 +16,11 @@ in order. Run `008` before deploying code that depends on its changes. Finally
 re-run `db/policies.sql` to sync the policy/view definitions. Each step is
 idempotent.
 
+After running `008`, before deploying, check on a test project that a
+student's self-study submission still gets an AI estimate saved, and that a
+teacher can approve, edit and flag a result. Both write to `grading_results`
+with an upsert.
+
 | File | What it does |
 |---|---|
 | `001_shared_library.sql` | Adds `is_shared` and `copied_from_id` to `assessments` for the shared question library |
@@ -25,7 +30,7 @@ idempotent.
 | `005_teacher_invites.sql` | Hashed, expiring teacher invite codes and `redeem_teacher_invite(code)` - the only route to the teacher role besides an operator |
 | `006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
 | `007_bug_fixes.sql` | Audit fixes: students read teacher/shared questions via `student_questions` (BUG-001), teachers read only their own and their students' questions (BUG-002), a student's submission freezes once reviewed (BUG-016), camp baseline may be NULL (BUG-010) |
-| `008_qa_hardening.sql` | Pins student grading rows to real questions, separates student-safe grading reads, preserves student work when a teacher account is deleted, limits class-code guesses, and revokes public execution of helper functions |
+| `008_qa_hardening.sql` | Pins student grading rows to real questions, separates student-safe grading reads (direct table reads are limited to non-sensitive columns, which upserts still need), preserves student work when a teacher account is deleted, limits class-code guesses, and revokes public execution of helper functions |
 
 ## Checking what you have applied
 

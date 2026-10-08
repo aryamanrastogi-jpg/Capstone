@@ -99,6 +99,22 @@ def user_to_row(user: User) -> Row:
     }
 
 
+def safe_avatar_url(url: Optional[str]) -> Optional[str]:
+    """Keep a photo URL only if it points into this project's avatars bucket.
+
+    A signed-in user can write `profiles.avatar_url` directly through the API,
+    so the column may hold any address - including a tracking image on someone
+    else's server, which would then load in a teacher's browser. Photos uploaded
+    through the app always live under <project>/storage/v1/object/public/avatars/.
+    """
+    from utils.config import get_settings
+
+    base = get_settings().supabase_url.rstrip("/")
+    if not url or not base:
+        return None
+    return url if url.startswith(f"{base}/storage/v1/object/public/avatars/") else None
+
+
 def user_from_row(row: Row) -> User:
     return User(
         id=row["id"],
@@ -106,7 +122,7 @@ def user_from_row(row: Row) -> User:
         role=Role(row.get("role") or Role.STUDENT.value),
         teacher_id=row.get("teacher_id"),
         year_group=row.get("year_group"),
-        avatar_url=row.get("avatar_url"),
+        avatar_url=safe_avatar_url(row.get("avatar_url")),
     )
 
 
