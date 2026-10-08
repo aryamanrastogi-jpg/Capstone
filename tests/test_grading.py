@@ -153,6 +153,20 @@ def test_digital_pdf_text_is_extracted():
     assert result.page_count == 1
 
 
+def test_pdf_over_page_limit_is_rejected_before_text_extraction():
+    pymupdf = pytest.importorskip("pymupdf")
+    document = pymupdf.open()
+    for _ in range(document_service.MAX_PDF_PAGES + 1):
+        document.new_page()
+    payload = document.tobytes()
+    document.close()
+
+    result = document_service.extract_text("long.pdf", payload)
+    assert not result.success
+    assert "too many pages" in result.message.lower()
+    assert result.page_count == document_service.MAX_PDF_PAGES + 1
+
+
 # ---------------------------------------------------------------------------
 # Sample data and analytics
 # ---------------------------------------------------------------------------

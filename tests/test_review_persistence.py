@@ -12,7 +12,7 @@ from typing import Any, Iterator
 
 import pytest
 
-from models import GradingResult, Question, ReviewStatus, SubmissionStatus
+from models import GradingResult, Question, ReviewStatus, Role, SubmissionStatus, User
 from services import assessment_service as service
 from services.grading_service import apply_teacher_decision
 from services.repository import SupabaseRepository, set_repository
@@ -33,7 +33,14 @@ class _CascadingQuery(_Query):
 
 class CascadingSupabase(FakeSupabase):
     def table(self, name: str) -> _Query:
-        return _CascadingQuery(self, name)
+        # Keep the fake role-specific view names mapped onto the backing table
+        # while retaining the cascade behavior used by these tests.
+        source = (
+            "grading_results"
+            if name in {"student_grading_results", "teacher_grading_results"}
+            else name
+        )
+        return _CascadingQuery(self, source)
 
 
 @pytest.fixture()
@@ -42,7 +49,19 @@ def db() -> CascadingSupabase:
 
 
 @pytest.fixture()
-def repo(db: CascadingSupabase) -> Iterator[SupabaseRepository]:
+def repo(
+    db: CascadingSupabase, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[SupabaseRepository]:
+    # Review persistence is a teacher path. The repository now deliberately
+    # reads through the role-scoped teacher view, so model that authenticated
+    # role in this fake-backend test instead of relying on an empty session.
+    from services import auth_service
+
+    monkeypatch.setattr(
+        auth_service,
+        "current_user",
+        lambda: User(id="teacher_1", display_name="Teacher", role=Role.TEACHER),
+    )
     repository = SupabaseRepository(db)
     set_repository(repository)
     yield repository

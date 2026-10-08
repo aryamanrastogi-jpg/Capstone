@@ -163,6 +163,7 @@ def assessment_to_rows(assessment: Assessment) -> Tuple[Row, List[Row]]:
         "owner_id": assessment.owner_id,
         "student_created": assessment.student_created,
         "is_shared": assessment.is_shared,
+        "is_archived": assessment.is_archived,
         "copied_from_id": assessment.copied_from_id,
     }
     question_rows = [
@@ -194,6 +195,7 @@ def assessment_from_rows(row: Row, question_rows: Sequence[Row]) -> Assessment:
         owner_id=row.get("owner_id"),
         student_created=bool(row.get("student_created")),
         is_shared=bool(row.get("is_shared")),
+        is_archived=bool(row.get("is_archived")),
         copied_from_id=row.get("copied_from_id"),
     )
 

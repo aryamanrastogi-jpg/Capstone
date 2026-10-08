@@ -9,13 +9,19 @@ detected and reported rather than guessed at.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Optional
 
-from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
+from utils.config import (
+    ALLOWED_UPLOAD_EXTENSIONS,
+    MAX_PDF_EXTRACTION_SECONDS,
+    MAX_UPLOAD_BYTES,
+)
 from utils.validation import file_extension, sanitize_filename, validate_upload
 
 # A page with fewer characters than this is treated as having no usable text.
 MIN_USABLE_CHARS = 15
+MAX_PDF_PAGES = 100
 
 NO_TEXT_MESSAGE = (
     "No readable text was found in this PDF. Camp Prep AI reads digital PDFs only - "
@@ -129,7 +135,31 @@ def _extract_pdf(safe_name: str, content: bytes) -> ExtractionResult:
                     ),
                     filename=safe_name,
                 )
-            pages = [page.get_text("text") for page in document]
+            if document.page_count > MAX_PDF_PAGES:
+                return ExtractionResult(
+                    success=False,
+                    message=f"This PDF has too many pages. The limit is {MAX_PDF_PAGES}.",
+                    filename=safe_name,
+                    page_count=document.page_count,
+                )
+            started = time.monotonic()
+            pages = []
+            for page in document:
+                if time.monotonic() - started > MAX_PDF_EXTRACTION_SECONDS:
+                    return ExtractionResult(
+                        success=False,
+                        message="This PDF took too long to read. Please upload a shorter file.",
+                        filename=safe_name,
+                        page_count=document.page_count,
+                    )
+                pages.append(page.get_text("text"))
+                if time.monotonic() - started > MAX_PDF_EXTRACTION_SECONDS:
+                    return ExtractionResult(
+                        success=False,
+                        message="This PDF took too long to read. Please upload a shorter file.",
+                        filename=safe_name,
+                        page_count=document.page_count,
+                    )
             page_count = len(pages)
     except Exception as exc:  # noqa: BLE001 - reported to the teacher, not hidden
         return ExtractionResult(

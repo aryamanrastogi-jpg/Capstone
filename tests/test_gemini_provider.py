@@ -95,6 +95,9 @@ class TestGeminiModel:
 
 class TestGeminiThroughPipeline:
     def test_registry_selects_gemini(self, monkeypatch):
+        from services import auth_service
+
+        monkeypatch.setattr(auth_service, "is_signed_in", lambda: True)
         monkeypatch.setattr(gemini_provider, "_client", lambda key: object())
         model = ai.get_grading_model(Settings(llm_api_key="k", llm_model="gemini:gemini-2.5-flash"))
         assert isinstance(model, GeminiGradingModel)
@@ -118,6 +121,9 @@ class TestGeminiThroughPipeline:
         assert not outcome.used_ai
 
     def test_provider_setup_failure_falls_back(self, question, monkeypatch):
+        from services import auth_service
+
+        monkeypatch.setattr(auth_service, "is_signed_in", lambda: True)
         def broken(settings):
             raise ImportError("no sdk")
 

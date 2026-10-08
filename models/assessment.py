@@ -136,6 +136,7 @@ class Assessment(BaseModel):
     # copy. Off by default: a set is private until its owner deliberately
     # shares it.
     is_shared: bool = False
+    is_archived: bool = False
 
     # Set when this was copied from someone else's shared set, so the library
     # can show how much a set has been used and a copy can credit its source.

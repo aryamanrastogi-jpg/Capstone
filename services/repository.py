@@ -30,6 +30,8 @@ import secrets
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from postgrest.types import ReturnMethod
+
 from models import (
     Assessment,
     GradingResult,
@@ -528,7 +530,15 @@ class SupabaseRepository(Repository):
     def list_grading_results(
         self, submission_id: Optional[str] = None
     ) -> List[GradingResult]:
-        query = self._client.table("grading_results").select("*")
+        from services import auth_service
+
+        viewer = auth_service.current_user()
+        source = (
+            "teacher_grading_results"
+            if viewer is not None and viewer.is_teacher
+            else "student_grading_results"
+        )
+        query = self._client.table(source).select("*")
         if submission_id:
             query = query.eq("submission_id", submission_id)
         return [mappers.grading_result_from_row(r) for r in query.execute().data or []]
@@ -537,7 +547,7 @@ class SupabaseRepository(Repository):
         # (submission_id, question_id) is the primary key, so upsert is the
         # re-grade path as well as the first-grade path.
         self._client.table("grading_results").upsert(
-            mappers.grading_result_to_row(result)
+            mappers.grading_result_to_row(result), returning=ReturnMethod.minimal
         ).execute()
         return result
 

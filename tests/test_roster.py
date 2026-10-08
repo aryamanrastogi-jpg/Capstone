@@ -106,6 +106,19 @@ def test_a_student_joins_the_class_whose_code_they_were_given(
     assert _student(store, "usr_s02").teacher_id == TEACHER_A
 
 
+def test_successful_join_invalidates_the_cached_auth_profile(store, monkeypatch):
+    from services import auth_service
+
+    invalidated = []
+    monkeypatch.setattr(auth_service, "invalidate_cached_profile", lambda: invalidated.append(True))
+    code = roster_service.rotate_class_code(TEACHER_A)
+
+    outcome = roster_service.join_class("usr_s02", code)
+
+    assert outcome.ok
+    assert invalidated == [True]
+
+
 def test_joining_is_case_and_whitespace_forgiving(store: _Store) -> None:
     """It gets copied off a whiteboard; a stray space is not a wrong answer."""
     code = roster_service.rotate_class_code(TEACHER_A)

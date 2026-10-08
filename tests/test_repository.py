@@ -71,7 +71,7 @@ class _Query:
         self._payload = payload
         return self
 
-    def upsert(self, payload: Any) -> "_Query":
+    def upsert(self, payload: Any, **_kwargs: Any) -> "_Query":
         self._op = "upsert"
         self._payload = payload
         return self
@@ -163,7 +163,13 @@ class FakeSupabase:
         self.select_calls: List[str] = []
 
     def table(self, name: str) -> _Query:
-        return _Query(self, name)
+        # The role-specific read views expose rows from the grading table.
+        source = (
+            "grading_results"
+            if name in {"student_grading_results", "teacher_grading_results"}
+            else name
+        )
+        return _Query(self, source)
 
 
 @pytest.fixture()

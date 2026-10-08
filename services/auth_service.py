@@ -43,6 +43,8 @@ from utils.config import get_settings
 # Session-state keys. The client itself is held here, not the credentials.
 CLIENT = "_auth_client"
 PROFILE = "_auth_profile"
+PROFILE_FETCHED_AT = "_auth_profile_fetched_at"
+PROFILE_CACHE_SECONDS = 20
 FAILED_SIGN_INS = "_auth_failed_sign_ins"
 LOCKED_UNTIL = "_auth_locked_until"
 
@@ -367,9 +369,14 @@ def current_user() -> Optional[User]:
         # would keep the user "signed in" while the repository silently fell
         # back to demo data. Drop it and treat them as signed out instead.
         if is_signed_in():
-            return cached
+            try:
+                fresh_for = time.monotonic() - st.session_state.get(PROFILE_FETCHED_AT, 0)
+            except Exception:  # noqa: BLE001 - no session state available
+                fresh_for = PROFILE_CACHE_SECONDS
+            if fresh_for < PROFILE_CACHE_SECONDS:
+                return cached
         _clear_cached_profile()
-        return None
+        # A stale profile is refreshed below while the auth session is valid.
 
     client = authenticated_client()
     if client is None:
@@ -400,9 +407,15 @@ def current_user() -> Optional[User]:
     user = mappers.user_from_row(rows[0])
     try:
         st.session_state[PROFILE] = user
+        st.session_state[PROFILE_FETCHED_AT] = time.monotonic()
     except Exception:  # noqa: BLE001 - no session state available
         pass
     return user
+
+
+def invalidate_cached_profile() -> None:
+    """Drop the per-session profile after a roster mutation."""
+    _clear_cached_profile()
 
 
 # --------------------------------------------------------------------------
@@ -481,7 +494,7 @@ def remove_avatar() -> AuthOutcome:
 
 
 def delete_account() -> AuthOutcome:
-    """Delete the signed-in account, its photo and (by cascade) its profile."""
+    """Delete the signed-in account and profile, preserving student history."""
     client, auth_id = _signed_in_client_and_id()
     if client is None:
         return AuthOutcome(False, "Sign in first.")
@@ -584,6 +597,7 @@ def current_role() -> Optional[Role]:
 def _clear_cached_profile() -> None:
     try:
         st.session_state.pop(PROFILE, None)
+        st.session_state.pop(PROFILE_FETCHED_AT, None)
     except Exception:  # noqa: BLE001 - no session state available
         pass
 

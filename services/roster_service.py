@@ -71,6 +71,10 @@ def join_class(student_id: str, code: str) -> RosterOutcome:
         # codes exist.
         return RosterOutcome(False, "That class code is not valid.")
 
+    from services.auth_service import invalidate_cached_profile
+
+    invalidate_cached_profile()
+
     return RosterOutcome(True, "You have joined the class.")
 
 
@@ -82,6 +86,9 @@ def leave_class(student_id: str) -> RosterOutcome:
     the class's assessments.
     """
     get_repository().leave_class(student_id)
+    from services.auth_service import invalidate_cached_profile
+
+    invalidate_cached_profile()
     return RosterOutcome(True, "You have left the class.")
 
 

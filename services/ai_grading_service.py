@@ -92,6 +92,10 @@ def get_grading_model(settings: Optional[Settings] = None) -> Optional[GradingMo
     settings = settings or get_settings()
     if not settings.llm_api_key or not settings.llm_model:
         return None
+    # The sample-data experience is public and has no per-user quota. Never
+    # spend the operator's Gemini key on an unauthenticated visitor.
+    if not _has_authenticated_user():
+        return None
     provider, _, _model_id = settings.llm_model.partition(":")
     factory = _PROVIDERS.get(provider.strip().lower())
     if factory is None:
@@ -116,10 +120,23 @@ def describe_grading_engine(settings: Optional[Settings] = None) -> str:
     """A one-line, key-free description of what will mark the next answer."""
     settings = settings or get_settings()
     provider, _, model_id = (part.strip() for part in settings.llm_model.partition(":"))
-    if not settings.llm_api_key or provider.lower() not in _PROVIDERS:
+    if (
+        not settings.llm_api_key
+        or provider.lower() not in _PROVIDERS
+        or not _has_authenticated_user()
+    ):
         return grading_service.MOCK_ENGINE_NAME
     name = f"{provider.title()} ({model_id})" if model_id else provider.title()
     return f"{name}, with the rule-based grader as fallback"
+
+
+def _has_authenticated_user() -> bool:
+    try:
+        from services.auth_service import is_signed_in
+
+        return bool(is_signed_in())
+    except Exception:  # fail closed if auth state cannot be established
+        return False
 
 
 class FakeGradingModel:

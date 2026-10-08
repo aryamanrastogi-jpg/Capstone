@@ -23,6 +23,7 @@ APP_TAGLINE = "Teacher-reviewed AI assessment support for IGCSE maths (Years 10â
 
 # Upload guardrails
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_PDF_EXTRACTION_SECONDS = 10
 ALLOWED_UPLOAD_EXTENSIONS: Set[str] = {".txt", ".pdf"}
 
 # The short notice at the foot of every page and in the sidebar. It has to be
@@ -59,9 +60,12 @@ PRIVACY_DETAILS = (
     "and the question (never your name or email) is sent to Google's Gemini "
     "service to be marked. On Gemini's free tier, Google may use that text to "
     "improve its products.",
-    "**Deleting it.** Profile > Delete account removes your account, your "
-    "photo, your profile and the work saved under it straight away. It "
-    "cannot be undone.",
+    "**Deleting it.** Profile > Delete account removes your account, photo and "
+    "profile. A teacher's assessment is retained in an archived state when a "
+    "student has submitted work to it, so that student's history remains. Your "
+    "unused assessments are deleted. A student's own saved work is deleted, "
+    "except a shared set used by another student, which is archived for that "
+    "student's history. This cannot be undone.",
     "**The demo.** Exploring the demo creates no account and stores nothing "
     "once you close the tab.",
 )

@@ -168,6 +168,9 @@ def list_assessments_for_student(student_id: str) -> List[Assessment]:
     """
     repo = get_repository()
     student = next((u for u in repo.list_users() if u.id == student_id), None)
+    prior_assessment_ids = {
+        sub.assessment_id for sub in repo.list_submissions(student_id=student_id)
+    }
 
     def _from_my_teacher(a: Assessment) -> bool:
         if student is None:
@@ -179,7 +182,8 @@ def list_assessments_for_student(student_id: str) -> List[Assessment]:
     return [
         a
         for a in repo.list_assessments()
-        if (a.owner_id == student_id)
+        if (a.is_archived and a.id in prior_assessment_ids)
+        or (a.owner_id == student_id)
         or (not a.student_created and _from_my_teacher(a))
     ]
 
