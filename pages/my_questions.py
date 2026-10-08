@@ -33,8 +33,11 @@ from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "my_questions_rows"
+EDITOR_WIDGET_KEY = "mq_editor"
+EDITOR_GENERATION_KEY = "mq_editor_generation"
 EXTRACTED_KEY = "my_questions_extracted"
 FLASH_KEY = "my_questions_flash"
+RESET_AFTER_SAVE_KEY = "my_questions_reset_after_save"
 CONFIRM_DELETE_KEY = "my_questions_confirm_delete"
 
 BLANK_ROWS = pd.DataFrame(
@@ -43,6 +46,19 @@ BLANK_ROWS = pd.DataFrame(
         for _ in range(3)
     ]
 )
+
+
+def _editor_widget_key() -> str:
+    return f"{EDITOR_WIDGET_KEY}_{st.session_state.get(EDITOR_GENERATION_KEY, 0)}"
+
+
+def _reset_editor() -> None:
+    """Discard both the draft and Streamlit's cached value for its widget."""
+    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+    st.session_state.pop(_editor_widget_key(), None)
+    st.session_state[EDITOR_GENERATION_KEY] = (
+        st.session_state.get(EDITOR_GENERATION_KEY, 0) + 1
+    )
 
 student = store.get_current_user()
 if student is None or not student.is_student:
@@ -57,6 +73,11 @@ page_header(
     "through and track.",
 )
 
+if st.session_state.pop(RESET_AFTER_SAVE_KEY, False):
+    _reset_editor()
+    st.session_state["mq_title"] = ""
+    st.session_state["mq_topic"] = ""
+
 st.info(
     "You do **not** need the answers. Add them only if you already have a mark "
     "scheme; without them a set is still saved, it just cannot be scored yet.",
@@ -65,6 +86,7 @@ st.info(
 
 if EDITOR_KEY not in st.session_state:
     st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+st.session_state.setdefault(EDITOR_GENERATION_KEY, 0)
 
 # A confirmation set just before an st.rerun() would never be seen, so it is
 # carried across the rerun in session state and shown here.
@@ -76,9 +98,8 @@ if _flash:
 def _clear_form() -> None:
     """Runs as an on_click callback, i.e. before the widgets are created again,
     which is the only point where their session-state keys may be changed."""
-    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+    _reset_editor()
     st.session_state.pop(EXTRACTED_KEY, None)
-    st.session_state.pop("mq_editor", None)  # the data editor's pending edits
     for key in ("mq_title", "mq_topic"):
         st.session_state[key] = ""
 
@@ -150,7 +171,7 @@ st.caption(
 
 edited = st.data_editor(
     st.session_state[EDITOR_KEY],
-    key="mq_editor",
+    key=_editor_widget_key(),
     num_rows="dynamic",
     width="stretch",
     column_config={
@@ -220,7 +241,7 @@ if save_clicked:
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:
-            st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+            st.session_state[RESET_AFTER_SAVE_KEY] = True
             st.session_state.pop(EXTRACTED_KEY, None)
             st.success(
                 f"Saved **{assessment.title}** — {assessment.question_count} "

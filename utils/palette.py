@@ -64,7 +64,7 @@ TINT_NEUTRAL: Tuple[str, str] = (SURFACE_ALT, "#3A4170")
 # Categorical series colours, in the order Plotly hands them out. The two
 # colours that carry a meaning elsewhere - green and red - come last, so a
 # chart with only a few series never accidentally implies correct/incorrect.
-CHART_SEQUENCE = [PRIMARY, HINT, PRIMARY_DARK, WARNING, CORRECT, INCORRECT]
+CHART_SEQUENCE = [PRIMARY, HINT, "#007C91", WARNING, CORRECT, INCORRECT]
 
 # Strength bands, using the same green-to-red reading as marking.
 BAND_COLOURS = {

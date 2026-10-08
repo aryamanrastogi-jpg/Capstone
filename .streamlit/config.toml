@@ -66,7 +66,7 @@ grayTextColor = "#3A4170"
 
 # Charts read from the same six colours as the rest of the UI. Green and red
 # come last so a two-series chart never accidentally implies correct/incorrect.
-chartCategoricalColors = ["#1B2CC1", "#1DCED8", "#2F39A9", "#FF9100", "#76C457", "#DF301C"]
+chartCategoricalColors = ["#1B2CC1", "#1DCED8", "#007C91", "#FF9100", "#76C457", "#DF301C"]
 chartSequentialColors = [
   "#EEF0FC", "#D6DAF6", "#B6BDEE", "#8F9AE3", "#6874D6",
   "#4553CA", "#2F39A9", "#252D89", "#1B2168", "#121647",
@@ -94,3 +94,4 @@ gatherUsageStats = false
 # students and teachers; only the app's own menu items remain.
 [client]
 toolbarMode = "minimal"
+showErrorDetails = "none"

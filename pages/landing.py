@@ -61,16 +61,16 @@ with intro:
 are slipping and points you at what to practise. Pointers, not answers - and a
 teacher confirms every mark.</p>
 <div class="campprep-chips">
-<span class="campprep-chip"><i style="background:{palette.CYAN}">?</i>Hints, never answers</span>
-<span class="campprep-chip"><i style="background:{palette.GREEN}">✓</i>Every mark teacher-checked</span>
-<span class="campprep-chip"><i style="background:{palette.ORANGE}">★</i>Practise your weak spots</span>
+<span class="campprep-chip"><i style="background:{palette.TINT_HINT[0]};color:{palette.TINT_HINT[1]}">?</i>Hints, never answers</span>
+<span class="campprep-chip"><i style="background:{palette.TINT_CORRECT[0]};color:{palette.TINT_CORRECT[1]}">✓</i>Every mark teacher-checked</span>
+<span class="campprep-chip"><i style="background:{palette.TINT_WARNING[0]};color:{palette.TINT_WARNING[1]}">★</i>Practise your weak spots</span>
 </div>
 <div class="campprep-steps">
 <div class="campprep-step"><b style="background:{palette.PRIMARY}">1</b>
 <h5>Add your work</h5><p>Upload homework or a mock exam you have already done.</p></div>
-<div class="campprep-step"><b style="background:{palette.CYAN}">2</b>
+<div class="campprep-step"><b style="background:{palette.TINT_HINT[0]};color:{palette.TINT_HINT[1]}">2</b>
 <h5>See what slipped</h5><p>Get an estimate and the topics that cost you marks.</p></div>
-<div class="campprep-step"><b style="background:{palette.ORANGE}">3</b>
+<div class="campprep-step"><b style="background:{palette.TINT_WARNING[0]};color:{palette.TINT_WARNING[1]}">3</b>
 <h5>Fix it in camp</h5><p>Targeted practice until the weak topic is secure.</p></div>
 </div>
 <div class="campprep-card-pair">{_students_card}{_teachers_card}</div>'''
@@ -126,16 +126,16 @@ with auth:
     # A picture of the product rather than a description of it: the kind of
     # topic breakdown a student gets back. Illustrative figures, not data.
     bars = [
-        ("Fractions", 86, palette.CORRECT, "Secure"),
-        ("Linear equations", 64, palette.PRIMARY, "Developing"),
-        ("Ratio and proportion", 38, palette.WARNING, "Needs work"),
+        ("Fractions", 86, palette.CORRECT, palette.TINT_CORRECT[1], "Secure"),
+        ("Linear equations", 64, palette.PRIMARY, palette.PRIMARY, "Developing"),
+        ("Ratio and proportion", 38, palette.WARNING, palette.TINT_WARNING[1], "Needs work"),
     ]
     rows = "".join(
         f'<div class="campprep-bar"><div class="campprep-bar-label"><span>{name}</span>'
-        f'<span style="color:{colour}">{band}</span></div>'
-        f'<div class="campprep-bar-track"><i style="width:{pct}%;background:{colour}"></i>'
+        f'<span style="color:{label_colour}">{band}</span></div>'
+        f'<div class="campprep-bar-track"><i style="width:{pct}%;background:{bar_colour}"></i>'
         "</div></div>"
-        for name, pct, colour, band in bars
+        for name, pct, bar_colour, label_colour, band in bars
     )
     st.html(
         f'''<div class="campprep-preview">

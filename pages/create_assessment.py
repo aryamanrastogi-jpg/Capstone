@@ -14,7 +14,10 @@ from services import state as store
 from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "create_assessment_rows"
+EDITOR_WIDGET_KEY = "ca_editor"
+EDITOR_GENERATION_KEY = "ca_editor_generation"
 JUST_SAVED_KEY = "create_assessment_just_saved"
+RESET_AFTER_SAVE_KEY = "create_assessment_reset_after_save"
 
 BLANK_ROWS = pd.DataFrame(
     [
@@ -22,6 +25,19 @@ BLANK_ROWS = pd.DataFrame(
         for _ in range(3)
     ]
 )
+
+
+def _editor_widget_key() -> str:
+    return f"{EDITOR_WIDGET_KEY}_{st.session_state.get(EDITOR_GENERATION_KEY, 0)}"
+
+
+def _reset_editor() -> None:
+    """Discard both the draft and Streamlit's cached value for its widget."""
+    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+    st.session_state.pop(_editor_widget_key(), None)
+    st.session_state[EDITOR_GENERATION_KEY] = (
+        st.session_state.get(EDITOR_GENERATION_KEY, 0) + 1
+    )
 
 # Teacher-only page. Navigation already keeps students out; this is the second
 # line of defence if the page is reached directly.
@@ -37,15 +53,22 @@ page_header(
     "specific they are, the more useful the suggestions will be.",
 )
 
+# Widget values may only be changed before those widgets are instantiated.
+# Successful saves schedule their reset for this next run.
+if st.session_state.pop(RESET_AFTER_SAVE_KEY, False):
+    _reset_editor()
+    st.session_state["ca_title"] = ""
+    st.session_state["ca_topic"] = ""
+
 if EDITOR_KEY not in st.session_state:
     st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+st.session_state.setdefault(EDITOR_GENERATION_KEY, 0)
 
 
 def _clear_form() -> None:
     """Runs as an on_click callback, i.e. before the widgets are created again,
     which is the only point where their session-state keys may be changed."""
-    st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
-    st.session_state.pop("ca_editor", None)  # the data editor's pending edits
+    _reset_editor()
     st.session_state.pop(JUST_SAVED_KEY, None)
     for key in ("ca_title", "ca_topic"):
         st.session_state[key] = ""
@@ -100,7 +123,7 @@ st.caption(
 
 edited = st.data_editor(
     st.session_state[EDITOR_KEY],
-    key="ca_editor",
+    key=_editor_widget_key(),
     num_rows="dynamic",
     width="stretch",
     column_config={
@@ -182,7 +205,7 @@ if save_clicked:
                 f"worth {assessment.max_marks} marks in total.",
                 icon=":material/check_circle:",
             )
-            st.session_state[EDITOR_KEY] = BLANK_ROWS.copy()
+            st.session_state[RESET_AFTER_SAVE_KEY] = True
             st.session_state[JUST_SAVED_KEY] = True
 
 # Outside `if save_clicked:` - the click on this button is a fresh run in which

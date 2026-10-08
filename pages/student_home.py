@@ -146,6 +146,17 @@ if assessment is None:
     st.error("That assessment could not be found.", icon=":material/error:")
     st.stop()
 
+if assessment.is_archived:
+    st.info(
+        "This assessment is archived. Your past submissions and marks remain "
+        "in My Progress, but you cannot add another attempt.",
+        icon=":material/archive:",
+    )
+    if st.button("View My Progress", type="primary"):
+        goto("My Progress")
+    privacy_notice()
+    st.stop()
+
 if not assessment.is_gradable:
     # No model answers, so there is nothing to mark against and a score would be
     # invented. Guidance is the useful, honest thing to give instead: how to go

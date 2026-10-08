@@ -43,11 +43,13 @@ def auth_forms() -> None:
             )
         with st.form("sign_in_form"):
             email = st.text_input(
-                "Email", key="sign_in_email", max_chars=auth_service.MAX_EMAIL_CHARS
+                "Email", key="sign_in_email", max_chars=auth_service.MAX_EMAIL_CHARS,
+                type="email", autocomplete="email",
             )
             password = st.text_input(
                 "Password",
                 type="password",
+                autocomplete="current-password",
                 key="sign_in_password",
                 max_chars=auth_service.MAX_PASSWORD_CHARS,
             )
@@ -78,11 +80,13 @@ def auth_forms() -> None:
                 "Full name", key="sign_up_name", max_chars=auth_service.MAX_NAME_CHARS
             )
             new_email = st.text_input(
-                "Email", key="sign_up_email", max_chars=auth_service.MAX_EMAIL_CHARS
+                "Email", key="sign_up_email", max_chars=auth_service.MAX_EMAIL_CHARS,
+                type="email", autocomplete="email",
             )
             new_password = st.text_input(
                 "Password",
                 type="password",
+                autocomplete="new-password",
                 key="sign_up_password",
                 max_chars=auth_service.MAX_PASSWORD_CHARS,
                 help=(
@@ -93,6 +97,7 @@ def auth_forms() -> None:
             confirm = st.text_input(
                 "Confirm password",
                 type="password",
+                autocomplete="new-password",
                 key="sign_up_confirm",
                 max_chars=auth_service.MAX_PASSWORD_CHARS,
             )

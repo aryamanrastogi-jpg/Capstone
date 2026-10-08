@@ -52,6 +52,28 @@ def test_clear_form_on_my_questions_resets_without_error():
     assert at.text_input(key="mq_topic").value == ""
 
 
+def test_saving_my_questions_clears_the_question_editor_draft():
+    at = _app_as("student")
+    at.switch_page("pages/my_questions.py")
+    at.run()
+    at.session_state["my_questions_rows"] = pd.DataFrame(
+        [{"question_text": "What is 2+2?", "model_answer": "", "max_marks": 1.0}]
+    )
+    at.run()
+    at.text_input(key="mq_title").input("Algebra sheet")
+    at.text_input(key="mq_topic").input("Algebra")
+    at.run()
+    _button(at, "Save this set").click().run()
+    assert not at.exception, at.exception
+
+    at.run()
+
+    assert at.text_input(key="mq_title").value == ""
+    assert at.text_input(key="mq_topic").value == ""
+    rows = at.session_state["my_questions_rows"].to_dict("records")
+    assert all(not str(row.get("question_text", "")).strip() for row in rows), rows
+
+
 def test_clear_form_on_create_assessment_resets_without_error():
     at = _app_as("teacher")
     at.switch_page("pages/create_assessment.py")
@@ -85,6 +107,10 @@ def test_go_to_upload_responses_survives_the_rerun_after_saving():
 
     # Any other interaction reruns the script with save_clicked False.
     at.run()
+    assert at.text_input(key="ca_title").value == ""
+    assert at.text_input(key="ca_topic").value == ""
+    editor_rows = at.session_state["create_assessment_rows"].to_dict("records")
+    assert all(not str(row.get("question_text", "")).strip() for row in editor_rows), editor_rows
     assert "Go to Upload Responses" in _labels(at)
     _button(at, "Go to Upload Responses").click().run()
     assert not at.exception, at.exception

@@ -124,10 +124,19 @@ if user.role is not Role.TEACHER:
 
 st.divider()
 with st.expander("Delete account", icon=":material/warning:"):
-    st.warning(
-        "This permanently deletes your account, your photo and the work saved "
-        "under it. It cannot be undone."
-    )
+    if user.is_teacher:
+        explanation = (
+            "This permanently deletes your account and photo. Assessments with "
+            "student submissions stay archived with those submissions and grades; "
+            "unused assessments are deleted. This cannot be undone."
+        )
+    else:
+        explanation = (
+            "This permanently deletes your account, your submissions and your "
+            "question sets. A shared set used by another student stays archived "
+            "for their history. This cannot be undone."
+        )
+    st.warning(explanation)
     confirm = st.text_input('Type "DELETE" to confirm', key="delete_confirm")
     if st.button("Delete my account", type="primary", disabled=confirm != "DELETE"):
         outcome = auth_service.delete_account()

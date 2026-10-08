@@ -305,7 +305,7 @@ _STYLES = f"""
       width: 22px;
       height: 22px;
       border-radius: 50%;
-      background: {palette.HINT};
+      background: {palette.TINT_HINT[1]};
       color: #FFFFFF;
       font-size: 0.78rem;
       font-weight: 800;
@@ -538,11 +538,11 @@ _STYLES = f"""
       font-weight: 700 !important;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: rgba(233, 236, 255, 0.55) !important;
+      color: #E9ECFF !important;
   }}
   [data-testid="stSidebarNavSeparator"] {{ border-color: rgba(255, 255, 255, 0.1); }}
   [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
-  {_SIDEBAR} [data-testid="stCaptionContainer"] p {{ color: rgba(233, 236, 255, 0.68); }}
+  {_SIDEBAR} [data-testid="stCaptionContainer"] p {{ color: #E9ECFF; }}
   {_SIDEBAR} hr {{ border-color: rgba(255, 255, 255, 0.12) !important; }}
   {_SIDEBAR} button[kind="secondary"] {{
       background: rgba(255, 255, 255, 0.08);
@@ -564,7 +564,7 @@ _STYLES = f"""
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: rgba(233, 236, 255, 0.55);
+      color: #E9ECFF;
       margin: 0 0 0.2rem 0;
   }}
 
@@ -583,8 +583,8 @@ _STYLES = f"""
       font-weight: 700;
   }}
   {_IN} .campprep-hero-eyebrow b {{
-      background: {palette.GREEN};
-      color: #FFFFFF;
+      background: {palette.TINT_CORRECT[0]};
+      color: {palette.TINT_CORRECT[1]};
       border-radius: 999px;
       padding: 0.05rem 0.55rem;
       font-size: 0.68rem;
@@ -601,7 +601,7 @@ _STYLES = f"""
       padding: 0;
   }}
   {_IN} .campprep-hero-title span {{
-      background: linear-gradient(95deg, {palette.PRIMARY} 10%, {palette.CYAN} 95%);
+      background: linear-gradient(95deg, {palette.PRIMARY} 10%, {palette.TINT_HINT[1]} 95%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
