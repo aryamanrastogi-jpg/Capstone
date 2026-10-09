@@ -275,7 +275,7 @@ LLM_MODEL=gemini:gemini-2.5-flash
 ```
 
 - All four are **optional**. The app runs fully without any of them.
-- `SUPABASE_ANON_KEY` is still read if `SUPABASE_PUBLISHABLE_KEY` is not set.
+- Supabase uses only `SUPABASE_PUBLISHABLE_KEY` for its client key.
 - `LLM_API_KEY` and `LLM_MODEL` (`provider:model`) switch grading to an AI model.
   Google Gemini is built in: get a free key at https://aistudio.google.com/apikey
   and set `LLM_MODEL=gemini:gemini-2.5-flash` (any Gemini model id works after

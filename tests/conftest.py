@@ -17,7 +17,6 @@ _LIVE_SERVICE_VARS = (
     "LLM_MODEL",
     "SUPABASE_URL",
     "SUPABASE_PUBLISHABLE_KEY",
-    "SUPABASE_ANON_KEY",
 )
 
 # Set before any test module imports utils.config, so load_dotenv(override=False)

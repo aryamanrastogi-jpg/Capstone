@@ -84,8 +84,8 @@ unexercised.
 
 ## Keys
 
-The app needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (the older `SUPABASE_ANON_KEY` name is
-still read as a fallback) in
-`.env`. The **secret** key belongs in neither `.env` nor this repository — it
+The app needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`.
+Only the publishable key is supported for the client. The **secret** key belongs
+in neither `.env` nor this repository — it
 bypasses every policy above. It is for the sign-up and grading functions, held
 in Supabase's own secret storage.

@@ -106,25 +106,11 @@ class Settings:
         return missing
 
 
-def _publishable_key() -> str:
-    """The Supabase publishable key (`sb_publishable_...`).
-
-    SUPABASE_ANON_KEY is still read as a fallback, so a .env written before the
-    rename keeps working. Supabase treats the two keys the same way: both are
-    safe in a client, and Row Level Security decides what either can do.
-    """
-    for name in ("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY"):
-        value = os.getenv(name, "").strip()
-        if value:
-            return value
-    return ""
-
-
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
         supabase_url=os.getenv("SUPABASE_URL", "").strip(),
-        supabase_publishable_key=_publishable_key(),
+        supabase_publishable_key=os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip(),
         llm_api_key=os.getenv("LLM_API_KEY", "").strip(),
         llm_model=os.getenv("LLM_MODEL", "").strip(),
     )

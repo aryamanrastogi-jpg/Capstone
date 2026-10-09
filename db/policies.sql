@@ -8,7 +8,7 @@
 --   work", "a student never sees a model answer", "only a teacher can approve a
 --   score" - are enforced in Python, in the service layer. That is fine while
 --   the store is session state, because there is nothing else to talk to.
---   The moment the data lives in Supabase, the anon key is in the browser's
+--   The moment the data lives in Supabase, the publishable key is in the browser's
 --   reach and PostgREST will answer anyone who asks. So every one of those
 --   rules is restated here, in the database, where it holds regardless of what
 --   the application does.

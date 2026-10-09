@@ -125,7 +125,7 @@ In **Authentication**:
 
 **Project Settings -> API Keys** (or **Data API**):
 - **Project URL** -> `SUPABASE_URL`
-- **Publishable key** (`sb_publishable_...`; on older projects the `anon` public key) -> `SUPABASE_PUBLISHABLE_KEY`
+- **Publishable key** (`sb_publishable_...`) -> `SUPABASE_PUBLISHABLE_KEY`
 - **Secret key** / `service_role` -> **do not copy anywhere in this app.** It bypasses every RLS policy.
 
 ---
