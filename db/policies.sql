@@ -259,6 +259,9 @@ create policy questions_write on public.questions
 -- The view is intentionally NOT `security_invoker`, so it runs as its owner and
 -- bypasses the questions policy above. That means the visibility rule has to be
 -- restated in its WHERE clause, which is what the second half of this does.
+-- grading_results_insert reads this view, so Postgres refuses to drop the view
+-- while the policy exists. Drop it first; it is recreated further down.
+drop policy if exists grading_results_insert on public.grading_results;
 drop view if exists public.student_questions;
 create view public.student_questions as
     select q.id,
