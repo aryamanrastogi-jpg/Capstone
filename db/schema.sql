@@ -238,6 +238,9 @@ begin
     return null;
 end;
 $fn$;
+-- A trigger handler: Postgres fires it without an EXECUTE check, so nobody
+-- needs to be able to call it directly.
+revoke all on function public.sync_assessment_max_marks() from public, anon;
 
 drop trigger if exists questions_sync_max_marks on public.questions;
 create trigger questions_sync_max_marks

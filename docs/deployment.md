@@ -136,7 +136,7 @@ In **Authentication**:
 
 1. Run the tests locally: `.venv/Scripts/python -m pytest`. All should pass.
 2. Check no secrets are tracked: `git status` must not list `.env` or `.streamlit/secrets.toml`. Both are in `.gitignore`. `.streamlit/secrets.toml.example` is safe to commit (empty values).
-3. `requirements.txt` is at the repo root. Community Cloud installs from it.
+3. `requirements.txt` is at the repo root. Community Cloud installs from it. Versions are pinned to the set the tests pass with; to upgrade, change a pin, reinstall and re-run the tests before pushing.
 
 ### B2. Push to GitHub
 
@@ -149,7 +149,7 @@ Push `main` to the GitHub repository (currently `origin` = `github.com/aryamanra
 3. Repository: `aryamanrastogi-jpg/Capstone`. Branch: `main`. **Main file path: `app.py`**.
 4. **App URL**: pick a subdomain, e.g. `campprep-ai-capstone`. This is the URL you put in Supabase Site URL (A8).
 5. Open **Advanced settings**:
-   - **Python version**: `3.13` (matches the local `.venv`, Python 3.13.5). `3.12` also works if 3.13 is not offered.
+   - **Python version**: `3.12`. The pinned `requirements.txt` was installed fresh and the full test suite passed on Python 3.12.9 (and on 3.14.3, the local `.venv`). Avoid 3.10 or older: pandas 3 needs 3.11+.
    - **Secrets**: paste the block below (template in `.streamlit/secrets.toml.example`).
 6. Click **Deploy**. The first build takes a few minutes.
 

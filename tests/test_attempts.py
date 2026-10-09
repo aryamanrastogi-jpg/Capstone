@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from models import Assessment, GradingResult, Question, Submission
-from models.attempt import SETTLE_FRACTION, is_settling_score
+from models.attempt import is_settling_score
 from services import attempt_service
 from services.attempt_service import (
     MAX_ATTEMPTS,

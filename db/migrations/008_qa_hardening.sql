@@ -273,6 +273,7 @@ grant execute on function public.app_is_teacher() to authenticated;
 grant execute on function public.app_my_teacher_id() to authenticated;
 grant execute on function public.app_teaches(text) to authenticated;
 revoke all on function public.handle_new_auth_user() from public, anon, authenticated;
+revoke all on function public.sync_assessment_max_marks() from public, anon;
 revoke all on function public.generate_class_code() from public, anon, authenticated;
 revoke all on function public.rotate_class_code() from public, anon;
 revoke all on function public.leave_class() from public, anon;

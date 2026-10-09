@@ -23,7 +23,7 @@ project, and is noted in db/README.md as outstanding.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pytest
 
