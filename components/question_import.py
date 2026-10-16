@@ -11,6 +11,7 @@ callback the page writes, and never saves anything itself.
 
 from __future__ import annotations
 
+import zlib
 from typing import Any, Callable, Dict, List
 
 import streamlit as st
@@ -22,12 +23,15 @@ from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 ApplyRows = Callable[[List[Dict[str, Any]], str], None]
 
 PREVIEW_LIMIT = 12
+# The raw text is shown for reference only; a very long file is cut here so
+# it is not re-sent to the browser in full on every rerun.
+TEXT_VIEW_LIMIT = 20_000
 
 
 def _keys(key: str) -> Dict[str, str]:
     return {
         name: f"{key}_{name}"
-        for name in ("file", "file_id", "text", "filename", "error", "ai", "note")
+        for name in ("file", "file_id", "text", "filename", "error", "ai", "note", "plain")
     }
 
 
@@ -53,7 +57,7 @@ def import_panel(*, key: str, apply: ApplyRows, teacher: bool) -> None:
     if note:
         st.success(note, icon=":material/check_circle:")
 
-    result = st.session_state.get(keys["ai"]) or importer.import_questions(text)
+    result = st.session_state.get(keys["ai"]) or _plain_reading(keys, text)
     if not result.found:
         st.warning(result.message, icon=":material/info:")
     else:
@@ -96,13 +100,27 @@ def import_panel(*, key: str, apply: ApplyRows, teacher: bool) -> None:
         )
 
     with st.expander("The text that was read from the file"):
+        # Keyed to this text: a fixed key would keep showing the first file
+        # after a second one is uploaded.
         st.text_area(
             "Text from the file",
-            value=text,
+            value=text[:TEXT_VIEW_LIMIT],
             height=200,
             disabled=True,
-            key=f"{key}_text_view",
+            key=f"{key}_text_view_{zlib.crc32(text.encode('utf-8')):08x}",
         )
+        if len(text) > TEXT_VIEW_LIMIT:
+            st.caption(f"Only the first {TEXT_VIEW_LIMIT:,} characters are shown here.")
+
+
+def _plain_reading(keys: Dict[str, str], text: str) -> importer.QuestionImport:
+    """The file's questions, read once per file rather than on every rerun."""
+    cached = st.session_state.get(keys["plain"])
+    if cached is not None and cached[0] == text:
+        return cached[1]
+    result = importer.import_questions(text)
+    st.session_state[keys["plain"]] = (text, result)
+    return result
 
 
 def _read_new_upload(uploaded, keys: Dict[str, str]) -> None:
@@ -110,14 +128,14 @@ def _read_new_upload(uploaded, keys: Dict[str, str]) -> None:
         # The file was removed: forget what was read from it. (Text put here
         # without an upload - by a test - has no file id and is kept.)
         if st.session_state.get(keys["file_id"]):
-            for name in ("file_id", "text", "filename", "error", "ai"):
+            for name in ("file_id", "text", "filename", "error", "ai", "plain"):
                 st.session_state.pop(keys[name], None)
         return
     file_id = getattr(uploaded, "file_id", None) or uploaded.name
     if st.session_state.get(keys["file_id"]) == file_id:
         return  # already read; reruns do not read it again
     st.session_state[keys["file_id"]] = file_id
-    for name in ("text", "filename", "error", "ai"):
+    for name in ("text", "filename", "error", "ai", "plain"):
         st.session_state.pop(keys[name], None)
     extraction = document_service.read_uploaded_file(uploaded)
     if extraction.success:

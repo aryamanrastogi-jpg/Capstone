@@ -181,7 +181,7 @@ moves to a different framework, the services come across unchanged.
 ├── docs/                       # deployment, metrics, testing plan, presentation
 ├── scripts/evaluate_grading.py # grading accuracy report
 ├── utils/                      # config and validation
-├── tests/                      # 725 pytest tests
+├── tests/                      # 731 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -306,7 +306,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-725 tests, covering:
+731 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions

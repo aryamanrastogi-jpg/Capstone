@@ -43,7 +43,10 @@ def test_a_long_display_name_still_fits_on_a_submission():
 # ---------------------------------------------------------------------------
 # Deleting a submission (used to take back work that could not be marked)
 # ---------------------------------------------------------------------------
-def test_deleting_a_submission_removes_its_results_in_both_backends(monkeypatch):
+def test_deleting_a_submission(monkeypatch):
+    """Demo mode removes the work's results itself; against Supabase the row
+    is deleted and the database's ON DELETE CASCADE removes its answers and
+    results (the fake below has no cascades, so only the row is checked)."""
     from services import state
 
     submission = _submission()

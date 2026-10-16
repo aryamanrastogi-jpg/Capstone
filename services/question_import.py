@@ -37,6 +37,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 DEFAULT_MARKS = 1.0
 MAX_QUESTIONS = 100
+# A paper with one numbered question is still a paper, if the "1." comes
+# within this many characters of the top (a title and instructions).
+SINGLE_QUESTION_LEAD = 400
 # Sent to the AI at most; a longer file is read in part, and the page says so.
 AI_TEXT_LIMIT = 30_000
 AI_PROMPT_VERSION = "question-import-1"
@@ -95,15 +98,16 @@ def _start_pattern(words: str, bare: bool) -> re.Pattern:
     """A question number at the start of a line.
 
     Always: "Q1", "Question 1", "(1)", "1.", "1)", "1:", "1(a)", "1a)". With
-    `bare`, also a number followed only by a space ("1 Work out..."), as some
-    printed papers have it. That is only tried when nothing better is found,
-    because a line of data ("3 5 7 9") reads the same way. The lookahead keeps
-    decimals ("1.5 m") and times ("2:30") from counting.
+    `bare`, also a number followed by a space and a word ("1 Work out..."), as
+    some printed papers have it. That is only tried when nothing better is
+    found, and the word is required because a line of data ("3 5 7 9") would
+    otherwise read the same way. The lookahead keeps decimals ("1.5 m") and
+    times ("2:30") from counting.
     """
-    end = "[.):]?" if bare else "[.):]"
+    end = r"(?:[.):]|(?=[ \t]+[A-Za-z(]))" if bare else "[.):]"
     return re.compile(
         r"^[ \t]*(?:"
-        r"(?:" + words + r")[ \t]*\.?[ \t]*(?P<q>\d{1,3})"
+        r"(?:" + words + r")[ \t]*(?:\.[ \t]*)?(?P<q>\d{1,3})"
         r"(?P<qsub>[ \t]*\([a-z]\)|[a-z](?![a-z]))?[ \t]*[.):\-]?"
         r"|\((?P<p>\d{1,3})\)"
         r"|(?P<n>\d{1,3})(?:(?P<nsub>[ \t]*\([a-z]\)[.):]?|[a-z][.)])|" + end + r")"
@@ -119,18 +123,18 @@ _ANSWER_START = _start_pattern("Q|Question|Ans|Answer", bare=False)
 _ANSWER_START_BARE = _start_pattern("Q|Question|Ans|Answer", bare=True)
 _ANSWER_SECTION = re.compile(
     r"^[ \t]*(?:answers?|answer key|answer sheet|mark ?scheme|marking scheme|"
-    r"solutions?|worked solutions|memo(?:randum)?)[ \t]*:?[ \t]*$",
+    r"solutions?|worked solutions|memo(?:randum)?)[ \t]*(?::[ \t]*)?$",
     re.IGNORECASE | re.MULTILINE,
 )
 _ANSWER_LINE = re.compile(r"^[ \t]*(?:answer|ans|solution)[ \t]*[:\-][ \t]*", re.IGNORECASE | re.MULTILINE)
 _MARK_VALUE = r"(\d{1,3}(?:\.5)?)"
 _MARKS_AT_LINE_END = re.compile(
-    r"(?:\[[ \t]*" + _MARK_VALUE + r"[ \t]*(?:marks?)?[ \t]*\]"
+    r"(?:\[[ \t]*" + _MARK_VALUE + r"[ \t]*(?:marks?[ \t]*)?\]"
     r"|\([ \t]*" + _MARK_VALUE + r"[ \t]*marks?[ \t]*\)"
-    r"|\b" + _MARK_VALUE + r"[ \t]*marks?)[ \t]*\.?[ \t]*$",
+    r"|\b" + _MARK_VALUE + r"[ \t]*marks?)[ \t]*(?:\.[ \t]*)?$",
     re.IGNORECASE | re.MULTILINE,
 )
-_TOTAL_MARKS = re.compile(r"\[[ \t]*total[ \t]*:?[ \t]*" + _MARK_VALUE + r"[ \t]*(?:marks?)?[ \t]*\]", re.IGNORECASE)
+_TOTAL_MARKS = re.compile(r"\[[ \t]*total[ \t]*(?::[ \t]*)?" + _MARK_VALUE + r"[ \t]*(?:marks?[ \t]*)?\]", re.IGNORECASE)
 # Dotted or ruled answer lines on a printed paper: "x = .............". A
 # sentence's own full stop before them is kept.
 _LEADERS = re.compile(r"\.{4,}|(?:\.[ \t]){4,}|_{3,}|…{2,}")
@@ -152,9 +156,11 @@ def import_questions(text: str) -> QuestionImport:
         return QuestionImport(message="The file has no text to read questions from.")
 
     questions_part, answers_part = _split_off_answers(text)
-    segments = _numbered_segments(questions_part, _QUESTION_START) or _numbered_segments(
-        questions_part, _QUESTION_START_BARE
-    )
+    segments = _numbered_segments(questions_part, _QUESTION_START)
+    if len(segments) < 2:
+        bare = _numbered_segments(questions_part, _QUESTION_START_BARE)
+        if len(bare) > len(segments):
+            segments = bare
     method = METHOD_NUMBERS
     if not segments:
         segments, method = _unnumbered_segments(questions_part)
@@ -202,30 +208,51 @@ def _numbered_segments(text: str, pattern: re.Pattern, numbered: bool = False):
 
     Returns the text after each number (or (number, text) pairs when
     `numbered`). Only a number that continues the run counts, so a stray "4)"
-    inside question 2 is left as text. A list that restarts at 1 inside a
-    question (numbered working steps) is followed too, so its "2." is not
-    taken for question 2. A run of one is not a numbered paper.
+    inside question 2 is left as text.
+
+    A list inside a question (numbered working steps) is followed too: one
+    indented deeper than the questions is always inside, and one that
+    restarts at 1 keeps its own count. When its next number is also the next
+    question's ("3." after steps 1 and 2 in question 2), it is the next step
+    only if that number comes round again before the run moves on.
 
     "1(a)" starts question 1 with its part (a), which stays in the text; a
-    later "1(b)" is just the next part.
+    later "1(b)" is just the next part. A single numbered question counts
+    when it starts near the top, not partway through other text.
     """
+    markers = []
+    for match in pattern.finditer(text):
+        number = int(match.group("q") or match.group("p") or match.group("n"))
+        sub = bool(match.group("qsub") or match.group("nsub"))
+        indent = len(match.group(0)) - len(match.group(0).lstrip(" \t"))
+        markers.append((match, number, sub, indent))
+
     starts: List[Tuple[int, int, int]] = []
     expected = 1
     inner_next: Optional[int] = None
-    for match in pattern.finditer(text):
-        number = int(match.group("q") or match.group("p") or match.group("n"))
-        sub = match.group("qsub") or match.group("nsub")
-        if inner_next is not None and number == inner_next and not sub:
+    base_indent: Optional[int] = None
+    for index, (match, number, sub, indent) in enumerate(markers):
+        if base_indent is not None and indent > base_indent:
+            continue
+        outer = number == expected
+        inner = inner_next is not None and number == inner_next and not sub
+        if outer and inner:
+            inner = _comes_round_again(markers, index, number)
+            outer = not inner
+        if inner:
             inner_next += 1
             continue
-        if number == expected:
+        if outer:
             body = match.start("qsub" if match.group("qsub") else "nsub") if sub else match.end()
             starts.append((match.start(), body, number))
+            base_indent = indent if base_indent is None else base_indent
             expected += 1
             inner_next = None
         elif number == 1 and starts and not sub:
             inner_next = 2
-    if len(starts) < 2 and not numbered:
+    if not starts or (
+        not numbered and len(starts) == 1 and starts[0][0] > SINGLE_QUESTION_LEAD
+    ):
         return []
     out = []
     for index, (_, end, number) in enumerate(starts):
@@ -233,6 +260,18 @@ def _numbered_segments(text: str, pattern: re.Pattern, numbered: bool = False):
         body = text[end:stop].strip()
         out.append((number, body) if numbered else body)
     return out
+
+
+def _comes_round_again(markers, index: int, number: int) -> bool:
+    """Does `number` start another line before the run reaches number + 1?"""
+    for _, later, sub, _ in markers[index + 1:]:
+        if sub:
+            continue
+        if later == number:
+            return True
+        if later == number + 1:
+            return False
+    return False
 
 
 def _unnumbered_segments(text: str) -> Tuple[List[str], str]:
@@ -340,21 +379,34 @@ worksheet, past paper or question list). The text may be messy: broken lines,
 page headers, two columns run together.
 
 Rules:
-- Copy each question's wording exactly as it appears in the text. Do not fix,
-  reword, shorten, solve or add anything. Keep sub-parts such as (a) and (b)
-  inside their question.
-- Include an answer ONLY when the document itself gives it (an answer key, a
-  mark scheme, or an "Answer:" line). Copy it exactly. Never work an answer out.
-- "marks" is the mark allocation printed in the document for that question, or
-  null when none is printed.
-- Leave out instructions, headings, page numbers and copyright lines.
+- Copy each question's wording exactly as it appears in the text, from its
+  first word to its last. Do not fix, reword, shorten, solve or add anything.
+  Keep sub-parts such as (a) and (b) inside their question.
+- Leave out instructions, headings, page numbers, copyright lines and any
+  answers or mark scheme.
 
 Reply with JSON only:
-{"questions": [{"question": "...", "answer": "", "marks": null}]}"""
+{"questions": [{"question": "..."}]}"""
+
+# Characters a copy may legitimately swap for a plainer one. One for one, so
+# positions in the file's text are kept.
+_PLAIN = str.maketrans({
+    "‘": "'", "’": "'", "“": '"', "”": '"',  # curly quotes
+    "–": "-", "—": "-", "−": "-",  # en/em dash, minus sign
+})
+# Shorter than this, a match in the file proves nothing.
+_MIN_GROUNDED_CHARS = 8
 
 
 def ai_import_questions(text: str, model: Any = None) -> Optional[QuestionImport]:
-    """Ask the AI to find the questions, keeping only what the file contains.
+    """Ask the AI where the questions are; keep only the file's own text.
+
+    The AI only points: each question it names must be an exact stretch of
+    the file's text (spacing, case and typographic quotes and dashes aside),
+    and the question saved is that stretch of the file - never the AI's copy.
+    So nothing it reworded or made up gets through, and an "Answer:" line or a
+    mark allocation counts only when it is inside that stretch, or (answers)
+    in the file's numbered answer key. Answers are never taken from the AI.
 
     Returns None when no AI is available or the call fails, so the caller can
     say so and keep the plain reading.
@@ -376,35 +428,31 @@ def ai_import_questions(text: str, model: Any = None) -> Optional[QuestionImport
             return None
         llm_service.cache_put(key, data)
 
-    source_squashed = _squash(source)
-    source_words = set(_words(source))
-    printed_marks = {float(next(g for g in m.groups() if g)) for m in _MARKS_AT_LINE_END.finditer(source)}
-    printed_marks |= {float(m.group(1)) for m in _TOTAL_MARKS.finditer(source)}
-
+    squashed, positions = _squash_with_positions(sent)
     questions: List[ImportedQuestion] = []
     dropped = 0
     for item in data["questions"][: MAX_QUESTIONS + 1]:
-        if not isinstance(item, dict):
-            continue
-        wording = _tidy(str(item.get("question") or ""))
-        if not _grounded_question(wording, source_squashed, source_words):
+        wording = str(item.get("question") or "") if isinstance(item, dict) else ""
+        span = _find_span(wording, squashed, positions)
+        if span is None:
             dropped += 1
             continue
-        answer = _tidy(str(item.get("answer") or ""))
-        if answer and _squash(answer) not in source_squashed:
-            answer = ""  # not in the file, so it was worked out: never use it
-        wording, marks = _strip_marks(wording)
-        if marks is None:
-            marks = _as_marks(item.get("marks"), printed_marks)
-        found = marks is not None and 0 < marks <= 100
-        questions.append(
-            ImportedQuestion(
-                question_text=wording,
-                model_answer=answer,
-                max_marks=marks if found else DEFAULT_MARKS,
-                marks_found=found,
-            )
+        question = _question_from(_without_number(_with_trailing_marks(sent, span)))
+        if not question.question_text:
+            dropped += 1
+            continue
+        questions.append(question)
+
+    _, answers_part = _split_off_answers(sent)
+    if answers_part:
+        key_answers = dict(
+            _numbered_segments(answers_part, _ANSWER_START, numbered=True)
+            or _numbered_segments(answers_part, _ANSWER_START_BARE, numbered=True)
         )
+        for number, question in enumerate(questions, start=1):
+            answer = _tidy(key_answers.get(number, ""))
+            if answer and not question.model_answer:
+                question.model_answer = _strip_marks(answer)[0]
 
     trimmed = len(questions) > MAX_QUESTIONS
     result = QuestionImport(questions=questions[:MAX_QUESTIONS], method=METHOD_AI)
@@ -413,8 +461,8 @@ def ai_import_questions(text: str, model: Any = None) -> Optional[QuestionImport
         return result
     count = len(result.questions)
     result.message = (
-        f"The AI found {count} question{'s' if count != 1 else ''}, each checked "
-        "against the file's own text."
+        f"The AI found {count} question{'s' if count != 1 else ''}; each one is "
+        "the file's own text."
     )
     marks = result.marks_found_count
     if marks < count:
@@ -437,35 +485,43 @@ def ai_import_questions(text: str, model: Any = None) -> Optional[QuestionImport
     return result
 
 
-def _squash(text: str) -> str:
-    return re.sub(r"\s+", "", text).lower()
+def _squash_with_positions(text: str) -> Tuple[str, List[int]]:
+    """The text without whitespace, lower case, plus where each char came from."""
+    plain = text.translate(_PLAIN)
+    positions = [i for i, char in enumerate(plain) if not char.isspace()]
+    return "".join(plain[i] for i in positions).lower(), positions
 
 
-def _words(text: str) -> List[str]:
-    return re.findall(r"[a-z0-9]+", text.lower())
-
-
-def _grounded_question(wording: str, source_squashed: str, source_words: set) -> bool:
-    """Is this the file's own question, rather than something the AI wrote?"""
-    if not wording:
-        return False
-    if _squash(wording) in source_squashed:
-        return True
-    words = _words(wording)
-    if len(words) < 3:
-        return False
-    # PDFs hyphenate and break lines, so allow a little drift - but nearly
-    # every word must be the file's.
-    return sum(1 for w in words if w in source_words) / len(words) >= 0.9
-
-
-def _as_marks(value: Any, printed: set) -> Optional[float]:
-    try:
-        marks = float(value)
-    except (TypeError, ValueError):
+def _find_span(wording: str, squashed: str, positions: List[int]) -> Optional[Tuple[int, int]]:
+    """Where in the file this wording is, as one unbroken stretch, if at all."""
+    needle = re.sub(r"\s+", "", wording.translate(_PLAIN)).lower()
+    if len(needle) < _MIN_GROUNDED_CHARS:
         return None
-    # Only a number the file actually prints as a mark allocation.
-    return marks if marks in printed else None
+    found = squashed.find(needle)
+    if found < 0:
+        return None
+    return positions[found], positions[found + len(needle) - 1] + 1
+
+
+def _with_trailing_marks(text: str, span: Tuple[int, int]) -> str:
+    """The stretch, plus a mark allocation printed after it on the same line."""
+    start, end = span
+    line_end = text.find("\n", end)
+    line_end = len(text) if line_end < 0 else line_end
+    rest = text[end:line_end]
+    token = _MARKS_AT_LINE_END.search(rest)
+    if token is not None and not _LEADERS.sub("", rest[: token.start()]).strip(" \t.:-"):
+        end = line_end
+    return text[start:end]
+
+
+def _without_number(text: str) -> str:
+    """The stretch without its own question number ("3." or "Q3"), if it has one."""
+    match = _QUESTION_START.match(text) or _QUESTION_START_BARE.match(text)
+    if match is None:
+        return text
+    sub = match.group("qsub") or match.group("nsub")
+    return text[match.start("qsub" if match.group("qsub") else "nsub"):] if sub else text[match.end():]
 
 
 def suggested_title(filename: str) -> str:

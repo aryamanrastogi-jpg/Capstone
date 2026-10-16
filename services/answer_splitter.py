@@ -26,14 +26,14 @@ from models import Question
 # "Q1", "Q.1", "Question 1", "Answer 1", "Ans 1", optionally "1a" / "1(a)",
 # at the start of a line. The separator is optional here.
 _STRONG_LINE = re.compile(
-    r"^[ \t]*(?:(?:Q|Question)[ \t]*\.?[ \t]*(\d{1,2})(?:[ \t]*\(([a-z])\)|([a-z])(?![a-z]))?[ \t]*[.):\-]?"
-    r"|(?:Ans|Answer)[ \t]*\.?[ \t]*(\d{1,2})(?:[ \t]*\(([a-z])\)|([a-z])(?![a-z]))?[ \t]*[.):\-])(?=\s|$)",
+    r"^[ \t]*(?:(?:Q|Question)[ \t]*(?:\.[ \t]*)?(\d{1,2})(?:[ \t]*\(([a-z])\)|([a-z])(?![a-z]))?[ \t]*[.):\-]?"
+    r"|(?:Ans|Answer)[ \t]*(?:\.[ \t]*)?(\d{1,2})(?:[ \t]*\(([a-z])\)|([a-z])(?![a-z]))?[ \t]*[.):\-])(?=\s|$)",
     re.IGNORECASE | re.MULTILINE,
 )
 # The same mid-line, e.g. when a PDF has run two answers together. A separator
 # is required so prose such as "as in question 2 we saw" is not a marker.
 _STRONG_INLINE = re.compile(
-    r"(?<=[\s.;])(?:Q|Question)[ \t]*\.?[ \t]*(\d{1,2})"
+    r"(?<=[\s.;])(?:Q|Question)[ \t]*(?:\.[ \t]*)?(\d{1,2})"
     r"(?:[ \t]*\(?([a-z])\))?[ \t]*[.):\-](?=\s)",
     re.IGNORECASE,
 )

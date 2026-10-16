@@ -122,7 +122,7 @@ def _docx_problem(content: bytes) -> str:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             names = set(archive.namelist())
             unpacked = sum(info.file_size for info in archive.infolist())
-    except (zipfile.BadZipFile, ValueError):
+    except Exception:  # noqa: BLE001 - any unreadable zip (bad, odd version, ...)
         return "This file is named .docx but its contents are not a Word document."
     if "word/document.xml" not in names:
         return "This file is named .docx but its contents are not a Word document."

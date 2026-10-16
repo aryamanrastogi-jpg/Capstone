@@ -199,6 +199,7 @@ def _extract_pdf(safe_name: str, content: bytes) -> ExtractionResult:
 
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_MAX_LIST_LEVEL = 8  # Word list levels run 0-8
 
 
 def _extract_docx(safe_name: str, content: bytes) -> ExtractionResult:
@@ -293,8 +294,17 @@ def _numbering_formats(document) -> Dict[Tuple[str, int], Tuple[str, int]]:
         ref = num.find(_W + "abstractNumId")
         if ref is None:
             continue
+        num_id = num.get(_W + "numId")
         for level, value in abstract.get(ref.get(_W + "val"), {}).items():
-            formats[(num.get(_W + "numId"), level)] = value
+            formats[(num_id, level)] = value
+        # A list can restart or continue its numbering from its own start
+        # value ("startOverride"), e.g. questions 5-8 after a page of notes.
+        for override in num.findall(_W + "lvlOverride"):
+            start = override.find(_W + "startOverride")
+            level = int(override.get(_W + "ilvl", "0"))
+            if start is not None:
+                fmt = formats.get((num_id, level), ("decimal", 1))[0]
+                formats[(num_id, level)] = (fmt, int(start.get(_W + "val", "1")))
     return formats
 
 
@@ -311,6 +321,10 @@ def _list_prefix(paragraph, formats, counters: Dict[str, List[int]]) -> str:
     num_id = str(num_pr.numId.val)
     level = int(num_pr.ilvl.val) if num_pr.ilvl is not None else 0
     if num_id == "0":  # numbering switched off for this paragraph
+        return ""
+    if not 0 <= level <= _MAX_LIST_LEVEL:
+        # Word has nine list levels. A file claiming level 1,000,000 would
+        # otherwise have a counter list grown to that size.
         return ""
     fmt, start = formats.get((num_id, level), ("decimal", 1))
     seen = counters.setdefault(num_id, [])
