@@ -26,6 +26,7 @@ from models import ReviewStatus
 from services import analytics_service as analytics
 from services import assessment_service as service
 from services import state as store
+from services import study_camp_service as camps
 from utils import palette
 
 NAVY = palette.PRIMARY_DARK
@@ -67,6 +68,9 @@ if frame.empty:
 average = round(float(frame["percentage"].mean()), 1)
 strength = analytics.topic_strength(frame)
 weakest = analytics.weakest_topics(frame, limit=1)
+# The prompt to build a camp only below the camp's own threshold: Study
+# Camp would otherwise answer "you are in good shape" for a topic at 96%.
+needs_camp = analytics.weakest_topics(frame, limit=1, ceiling=camps.WEAKNESS_CEILING)
 official_count = int(frame["is_official"].sum())
 
 metric_row(
@@ -170,11 +174,11 @@ with right:
         },
     )
 
-if weakest:
+if needs_camp:
     cta_a, cta_b = st.columns([3, 1])
     with cta_a:
         st.warning(
-            f"**{weakest[0]}** needs the most attention. A study camp will drill it.",
+            f"**{needs_camp[0]}** needs the most attention. A study camp will drill it.",
             icon=":material/priority_high:",
         )
     with cta_b:

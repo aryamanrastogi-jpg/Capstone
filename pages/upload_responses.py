@@ -12,7 +12,7 @@ from services import assessment_service as service
 from services import document_service
 from services import state as store
 from services.attempt_service import attempts_for
-from services.grading_service import grade_submission
+from services.grading_service import grade_submission_outcomes
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 EXTRACTED_KEY = "upload_extracted"
@@ -51,7 +51,7 @@ if not assessments:
 # ---------------------------------------------------------------------------
 # Choose the assessment
 # ---------------------------------------------------------------------------
-labels = {a.id: f"{a.title} · Grade {a.grade_level} · {a.max_marks} marks" for a in assessments}
+labels = {a.id: f"{a.title} · Grade {a.grade_level} · {a.max_marks:g} marks" for a in assessments}
 selected_id = st.selectbox(
     "Assessment *",
     options=list(labels.keys()),
@@ -65,7 +65,7 @@ if assessment is None:
 
 with st.expander("View the questions in this assessment"):
     for index, question in enumerate(assessment.questions, start=1):
-        st.markdown(f"**Q{index}. ({question.max_marks} marks)** {question.question_text}")
+        st.markdown(f"**Q{index}. ({question.max_marks:g} marks)** {question.question_text}")
 
 st.divider()
 
@@ -98,7 +98,7 @@ with id_col:
             format_func=_student_label,
             help="Anonymous codes only. Picking a student links this to their progress.",
         )
-        student_identifier = by_id[selected_student_id].display_name
+        student_identifier = service.student_label(by_id[selected_student_id].display_name)
     else:
         student_identifier = st.text_input(
             "Anonymous student identifier *",
@@ -223,14 +223,32 @@ if st.button("Confirm submission", type="primary"):
             for issue in exc.errors():
                 st.markdown(f"- {issue['msg']}")
         else:
+            graded = False
             if grade_now:
-                for result in grade_submission(
-                    assessment.questions,
-                    submission.submission_text,
-                    submission.id,
-                    answers=submission.answers or None,
-                ):
-                    service.save_grading_result(result)
+                try:
+                    outcomes = grade_submission_outcomes(
+                        assessment.questions,
+                        submission.submission_text,
+                        submission.id,
+                        answers=submission.answers or None,
+                    )
+                    for outcome in outcomes:
+                        service.save_grading_result(outcome.result)
+                    graded = True
+                    if any(o.ai_was_unavailable for o in outcomes):
+                        st.warning(
+                            "The AI marker was unavailable (busy, or over its free "
+                            "daily limit), so the rule-based grader made these "
+                            "suggestions. Check them with extra care.",
+                            icon=":material/hourglass_top:",
+                        )
+                except Exception:  # noqa: BLE001 - shown plainly, never a traceback
+                    st.warning(
+                        "The response is saved, but it could not be graded just now. "
+                        "Open it in Review Grading and choose Grade this submission.",
+                        icon=":material/warning:",
+                    )
+            if graded:
                 st.success(
                     f"Submission from **{submission.student_identifier}** saved and graded. "
                     "The suggestions are waiting for your review.",

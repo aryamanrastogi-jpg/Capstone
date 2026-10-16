@@ -491,6 +491,21 @@ def set_submission_status(submission_id: str, status: SubmissionStatus) -> None:
     get_repository().set_submission_status(submission_id, status)
 
 
+def delete_submission(submission_id: str) -> bool:
+    """Remove a piece of work and everything graded on it."""
+    return get_repository().delete_submission(submission_id)
+
+
+# submissions.student_identifier is checked to 40 characters (db/schema.sql),
+# while a display name may be up to 60. A long name must not stop work saving.
+IDENTIFIER_MAX = 40
+
+
+def student_label(display_name: str) -> str:
+    """The name to store on a piece of work, cut to fit."""
+    return (display_name or "").strip()[:IDENTIFIER_MAX].strip()
+
+
 # --------------------------------------------------------------------------
 # Grading results
 # --------------------------------------------------------------------------

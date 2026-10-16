@@ -25,7 +25,10 @@ from services import assessment_service as service
 from services import attempt_service
 from services import state as store
 from services.ai_grading_service import describe_grading_engine
-from services.grading_service import apply_teacher_decision, grade_submission
+from services.grading_service import apply_teacher_decision, grade_submission_outcomes
+
+# Set when the last grading ran without the AI; shown once after the rerun.
+AI_BUSY_KEY = "review_grading_ai_busy"
 
 
 # ---------------------------------------------------------------------------
@@ -179,16 +182,24 @@ if assessment is None:
 # Ensure grading results exist
 # ---------------------------------------------------------------------------
 results = service.list_grading_results(submission.id)
+if st.session_state.pop(AI_BUSY_KEY, False):
+    st.warning(
+        "The AI marker was unavailable (busy, or over its free daily limit), so "
+        "the rule-based grader made these suggestions. Check them with extra care.",
+        icon=":material/hourglass_top:",
+    )
 if not results:
     st.info("This submission has not been graded yet.", icon=":material/info:")
     if st.button("Grade this submission", type="primary"):
-        for result in grade_submission(
+        outcomes = grade_submission_outcomes(
             assessment.questions,
             submission.submission_text,
             submission.id,
             answers=submission.answers or None,
-        ):
-            service.save_grading_result(result)
+        )
+        for outcome in outcomes:
+            service.save_grading_result(outcome.result)
+        st.session_state[AI_BUSY_KEY] = any(o.ai_was_unavailable for o in outcomes)
         st.rerun()
     st.stop()
 
@@ -249,7 +260,7 @@ for result in results:
         title_col, badge_col = st.columns([3, 1])
         with title_col:
             question_number = attempt_service.question_number(assessment, question)
-            st.markdown(f"#### Question {question_number} · {question.max_marks} marks")
+            st.markdown(f"#### Question {question_number} · {question.max_marks:g} marks")
         with badge_col:
             review_status_badge(result.review_status)
 
@@ -322,7 +333,7 @@ for result in results:
                 value=float(default_score),
                 step=0.5,
                 key=f"score_{result.submission_id}_{result.question_id}",
-                help=f"Must be between 0 and {result.max_marks}.",
+                help=f"Must be between 0 and {result.max_marks:g}.",
             )
         with feedback_col:
             teacher_feedback = st.text_area(
@@ -382,7 +393,7 @@ for result in results:
             st.caption(
                 f":material/history: Currently recorded as "
                 f"**{review_status_label(result.review_status)}**"
-                + (f" at **{final} / {result.max_marks}**." if final is not None else ".")
+                + (f" at **{final:g} / {result.max_marks:g}**." if final is not None else ".")
             )
 
 st.divider()

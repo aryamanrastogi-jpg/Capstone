@@ -19,8 +19,10 @@ import pandas as pd
 
 from models import ErrorType, StudyCamp, StudySession
 from services import analytics_service as analytics
+from services import llm_service
 from services.practice_service import (
     available_topics,
+    template_topic_for,
     generate_practice_questions,
 )
 
@@ -56,15 +58,25 @@ def dominant_error_for_topic(frame: pd.DataFrame, topic: str) -> ErrorType:
         return _DEFAULT_FOCUS
 
 
-def suggest_topics(frame: pd.DataFrame, limit: int = 3) -> List[str]:
-    """Topics worth a camp: weakest first, and only those with templates.
+def can_practise(topic: str) -> bool:
+    """Can a camp give practice for this topic?
 
-    A topic with no practice templates cannot be drilled yet, so offering it
-    would produce an empty camp.
+    Yes when it is (or reads as) one of the template topics - "linear
+    equations", "Percentage change" - or when the AI can write questions for
+    any topic. Matching only the exact template names used to drop a
+    student's own "Quadratics" or "linear equations" without a word.
+    """
+    return template_topic_for(topic) is not None or llm_service.ai_enabled()
+
+
+def suggest_topics(frame: pd.DataFrame, limit: int = 3) -> List[str]:
+    """Topics worth a camp: weakest first, and only those practice exists for.
+
+    A topic with no practice cannot be drilled yet, so offering it would
+    produce an empty camp.
     """
     candidates = analytics.weakest_topics(frame, limit=limit * 3, ceiling=WEAKNESS_CEILING)
-    supported = set(available_topics())
-    return [topic for topic in candidates if topic in supported][:limit]
+    return [topic for topic in candidates if can_practise(topic)][:limit]
 
 
 def available_topics_for(frame: pd.DataFrame) -> List[str]:
@@ -79,8 +91,10 @@ def available_topics_for(frame: pd.DataFrame) -> List[str]:
         return list(supported)
 
     ranked = analytics.topic_performance(frame)["topic"].tolist()
-    seen = [t for t in ranked if t in supported]
-    rest = [t for t in supported if t not in seen]
+    seen = [t for t in ranked if can_practise(t)]
+    # "linear equations" already covers the template "Linear Equations".
+    covered = {template_topic_for(t) for t in seen}
+    rest = [t for t in supported if t not in seen and t not in covered]
     return seen + rest
 
 
@@ -140,7 +154,7 @@ def build_camp(
     duration_days = max(MIN_DURATION_DAYS, min(int(duration_days), MAX_DURATION_DAYS))
 
     chosen = list(topics) if topics else suggest_topics(frame)
-    chosen = [t for t in chosen if t in set(available_topics())]
+    chosen = [t for t in chosen if can_practise(t)]
     if not chosen:
         raise ValueError(
             "There is not enough marked work yet to build a study camp. "
@@ -159,13 +173,20 @@ def build_camp(
         # Each return to a topic continues its sequence instead of repeating
         # the first day's questions.
         rotation = (day - 1) // len(chosen)
-        questions = generate_practice_questions(
-            topic=topic,
-            error_type=focus,
-            difficulty=difficulty,
-            count=QUESTIONS_PER_SESSION,
-            start=rotation * QUESTIONS_PER_SESSION,
-        )
+        try:
+            questions = generate_practice_questions(
+                topic=topic,
+                error_type=focus,
+                difficulty=difficulty,
+                count=QUESTIONS_PER_SESSION,
+                start=rotation * QUESTIONS_PER_SESSION,
+            )
+        except ValueError:
+            # A topic only the AI can write for, and the AI did not answer.
+            raise ValueError(
+                f"No practice questions could be written for {topic} just now. Try "
+                "again in a minute, or pick a different topic."
+            ) from None
         sessions.append(
             StudySession(
                 day=day,

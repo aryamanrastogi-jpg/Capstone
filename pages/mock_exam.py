@@ -79,10 +79,13 @@ if exam is None:
     camp = service.active_camp_for(student.id)
     if camp is not None:
         defaults = exams.default_topics(camp.topics, assessments)
-        st.info(
-            "Pre-selected from your study camp: **" + "**, **".join(camp.topics) + "**.",
-            icon=":material/local_fire_department:",
-        )
+        # Only what was really pre-selected: a camp topic with no markable
+        # questions in your sets cannot be on the paper.
+        if defaults:
+            st.info(
+                "Pre-selected from your study camp: **" + "**, **".join(defaults) + "**.",
+                icon=":material/local_fire_department:",
+            )
     else:
         suggested = (
             analytics.weakest_topics(frame, limit=3, ceiling=camps.WEAKNESS_CEILING)
@@ -229,6 +232,10 @@ st.info(
     "These scores are AI estimates from an automated grader, not a teacher's "
     "mark. Use them to see where to focus next.",
     icon=":material/gavel:",
+)
+st.caption(
+    "A mock exam is practice for this visit only: it is not added to My "
+    "Progress or Study Camp, and it is gone once you leave or refresh the page."
 )
 if summary["late"]:
     st.warning(

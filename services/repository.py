@@ -101,6 +101,9 @@ class Repository(ABC):
         self, submission_id: str, status: SubmissionStatus
     ) -> None: ...
 
+    @abstractmethod
+    def delete_submission(self, submission_id: str) -> bool: ...
+
     # --- Grading ---
     @abstractmethod
     def list_grading_results(
@@ -242,6 +245,16 @@ class SessionRepository(Repository):
         submission = self.get_submission(submission_id)
         if submission is not None:
             submission.status = status
+
+    def delete_submission(self, submission_id: str) -> bool:
+        submissions = store.get_submissions()
+        kept = [s for s in submissions if s.id != submission_id]
+        if len(kept) == len(submissions):
+            return False
+        submissions[:] = kept
+        results = store.get_grading_results()
+        results[:] = [r for r in results if r.submission_id != submission_id]
+        return True
 
     def list_grading_results(
         self, submission_id: Optional[str] = None
@@ -556,6 +569,14 @@ class SupabaseRepository(Repository):
         self._client.table("submissions").update({"status": status.value}).eq(
             "id", submission_id
         ).execute()
+
+    def delete_submission(self, submission_id: str) -> bool:
+        # Answers and results go with it (ON DELETE CASCADE). RLS lets a
+        # student delete their own work until a teacher has reviewed it.
+        response = (
+            self._client.table("submissions").delete().eq("id", submission_id).execute()
+        )
+        return bool(response.data)
 
     # --- Grading -------------------------------------------------------
     def list_grading_results(

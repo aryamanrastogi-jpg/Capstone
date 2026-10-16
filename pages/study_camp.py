@@ -75,7 +75,24 @@ if camp is None:
 
     st.subheader("Build your camp")
 
-    if not suggested:
+    weak_without_practice = [
+        topic
+        for topic in analytics.weakest_topics(frame, limit=3, ceiling=camps.WEAKNESS_CEILING)
+        if not camps.can_practise(topic)
+    ]
+    if not suggested and weak_without_practice:
+        # Weak spots exist; there is just no practice for them here yet. Saying
+        # "you are in good shape" here would contradict My Progress.
+        st.info(
+            "Your weakest "
+            + ("topic is" if len(weak_without_practice) == 1 else "topics are")
+            + " **" + "**, **".join(weak_without_practice) + "**, but there are no "
+            "practice questions for "
+            + ("it" if len(weak_without_practice) == 1 else "them")
+            + " here yet. You can still build a camp from the topics below.",
+            icon=":material/info:",
+        )
+    elif not suggested:
         st.success(
             "Nothing is currently below the revision threshold - you are in good "
             "shape across every topic with practice available.",
@@ -96,10 +113,11 @@ if camp is None:
         privacy_notice()
         st.stop()
 
-    st.info(
-        "Suggested from your results: **" + "**, **".join(suggested) + "**.",
-        icon=":material/target:",
-    )
+    if suggested:
+        st.info(
+            "Suggested from your results: **" + "**, **".join(suggested) + "**.",
+            icon=":material/target:",
+        )
 
     options = camps.available_topics_for(frame)
     chosen = st.multiselect(

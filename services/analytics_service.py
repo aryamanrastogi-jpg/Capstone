@@ -96,6 +96,12 @@ def results_dataframe(
         assessment, question = question_lookup.get(result.question_id, (None, None))
         if assessment is None and submission is not None:
             assessment = assessments_by_id.get(submission.assessment_id)
+        if assessment is None:
+            # A set this viewer can no longer see - e.g. a former teacher's,
+            # after leaving the class. With no topic or question to go on, the
+            # row would only chart as "Unknown topic" and could even become the
+            # suggested weak spot, so it is left out of the analysis.
+            continue
 
         final = result.final_score
         score = result.effective_score

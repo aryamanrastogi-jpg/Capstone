@@ -31,9 +31,11 @@ from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 from models import ErrorType
 from services import ai_practice_service, llm_service
 
+# Shown to students and teachers, so it says what they get - not how the app is
+# configured. The AI key lives in the deployment's secrets, never on screen.
 GENERATOR_LABEL = (
-    "Prototype template generator - deterministic, no AI. Add a Gemini key "
-    "(LLM_API_KEY) to have questions written by AI."
+    "These questions come from the built-in question bank: the same results always "
+    "give the same questions. AI-written questions are switched off right now."
 )
 AI_GENERATOR_LABEL = (
     "Questions are written by AI and aimed at the errors in the results. Check "
@@ -231,7 +233,7 @@ def _multiply_fractions(rng: random.Random, low: int, high: int) -> _Built:
 
 def _share_in_ratio(rng: random.Random, low: int, high: int) -> _Built:
     a = rng.randint(1, 5)
-    b = rng.randint(1, 5)
+    b = rng.choice([n for n in range(1, 6) if n != a])   # never "3 : 3"
     part = rng.randint(2, max(3, high))
     total = (a + b) * part            # divides exactly by the number of parts
     return _Built(
@@ -247,7 +249,8 @@ def _share_in_ratio(rng: random.Random, low: int, high: int) -> _Built:
 def _unitary_method(rng: random.Random, low: int, high: int) -> _Built:
     a = rng.randint(2, 9)
     unit_cost = rng.randint(3, max(4, high))
-    b = rng.randint(2, 12)
+    # Never the number already given: "8 pens cost 64, what do 8 pens cost?"
+    b = rng.choice([n for n in range(2, 13) if n != a])
     total = a * unit_cost             # so the unit cost is a whole number
     return _Built(
         f"If {a} pens cost {total} rupees, what is the cost of {b} pens? State your units.",
@@ -318,7 +321,7 @@ def _missing_side(rng: random.Random, low: int, high: int) -> _Built:
     width = rng.randint(low, high)
     length = rng.randint(low, high)
     return _Built(
-        f"A rectangle has an area of {width * length} cm^2 and a width of {width} cm. "
+        f"A rectangle has an area of {width * length} cm² and a width of {width} cm. "
         "Find its length, then its perimeter, with units.",
         "Start from the area formula and rearrange it to find the missing side. You "
         "need both sides before you can work out the perimeter.",

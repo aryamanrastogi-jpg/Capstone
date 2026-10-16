@@ -36,12 +36,16 @@ from services import attempt_service
 from services import document_service
 from services import hint_service
 from services import state as store
-from services.grading_service import grade_submission, student_safe_view
+from services import study_camp_service as camps
+from services.grading_service import grade_submission_outcomes, student_safe_view
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 EXTRACTED_KEY = "student_upload_extracted"
 # A success message set just before st.rerun(), shown once on the next run.
 FLASH_KEY = "student_home_flash"
+# Shown with the flash when the AI could not mark and the rule-based grader
+# stood in, so a rougher estimate is never passed off as the usual one.
+AI_BUSY_KEY = "student_home_ai_busy"
 
 student = store.get_current_user()
 if student is None or not student.is_student:
@@ -60,6 +64,13 @@ page_header(
 _flash = st.session_state.pop(FLASH_KEY, None)
 if _flash:
     st.success(_flash, icon=":material/check_circle:")
+if st.session_state.pop(AI_BUSY_KEY, False):
+    st.warning(
+        "The AI marker was busy (it has a free daily limit), so the simpler "
+        "built-in marker made this estimate - it is rougher than usual. Add your "
+        "next piece later for an AI estimate.",
+        icon=":material/hourglass_top:",
+    )
 
 st.info(
     "Camp Prep AI gives you **pointers, not answers**. It will tell you where you went "
@@ -77,6 +88,9 @@ frame = analytics.student_dataframe(student.id, my_results, assessments, my_subm
 
 average = round(float(frame["percentage"].mean()), 1) if not frame.empty else None
 weakest = analytics.weakest_topics(frame, limit=1)
+# The prompt to build a camp only below the camp's own threshold: Study
+# Camp would otherwise answer "you are in good shape" for a topic at 96%.
+needs_camp = analytics.weakest_topics(frame, limit=1, ceiling=camps.WEAKNESS_CEILING)
 
 metric_row(
     [
@@ -99,11 +113,11 @@ metric_row(
     ]
 )
 
-if weakest:
+if needs_camp:
     action_a, action_b = st.columns([3, 1])
     with action_a:
         st.warning(
-            f"**{weakest[0]}** is your weakest topic right now.",
+            f"**{needs_camp[0]}** is your weakest topic right now.",
             icon=":material/priority_high:",
         )
     with action_b:
@@ -162,22 +176,34 @@ if not assessment.is_gradable:
     # invented. Guidance is the useful, honest thing to give instead: how to go
     # at each question, built from the question text alone.
     missing = len(assessment.questions_missing_model_answers)
-    st.info(
-        f"**{assessment.title}** has no answers saved against it, so Camp Prep AI "
-        "cannot score it. Here is how to approach each question instead.",
-        icon=":material/lightbulb:",
-    )
+    own_set = service.can_edit(assessment, student)
+    if own_set:
+        st.info(
+            f"**{assessment.title}** has no answers saved against it, so Camp Prep AI "
+            "cannot score it. Here is how to approach each question instead.",
+            icon=":material/lightbulb:",
+        )
+    else:
+        # A teacher's answers never reach a student's session (BUG-001), so
+        # "add the answers" would be advice the student cannot follow.
+        st.info(
+            f"**{assessment.title}** is marked by your teacher - its answers are "
+            "kept with them, so Camp Prep AI cannot score it here. Hand your work "
+            "in as usual; here is how to approach each question.",
+            icon=":material/lightbulb:",
+        )
     with st.spinner("Writing hints for each question..."):
         guidance = hint_service.guidance_for_questions(assessment.questions, assessment.subject)
     guidance_list(guidance)
-    st.caption(
-        f"{missing} question{'s have' if missing != 1 else ' has'} no answer stored. Add the answers on My "
-        "Questions when you have the mark scheme, and this set becomes scorable."
-    )
-    guide_col, _ = st.columns([1, 3])
-    with guide_col:
-        if st.button("Add the answers", width="stretch"):
-            goto("My Questions")
+    if own_set:
+        st.caption(
+            f"{missing} question{'s have' if missing != 1 else ' has'} no answer stored. Add the answers on My "
+            "Questions when you have the mark scheme, and this set becomes scorable."
+        )
+        guide_col, _ = st.columns([1, 3])
+        with guide_col:
+            if st.button("Add the answers", width="stretch"):
+                goto("My Questions")
     privacy_notice()
     st.stop()
 
@@ -192,6 +218,7 @@ state = attempt_service.build_state(
 )
 outstanding = attempt_service.outstanding_questions(assessment, state)
 settled = attempt_service.settled_questions(assessment, state)
+outstanding_numbers = [attempt_service.question_number(assessment, q) for q in outstanding]
 
 if state.has_started:
     st.progress(
@@ -235,14 +262,14 @@ if state.is_exhausted:
     with st.expander("How to approach the ones you have left", expanded=True):
         with st.spinner("Writing hints..."):
             guidance = hint_service.guidance_for_questions(outstanding, assessment.subject)
-        guidance_list(guidance)
+        guidance_list(guidance, numbers=outstanding_numbers)
 
 # The input form only exists while there is something left to attempt. A
 # finished or exhausted set still shows its history below.
 if state.can_attempt:
     with st.expander("See the questions"):
         for index, question in enumerate(assessment.questions, start=1):
-            st.markdown(f"**Q{index}. ({question.max_marks} marks)** {question.question_text}")
+            st.markdown(f"**Q{index}. ({question.max_marks:g} marks)** {question.question_text}")
 
     # Available before an attempt as well as after one - a student who is stuck at
     # the start should not have to submit something wrong to get a pointer. A
@@ -255,7 +282,7 @@ if state.can_attempt:
         )
         with st.spinner("Writing hints..."):
             guidance = hint_service.guidance_for_questions(outstanding, assessment.subject)
-        guidance_list(guidance)
+        guidance_list(guidance, numbers=outstanding_numbers)
 
     mode = st.radio(
         "How do you want to add your answers?",
@@ -308,7 +335,9 @@ if state.can_attempt:
             f"Allowed: {allowed}. Max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB. "
             "Photos of handwriting are not readable yet."
         )
-        uploaded = st.file_uploader("Your work", type=["txt", "pdf"])
+        uploaded = st.file_uploader(
+            "Your work", type=[ext.lstrip(".") for ext in sorted(ALLOWED_UPLOAD_EXTENSIONS)]
+        )
         if uploaded is not None:
             extraction = document_service.read_uploaded_file(uploaded)
             if extraction.success:
@@ -352,7 +381,7 @@ if state.can_attempt:
         )
     elif known_mark:
         teacher_mark = st.number_input(
-            f"Mark your teacher gave (out of {assessment.max_marks})",
+            f"Mark your teacher gave (out of {assessment.max_marks:g})",
             min_value=0.0,
             max_value=float(assessment.max_marks),
             value=0.0,
@@ -375,7 +404,7 @@ if state.can_attempt:
             try:
                 submission = service.build_submission(
                     assessment_id=assessment.id,
-                    student_identifier=student.display_name,
+                    student_identifier=service.student_label(student.display_name),
                     # Left empty for a typed per-question submission so the
                     # service composes a properly numbered transcript. A split
                     # upload keeps the file's own text as its transcript.
@@ -396,19 +425,38 @@ if state.can_attempt:
                 for issue in exc.errors():
                     st.markdown(f"- {issue['msg']}")
             else:
-                # Only the outstanding questions are marked. A question already
-                # settled keeps the result that settled it.
-                for result in grade_submission(
-                    assessment.questions,
-                    submission.submission_text,
-                    submission.id,
-                    answers=submission.answers or None,
-                    only_question_ids=[q.id for q in outstanding],
-                ):
-                    service.save_grading_result(result)
-                st.session_state.pop(EXTRACTED_KEY, None)
-                st.session_state[FLASH_KEY] = "Added. Your estimate is below."
-                st.rerun()
+                try:
+                    # Only the outstanding questions are marked. A question
+                    # already settled keeps the result that settled it.
+                    outcomes = grade_submission_outcomes(
+                        assessment.questions,
+                        submission.submission_text,
+                        submission.id,
+                        answers=submission.answers or None,
+                        only_question_ids=[q.id for q in outstanding],
+                    )
+                    for outcome in outcomes:
+                        service.save_grading_result(outcome.result)
+                except Exception:  # noqa: BLE001 - shown plainly, never a traceback
+                    # Saved but not marked, the work would still use up an
+                    # attempt and be missing from "Your recent work". It is
+                    # taken back out so trying again starts clean.
+                    try:
+                        service.delete_submission(submission.id)
+                    except Exception:  # noqa: BLE001 - best effort
+                        pass
+                    st.error(
+                        "Your work could not be marked just now, so it has not been "
+                        "added. Please try again in a minute.",
+                        icon=":material/error:",
+                    )
+                else:
+                    st.session_state.pop(EXTRACTED_KEY, None)
+                    st.session_state[FLASH_KEY] = "Added. Your estimate is below."
+                    st.session_state[AI_BUSY_KEY] = any(
+                        o.ai_was_unavailable for o in outcomes
+                    )
+                    st.rerun()
 
 st.divider()
 

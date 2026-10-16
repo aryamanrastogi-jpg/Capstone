@@ -265,6 +265,11 @@ def parse_ai_output(
 # --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
+# The two fallbacks that are not the AI letting anyone down.
+NO_PROVIDER_REASON = "No AI provider is configured."
+BLANK_ANSWER_REASON = "Blank answer - marked without the AI."
+
+
 @dataclass(frozen=True)
 class AIGradingOutcome:
     """A GradingResult plus how it was produced."""
@@ -278,6 +283,16 @@ class AIGradingOutcome:
     @property
     def used_ai(self) -> bool:
         return self.path == PATH_AI
+
+    @property
+    def ai_was_unavailable(self) -> bool:
+        """The AI should have marked this and could not: busy, over its free
+        quota, or a reply that failed the checks. The rule-based estimate that
+        stands in is rougher, so the person waiting is told."""
+        return not self.used_ai and self.fallback_reason not in (
+            NO_PROVIDER_REASON,
+            BLANK_ANSWER_REASON,
+        )
 
 
 def grade_with_ai(
@@ -308,10 +323,10 @@ def grade_with_ai(
                 f"The AI provider could not be set up ({type(exc).__name__}).",
             )
     if model is None:
-        return _fallback(question, student_answer, submission_id, "No AI provider is configured.")
+        return _fallback(question, student_answer, submission_id, NO_PROVIDER_REASON)
     if not (student_answer or "").strip():
         return _fallback(
-            question, student_answer, submission_id, "Blank answer - marked without the AI."
+            question, student_answer, submission_id, BLANK_ANSWER_REASON
         )
 
     prompt = build_grading_prompt(question, student_answer)  # raises without a model answer

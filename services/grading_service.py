@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Iterable, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from models import ErrorItem, ErrorType, GradingResult, Question, ReviewStatus, Subject
 from services import hint_service
+
+if TYPE_CHECKING:  # ai_grading_service imports this module for its fallback
+    from services.ai_grading_service import AIGradingOutcome
 
 MOCK_ENGINE_NAME = "Rule-based mock grader v1 (no LLM)"
 
@@ -561,6 +564,27 @@ def grade_submission(
 ) -> List[GradingResult]:
     """Grade a submission, one GradingResult per question.
 
+    The results alone; `grade_submission_outcomes` also says, per question,
+    whether the AI marked it or the rule-based grader stood in.
+    """
+    return [
+        outcome.result
+        for outcome in grade_submission_outcomes(
+            questions, submission_text, submission_id, answers, only_question_ids
+        )
+    ]
+
+
+def grade_submission_outcomes(
+    questions: Sequence[Question],
+    submission_text: str,
+    submission_id: str,
+    answers: Optional[Mapping[str, str]] = None,
+    only_question_ids: Optional[Iterable[str]] = None,
+) -> List[AIGradingOutcome]:
+    """Grade a submission: one AIGradingOutcome per question, which carries
+    the GradingResult and whether the AI marked it (see grade_submission).
+
     Two shapes of input, and the difference matters:
 
     * `answers` given - each question is graded against *its own* answer.
@@ -585,7 +609,7 @@ def grade_submission(
     ]
 
 
-def _grade_one(question: Question, answer: str, submission_id: str) -> GradingResult:
+def _grade_one(question: Question, answer: str, submission_id: str) -> AIGradingOutcome:
     """The AI grader when configured, the rules otherwise.
 
     Imported here because ai_grading_service imports this module for its
@@ -593,4 +617,4 @@ def _grade_one(question: Question, answer: str, submission_id: str) -> GradingRe
     """
     from services.ai_grading_service import grade_with_ai
 
-    return grade_with_ai(question, answer, submission_id).result
+    return grade_with_ai(question, answer, submission_id)

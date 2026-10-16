@@ -35,8 +35,13 @@ def guidance_block(guidance: Guidance, number: int | None = None) -> None:
             st.markdown(f"- {item}")
 
 
-def guidance_list(items: Sequence[Guidance]) -> None:
-    """Draw guidance for a whole set of questions."""
-    for index, guidance in enumerate(items, start=1):
+def guidance_list(items: Sequence[Guidance], numbers: Sequence[int] | None = None) -> None:
+    """Draw guidance for a set of questions.
+
+    `numbers` are the questions' real numbers in their set. A re-attempt
+    covers only what is outstanding, and its Q3 must not be labelled Q1.
+    """
+    for index, guidance in enumerate(items):
         with st.container(border=True):
-            guidance_block(guidance, number=index)
+            number = numbers[index] if numbers and index < len(numbers) else index + 1
+            guidance_block(guidance, number=number)
