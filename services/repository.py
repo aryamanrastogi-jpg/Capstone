@@ -174,6 +174,10 @@ class SessionRepository(Repository):
         assessments = store.get_assessments()
         for index, existing in enumerate(assessments):
             if existing.id == assessment.id:
+                kept = {q.id for q in assessment.questions}
+                removed = {q.id for q in existing.questions} - kept
+                if removed:
+                    self._drop_question_work(assessment.id, removed)
                 assessments[index] = assessment
                 return assessment
         assessments.append(assessment)
@@ -184,8 +188,27 @@ class SessionRepository(Repository):
         for index, existing in enumerate(assessments):
             if existing.id == assessment_id:
                 assessments.pop(index)
+                self._drop_assessment_work(assessment_id)
                 return True
         return False
+
+    # The database cascades these deletes (ON DELETE CASCADE); session state
+    # has no foreign keys, so the same clean-up is done by hand. Without it a
+    # deleted set's marks would live on in the averages and the analytics.
+    def _drop_question_work(self, assessment_id: str, question_ids: set) -> None:
+        for submission in store.get_submissions():
+            if submission.assessment_id == assessment_id:
+                for question_id in question_ids:
+                    submission.answers.pop(question_id, None)
+        results = store.get_grading_results()
+        results[:] = [r for r in results if r.question_id not in question_ids]
+
+    def _drop_assessment_work(self, assessment_id: str) -> None:
+        submissions = store.get_submissions()
+        gone = {s.id for s in submissions if s.assessment_id == assessment_id}
+        submissions[:] = [s for s in submissions if s.id not in gone]
+        results = store.get_grading_results()
+        results[:] = [r for r in results if r.submission_id not in gone]
 
     def list_submissions(
         self,
@@ -418,11 +441,29 @@ class SupabaseRepository(Repository):
 
     def save_assessment(self, assessment: Assessment) -> Assessment:
         row, question_rows = mappers.assessment_to_rows(assessment)
+        existing = (
+            self._client.table("questions")
+            .select("id,position")
+            .eq("assessment_id", assessment.id)
+            .execute()
+            .data
+            or []
+        )
+        # Removed questions go first. Deleting one cascades to the answers and
+        # marks given for it, and the database refuses that for work a teacher
+        # has reviewed. Refused here, before anything else is written, the set
+        # is left exactly as it was rather than renamed but not re-questioned.
+        wanted = {r["id"] for r in question_rows}
+        stale = [r["id"] for r in existing if r["id"] not in wanted]
+        if stale:
+            self._client.table("questions").delete().in_("id", stale).execute()
         self._client.table("assessments").upsert(row).execute()
-        self._sync_questions(assessment.id, question_rows)
+        self._sync_questions(existing, question_rows)
         return assessment
 
-    def _sync_questions(self, assessment_id: str, rows: List[Dict[str, Any]]) -> None:
+    def _sync_questions(
+        self, existing: List[Dict[str, Any]], rows: List[Dict[str, Any]]
+    ) -> None:
         """Bring the question rows in line WITHOUT deleting surviving questions.
 
         Questions are not leaves: `submission_answers` and `grading_results`
@@ -430,25 +471,14 @@ class SupabaseRepository(Repository):
         answers and study sessions) would therefore silently erase every
         student answer and every teacher-approved mark on the set whenever it
         is re-saved - sharing it, renaming it, fixing a typo. So only questions
-        that were actually removed are deleted; the rest are upserted in place.
+        that were actually removed are deleted (by `save_assessment`, first);
+        the rest are upserted in place here.
 
         `unique (assessment_id, position)` is checked row by row, so a reorder
         that swaps two positions would collide mid-upsert. Moved questions are
         parked on a high position first to clear the way.
         """
-        existing = (
-            self._client.table("questions")
-            .select("id,position")
-            .eq("assessment_id", assessment_id)
-            .execute()
-            .data
-            or []
-        )
         wanted = {r["id"]: r["position"] for r in rows}
-        stale = [r["id"] for r in existing if r["id"] not in wanted]
-        if stale:
-            self._client.table("questions").delete().in_("id", stale).execute()
-
         moved = [
             r for r in existing
             if r["id"] in wanted and r.get("position") != wanted[r["id"]]

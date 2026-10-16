@@ -17,7 +17,7 @@ dependency and are unit-testable on their own.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from models import (
     Assessment,
@@ -38,12 +38,25 @@ from utils.validation import usable_question_rows
 # --------------------------------------------------------------------------
 # Pure builders (no Streamlit)
 # --------------------------------------------------------------------------
-def build_questions(rows: Sequence[Dict[str, Any]]) -> List[Question]:
-    """Turn data_editor rows into validated Question models."""
+def build_questions(
+    rows: Sequence[Dict[str, Any]], keep_ids: Iterable[str] = ()
+) -> List[Question]:
+    """Turn data_editor rows into validated Question models.
+
+    A row carrying the id of a question in `keep_ids` keeps that id, so an
+    edited question is updated in place and the answers and marks already
+    given for it stay attached. Every other row is a new question.
+    """
+    keepable = set(keep_ids)
     questions: List[Question] = []
     for row in usable_question_rows(list(rows)):
+        row_id = str(row.get("id") or "").strip()
+        identity = {"id": row_id} if row_id in keepable else {}
+        # Each id is claimed once, so a duplicated row becomes a new question.
+        keepable.discard(row_id)
         questions.append(
             Question(
+                **identity,
                 question_text=str(row.get("question_text", "")),
                 model_answer=str(row.get("model_answer", "")),
                 marking_criteria=str(row.get("marking_criteria") or ""),
@@ -51,6 +64,29 @@ def build_questions(rows: Sequence[Dict[str, Any]]) -> List[Question]:
             )
         )
     return questions
+
+
+def question_rows(assessment: Assessment) -> List[Dict[str, Any]]:
+    """An assessment's questions as editor rows, in order, ids included."""
+    return [
+        {
+            "id": q.id,
+            "question_text": q.question_text,
+            "model_answer": q.model_answer,
+            "marking_criteria": q.marking_criteria,
+            "max_marks": q.max_marks,
+        }
+        for q in assessment.questions
+    ]
+
+
+def _as_assessment_type(value: str | AssessmentType) -> AssessmentType:
+    if isinstance(value, AssessmentType):
+        return value
+    try:
+        return AssessmentType(value)
+    except ValueError:
+        return AssessmentType.from_label(value)
 
 
 def build_assessment(
@@ -69,18 +105,13 @@ def build_assessment(
     Pass `owner_id` and `student_created=True` for a set a student typed up
     themselves; that pair is what the scoped listings below read.
     """
-    if isinstance(assessment_type, str):
-        try:
-            assessment_type = AssessmentType(assessment_type)
-        except ValueError:
-            assessment_type = AssessmentType.from_label(assessment_type)
     return Assessment(
         title=title,
         subject=Subject(subject) if not isinstance(subject, Subject) else subject,
         curriculum=curriculum,
         grade_level=int(grade_level),
         topic=topic,
-        assessment_type=assessment_type,
+        assessment_type=_as_assessment_type(assessment_type),
         questions=build_questions(rows),
         owner_id=owner_id,
         student_created=student_created,
@@ -270,6 +301,123 @@ def get_assessment(assessment_id: str) -> Optional[Assessment]:
 
 def save_assessment(assessment: Assessment) -> Assessment:
     return get_repository().save_assessment(assessment)
+
+
+def can_edit(assessment: Assessment, user: Optional[User]) -> bool:
+    """Only the person who wrote a set may change or delete it.
+
+    The same rule as assessments_update_own and questions_write in
+    db/policies.sql, so the page never offers an edit the database refuses.
+    The unowned demo set belongs to nobody and is read-only to everyone.
+    """
+    return (
+        user is not None
+        and assessment.owner_id is not None
+        and assessment.owner_id == user.id
+        and not assessment.is_archived
+    )
+
+
+class StaleEditError(ValueError):
+    """The set changed (or went) after the edit form was opened."""
+
+
+def _edit_snapshot(assessment: Assessment) -> tuple:
+    return (
+        assessment.title,
+        assessment.topic,
+        assessment.subject,
+        assessment.assessment_type,
+        assessment.curriculum,
+        assessment.grade_level,
+        [tuple(row.values()) for row in question_rows(assessment)],
+    )
+
+
+def frozen_question_ids(assessment: Assessment, student_id: str) -> set[str]:
+    """Questions on this set a student can no longer remove.
+
+    Removing a question deletes the answers given to it, and the database
+    refuses that for work a teacher uploaded or has reviewed
+    (submission_answers_guard_student_write in db/policies.sql). Knowing which
+    questions those are lets the edit form say so before anything is saved.
+    """
+    reviewed = {
+        r.submission_id
+        for r in list_grading_results(student_id=student_id)
+        if r.is_reviewed
+    }
+    frozen: set[str] = set()
+    for submission in list_submissions(assessment_id=assessment.id, student_id=student_id):
+        if not submission.is_self_study or submission.id in reviewed:
+            frozen.update(submission.answers)
+    return frozen
+
+
+def update_assessment(
+    existing: Assessment,
+    *,
+    title: str,
+    subject: str | Subject,
+    topic: str,
+    rows: Sequence[Dict[str, Any]],
+    assessment_type: str | AssessmentType,
+    curriculum: Optional[str] = None,
+    grade_level: Optional[int] = None,
+    protected_question_ids: Iterable[str] = (),
+) -> Assessment:
+    """Save edits to an existing set. Raises pydantic.ValidationError if invalid.
+
+    The set keeps its id, owner, creation date, sharing and copy history, and
+    every question still in `rows` keeps its id, so work already handed in on
+    the set stays attached. A question taken out of `rows` is deleted, and its
+    answers and marks go with it (ON DELETE CASCADE).
+
+    `existing` is the set as the form showed it. If it has changed since (an
+    edit saved from another tab, say), saving would delete questions this form
+    never saw, so StaleEditError is raised instead. Removing any question in
+    `protected_question_ids` raises ValueError before anything is written.
+    """
+    current = get_assessment(existing.id)
+    if current is None:
+        raise StaleEditError("This set has been deleted, so there is nothing to save.")
+    if _edit_snapshot(current) != _edit_snapshot(existing):
+        raise StaleEditError(
+            "This set was changed somewhere else after you opened it. Close this "
+            "window and open it again to edit the latest version."
+        )
+
+    questions = build_questions(rows, keep_ids=[q.id for q in existing.questions])
+    kept = {q.id for q in questions}
+    protected = set(protected_question_ids)
+    blocked = [
+        f"Q{number}"
+        for number, question in enumerate(existing.questions, start=1)
+        if question.id not in kept and question.id in protected
+    ]
+    if blocked:
+        raise ValueError(
+            f"{', '.join(blocked)} cannot be removed: your teacher has reviewed or "
+            "uploaded work that answers it. You can still change its wording."
+        )
+
+    edited = Assessment(
+        id=existing.id,
+        created_at=existing.created_at,
+        title=title,
+        subject=Subject(subject) if not isinstance(subject, Subject) else subject,
+        curriculum=curriculum or existing.curriculum,
+        grade_level=int(existing.grade_level if grade_level is None else grade_level),
+        topic=topic,
+        assessment_type=_as_assessment_type(assessment_type),
+        questions=questions,
+        owner_id=existing.owner_id,
+        student_created=existing.student_created,
+        is_shared=existing.is_shared,
+        is_archived=existing.is_archived,
+        copied_from_id=existing.copied_from_id,
+    )
+    return save_assessment(edited)
 
 
 def delete_assessment(assessment_id: str) -> bool:

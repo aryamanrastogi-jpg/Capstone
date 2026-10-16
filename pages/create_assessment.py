@@ -8,6 +8,12 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.layout import page_header, privacy_notice
 from components.navigation import goto
+from components.question_set_editor import (
+    delete_button,
+    edit_button,
+    question_list,
+    render_open_editor,
+)
 from models.assessment import CURRICULA, GRADE_LEVELS, AssessmentType, Subject
 from services import assessment_service as service
 from services import state as store
@@ -18,6 +24,8 @@ EDITOR_WIDGET_KEY = "ca_editor"
 EDITOR_GENERATION_KEY = "ca_editor_generation"
 JUST_SAVED_KEY = "create_assessment_just_saved"
 RESET_AFTER_SAVE_KEY = "create_assessment_reset_after_save"
+FLASH_KEY = "create_assessment_flash"
+CONFIRM_DELETE_KEY = "create_assessment_confirm_delete"
 
 BLANK_ROWS = pd.DataFrame(
     [
@@ -221,28 +229,45 @@ if st.session_state.get(JUST_SAVED_KEY):
 st.divider()
 st.subheader("Your assessments")
 
+_flash = st.session_state.pop(FLASH_KEY, None)
+if _flash:
+    st.success(_flash, icon=":material/check_circle:")
+
 existing = service.list_assessments_for_teacher()
 if not existing:
     st.info("No assessments saved yet.", icon=":material/info:")
-else:
-    st.dataframe(
-        pd.DataFrame(
-            [
-                {
-                    "Title": a.title,
-                    "Subject": a.subject.value,
-                    "Type": a.assessment_type.label,
-                    "Curriculum": a.curriculum,
-                    "Grade": a.grade_level,
-                    "Topic": a.topic,
-                    "Questions": a.question_count,
-                    "Total marks": a.max_marks,
-                }
-                for a in sorted(existing, key=lambda a: a.created_at, reverse=True)
-            ]
-        ),
-        hide_index=True,
-        width="stretch",
-    )
+
+for assessment in sorted(existing, key=lambda a: a.created_at, reverse=True):
+    editable = service.can_edit(assessment, _viewer)
+    with st.container(border=True):
+        detail_col, action_col = st.columns([4, 1])
+        with detail_col:
+            st.markdown(f"**{assessment.title}**")
+            st.caption(
+                f"{assessment.topic} · {assessment.subject.value} · "
+                f"{assessment.assessment_type.label} · {assessment.curriculum} · "
+                f"Grade {assessment.grade_level} · "
+                f"{assessment.question_count} question{'s' if assessment.question_count != 1 else ''} · "
+                f"{assessment.max_marks:g} marks"
+            )
+            if not editable:
+                st.caption(
+                    ":material/lock: Sample set - read only."
+                    if assessment.owner_id is None
+                    else ":material/lock: Read only - only the teacher who wrote it can change it."
+                )
+            with st.expander("See the questions"):
+                question_list(assessment, show_answers=True, show_criteria=True)
+        if editable:
+            with action_col:
+                edit_button(assessment)
+                delete_button(
+                    assessment,
+                    _viewer,
+                    confirm_key=CONFIRM_DELETE_KEY,
+                    flash_key=FLASH_KEY,
+                )
+
+render_open_editor(existing, _viewer, flash_key=FLASH_KEY)
 
 privacy_notice()

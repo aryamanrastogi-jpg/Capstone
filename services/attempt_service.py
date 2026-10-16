@@ -79,8 +79,8 @@ def build_state(
         if scored:
             # Best result wins, not the latest: a student who got it right and
             # then fumbled a re-run has still shown they can do it.
-            best = max(scored, key=lambda r: r.effective_score)
-            standing.best_score = best.effective_score
+            best = max(scored, key=_fraction)
+            standing.best_score = round(_fraction(best) * question.max_marks, 2)
             standing.best_on_attempt = attempt_number_of.get(best.submission_id)
         standings.append(standing)
 
@@ -96,6 +96,18 @@ def build_state(
 def is_flagged(result: GradingResult) -> bool:
     """A teacher flagged this result: it carries no score at all."""
     return result.review_status == ReviewStatus.FLAGGED
+
+
+def _fraction(result: GradingResult) -> float:
+    """The share of the marks a result earned, out of the marks it was given on.
+
+    A question can be re-marked after it has been graded (edited from 10 marks
+    to 1, say). An old 8/10 must then count as 80% of the new mark, not as 8
+    against a maximum of 1.
+    """
+    if not result.max_marks:
+        return 0.0
+    return result.effective_score / result.max_marks
 
 
 def question_number(assessment: Assessment, question: Question) -> int:

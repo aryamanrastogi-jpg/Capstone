@@ -25,6 +25,12 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.layout import empty_state, page_header, privacy_notice
 from components.navigation import goto
+from components.question_set_editor import (
+    delete_button,
+    edit_button,
+    question_list,
+    render_open_editor,
+)
 from models.assessment import CURRICULA, GRADE_LEVELS, AssessmentType, Subject
 from services import assessment_service as service
 from services import document_service
@@ -300,6 +306,8 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
                 )
             if assessment.is_copy:
                 st.caption(":material/content_copy: Copied from the shared library.")
+            with st.expander("See the questions"):
+                question_list(assessment, show_answers=True)
 
             # Sharing is always a deliberate act, and always reversible.
             shared = st.toggle(
@@ -313,27 +321,13 @@ for assessment in sorted(mine, key=lambda a: a.created_at, reverse=True):
                 service.set_shared(assessment.id, shared)
                 st.rerun()
         with action_col:
+            edit_button(assessment)
             # Destructive, so it takes two clicks: Delete, then confirm.
-            if st.session_state.get(CONFIRM_DELETE_KEY) == assessment.id:
-                st.caption("Delete this set? This cannot be undone.")
-                if st.button(
-                    "Yes, delete",
-                    key=f"confirm_delete_{assessment.id}",
-                    type="primary",
-                    width="stretch",
-                ):
-                    service.delete_assessment(assessment.id)
-                    st.session_state.pop(CONFIRM_DELETE_KEY, None)
-                    st.session_state[FLASH_KEY] = f"Deleted **{assessment.title}**."
-                    st.rerun()
-                if st.button(
-                    "Cancel", key=f"cancel_delete_{assessment.id}", width="stretch"
-                ):
-                    st.session_state.pop(CONFIRM_DELETE_KEY, None)
-                    st.rerun()
-            elif st.button("Delete", key=f"delete_{assessment.id}", width="stretch"):
-                st.session_state[CONFIRM_DELETE_KEY] = assessment.id
-                st.rerun()
+            delete_button(
+                assessment, student, confirm_key=CONFIRM_DELETE_KEY, flash_key=FLASH_KEY
+            )
+
+render_open_editor(mine, student, flash_key=FLASH_KEY)
 
 st.divider()
 
