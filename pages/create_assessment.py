@@ -8,6 +8,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.layout import page_header, privacy_notice
 from components.navigation import goto
+from components.question_import import import_panel
 from components.question_set_editor import (
     delete_button,
     edit_button,
@@ -25,6 +26,8 @@ EDITOR_GENERATION_KEY = "ca_editor_generation"
 JUST_SAVED_KEY = "create_assessment_just_saved"
 RESET_AFTER_SAVE_KEY = "create_assessment_reset_after_save"
 FLASH_KEY = "create_assessment_flash"
+SAVED_FLASH_KEY = "create_assessment_saved_flash"
+IMPORT_KEY = "ca_import"
 CONFIRM_DELETE_KEY = "create_assessment_confirm_delete"
 
 BLANK_ROWS = pd.DataFrame(
@@ -82,6 +85,26 @@ def _clear_form() -> None:
         st.session_state[key] = ""
 
 
+def _apply_import(rows: list, title: str) -> None:
+    """Put a file's questions in the table (an on_click callback, like above)."""
+    st.session_state[EDITOR_KEY] = pd.DataFrame(
+        rows, columns=["question_text", "model_answer", "marking_criteria", "max_marks"]
+    )
+    st.session_state.pop(_editor_widget_key(), None)
+    st.session_state[EDITOR_GENERATION_KEY] = (
+        st.session_state.get(EDITOR_GENERATION_KEY, 0) + 1
+    )
+    if title and not str(st.session_state.get("ca_title") or "").strip():
+        st.session_state["ca_title"] = title
+
+
+# ---------------------------------------------------------------------------
+# Optional: start from a file
+# ---------------------------------------------------------------------------
+with st.expander("Start from a file instead of typing"):
+    import_panel(key=IMPORT_KEY, apply=_apply_import, teacher=True)
+
+
 # ---------------------------------------------------------------------------
 # Assessment details
 # ---------------------------------------------------------------------------
@@ -136,20 +159,28 @@ edited = st.data_editor(
     width="stretch",
     column_config={
         "question_text": st.column_config.TextColumn(
-            "Question *", width="large", help="The question exactly as the students see it."
+            "Question *",
+            default="",
+            width="large",
+            help="The question exactly as the students see it.",
         ),
         "model_answer": st.column_config.TextColumn(
             "Model answer *",
+            default="",
             width="large",
             help="The full worked answer, including the method and the units.",
         ),
         "marking_criteria": st.column_config.TextColumn(
             "Marking criteria",
+            default="",
             width="large",
             help="How the marks are split, e.g. '1 mark for the formula, 1 for the value'.",
         ),
+        # A row added with + starts at one mark, like the blank rows above it;
+        # without a default it saves as "marks must be a number".
         "max_marks": st.column_config.NumberColumn(
-            "Marks *", min_value=0.5, max_value=100.0, step=0.5, format="%.1f"
+            "Marks *", min_value=0.5, max_value=100.0, step=0.5, format="%.1f",
+            default=1.0,
         ),
     },
 )
@@ -208,13 +239,19 @@ if save_clicked:
                 icon=":material/error:",
             )
         else:
-            st.success(
+            # Rerun straight away so the form is cleared now, not on the next
+            # click - otherwise a second press of Save met an emptied form.
+            st.session_state[SAVED_FLASH_KEY] = (
                 f"Saved **{assessment.title}** with {assessment.question_count} question{'s' if assessment.question_count != 1 else ''} "
-                f"worth {assessment.max_marks} marks in total.",
-                icon=":material/check_circle:",
+                f"worth {assessment.max_marks:g} marks in total."
             )
             st.session_state[RESET_AFTER_SAVE_KEY] = True
             st.session_state[JUST_SAVED_KEY] = True
+            st.rerun()
+
+_saved = st.session_state.pop(SAVED_FLASH_KEY, None)
+if _saved:
+    st.success(_saved, icon=":material/check_circle:")
 
 # Outside `if save_clicked:` - the click on this button is a fresh run in which
 # save_clicked is False, so the button has to survive that run to act on it.

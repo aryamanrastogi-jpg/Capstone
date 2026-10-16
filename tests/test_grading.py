@@ -121,7 +121,7 @@ def test_txt_extraction_returns_the_text():
 
 
 def test_unsupported_upload_format_is_rejected_by_extraction():
-    result = document_service.extract_text("notes.docx", b"some bytes here")
+    result = document_service.extract_text("notes.odt", b"some bytes here")
     assert not result.success
     assert "Unsupported file type" in result.message
 

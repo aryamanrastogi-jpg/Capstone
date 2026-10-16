@@ -281,7 +281,7 @@ def test_draft_validation_requires_at_least_one_question():
 # Uploads
 # ---------------------------------------------------------------------------
 def test_unsupported_upload_format_is_rejected():
-    ok, message = validate_upload("answers.docx", b"anything at all")
+    ok, message = validate_upload("answers.odt", b"anything at all")
     assert not ok
     assert "Unsupported file type" in message
 

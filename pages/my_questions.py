@@ -25,6 +25,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from components.layout import empty_state, page_header, privacy_notice
 from components.navigation import goto
+from components.question_import import import_panel
 from components.question_set_editor import (
     delete_button,
     edit_button,
@@ -33,15 +34,13 @@ from components.question_set_editor import (
 )
 from models.assessment import CURRICULA, GRADE_LEVELS, AssessmentType, Subject
 from services import assessment_service as service
-from services import document_service
 from services import state as store
-from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 from utils.validation import total_marks, validate_assessment_draft
 
 EDITOR_KEY = "my_questions_rows"
 EDITOR_WIDGET_KEY = "mq_editor"
 EDITOR_GENERATION_KEY = "mq_editor_generation"
-EXTRACTED_KEY = "my_questions_extracted"
+IMPORT_KEY = "mq_import"
 FLASH_KEY = "my_questions_flash"
 RESET_AFTER_SAVE_KEY = "my_questions_reset_after_save"
 CONFIRM_DELETE_KEY = "my_questions_confirm_delete"
@@ -105,38 +104,27 @@ def _clear_form() -> None:
     """Runs as an on_click callback, i.e. before the widgets are created again,
     which is the only point where their session-state keys may be changed."""
     _reset_editor()
-    st.session_state.pop(EXTRACTED_KEY, None)
     for key in ("mq_title", "mq_topic"):
         st.session_state[key] = ""
+
+
+def _apply_import(rows: list, title: str) -> None:
+    """Put a file's questions in the table (an on_click callback, like above)."""
+    st.session_state[EDITOR_KEY] = pd.DataFrame(
+        rows, columns=["question_text", "model_answer", "max_marks"]
+    )
+    st.session_state.pop(_editor_widget_key(), None)
+    st.session_state[EDITOR_GENERATION_KEY] = (
+        st.session_state.get(EDITOR_GENERATION_KEY, 0) + 1
+    )
+    if title and not str(st.session_state.get("mq_title") or "").strip():
+        st.session_state["mq_title"] = title
 
 # ---------------------------------------------------------------------------
 # Optional: start from a file
 # ---------------------------------------------------------------------------
 with st.expander("Start from a file instead of typing"):
-    allowed = ", ".join(sorted(ext.lstrip(".") for ext in ALLOWED_UPLOAD_EXTENSIONS))
-    st.caption(
-        f"Allowed: {allowed}. Max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB. "
-        "Photos of handwriting are not readable yet. The text is pulled out for "
-        "you to split into questions - it is not split automatically."
-    )
-    uploaded = st.file_uploader("Your question paper", type=["txt", "pdf"])
-    if uploaded is not None:
-        extraction = document_service.read_uploaded_file(uploaded)
-        if extraction.success:
-            st.session_state[EXTRACTED_KEY] = extraction.text
-            st.success(extraction.message, icon=":material/check_circle:")
-        else:
-            st.session_state.pop(EXTRACTED_KEY, None)
-            st.error(extraction.message, icon=":material/error:")
-
-    if st.session_state.get(EXTRACTED_KEY):
-        st.markdown("**What we read** — copy each question into the table below.")
-        st.text_area(
-            "Extracted text",
-            value=st.session_state[EXTRACTED_KEY],
-            height=200,
-            disabled=True,
-        )
+    import_panel(key=IMPORT_KEY, apply=_apply_import, teacher=False)
 
 st.divider()
 
@@ -182,15 +170,22 @@ edited = st.data_editor(
     width="stretch",
     column_config={
         "question_text": st.column_config.TextColumn(
-            "Question *", width="large", help="The question as it was set."
+            "Question *",
+            default="",
+            width="large",
+            help="The question as it was set.",
         ),
         "model_answer": st.column_config.TextColumn(
             "Answer (optional)",
+            default="",
             width="large",
             help="Only if you have the mark scheme. Leave blank otherwise.",
         ),
+        # A row added with + starts at one mark, like the blank rows above it;
+        # without a default it saves as "marks must be a number".
         "max_marks": st.column_config.NumberColumn(
-            "Marks *", min_value=0.5, max_value=100.0, step=0.5, format="%.1f"
+            "Marks *", min_value=0.5, max_value=100.0, step=0.5, format="%.1f",
+            default=1.0,
         ),
     },
 )
@@ -248,25 +243,23 @@ if save_clicked:
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:
+            # Rerun straight away so the form is cleared now, not on the next
+            # click - otherwise a second press of Save met an emptied form and
+            # complained that the name was missing.
             st.session_state[RESET_AFTER_SAVE_KEY] = True
-            st.session_state.pop(EXTRACTED_KEY, None)
-            st.success(
+            st.session_state[FLASH_KEY] = (
                 f"Saved **{assessment.title}** — {assessment.question_count} "
-                f"question{'s' if assessment.question_count != 1 else ''}, {assessment.max_marks:g} marks.",
-                icon=":material/check_circle:",
+                f"question{'s' if assessment.question_count != 1 else ''}, "
+                f"{assessment.max_marks:g} marks. "
+                + (
+                    "Every question has an answer, so you can work through it on "
+                    "**My Work** and get an estimate."
+                    if assessment.is_gradable
+                    else "It has no answers yet, so it cannot be scored until you "
+                    "add them (Edit, below)."
+                )
             )
-            if assessment.is_gradable:
-                st.info(
-                    "Every question has an answer, so you can work through this "
-                    "set on **My Work** and get an estimate.",
-                    icon=":material/check:",
-                )
-            else:
-                st.warning(
-                    "No answers on this set yet, so it cannot be scored. Add them "
-                    "when you have the mark scheme.",
-                    icon=":material/info:",
-                )
+            st.rerun()
 
 st.divider()
 

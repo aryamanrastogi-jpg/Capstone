@@ -8,14 +8,20 @@ Two jobs live here:
 
 from __future__ import annotations
 
+import io
 import os
 import re
+import zipfile
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Sequence, Tuple
 
 from utils.config import ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES
 
 _PDF_MAGIC = b"%PDF-"
+_ZIP_MAGIC = b"PK\x03\x04"
+# A .docx is a zip; its text unpacks to many times the upload. Past this it is
+# refused rather than unpacked (a "zip bomb" would otherwise exhaust memory).
+MAX_DOCX_UNPACKED_BYTES = 40 * 1024 * 1024
 _UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -89,6 +95,11 @@ def validate_upload(
     if ext == ".pdf" and not content.startswith(_PDF_MAGIC):
         return False, "This file is named .pdf but its contents are not a valid PDF."
 
+    if ext == ".docx":
+        problem = _docx_problem(content)
+        if problem:
+            return False, problem
+
     if ext == ".txt":
         if content.startswith(_PDF_MAGIC):
             return False, "This file is named .txt but its contents are a PDF."
@@ -101,6 +112,23 @@ def validate_upload(
                 return False, "The text file could not be decoded. Please save it as UTF-8."
 
     return True, f"'{safe_name}' accepted."
+
+
+def _docx_problem(content: bytes) -> str:
+    """Why this is not a readable Word document, or "" when it is."""
+    if not content.startswith(_ZIP_MAGIC):
+        return "This file is named .docx but its contents are not a Word document."
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            names = set(archive.namelist())
+            unpacked = sum(info.file_size for info in archive.infolist())
+    except (zipfile.BadZipFile, ValueError):
+        return "This file is named .docx but its contents are not a Word document."
+    if "word/document.xml" not in names:
+        return "This file is named .docx but its contents are not a Word document."
+    if unpacked > MAX_DOCX_UNPACKED_BYTES:
+        return "This Word file is too large to read. Please save a shorter version."
+    return ""
 
 
 # --------------------------------------------------------------------------
