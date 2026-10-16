@@ -83,7 +83,7 @@ metric_row(
         ("Pieces of work", len(my_submissions), "Everything you have added so far."),
         (
             "Average score",
-            f"{average}%" if average is not None else "—",
+            f"{average}%" if average is not None else "No marks yet",
             "Across every question you have uploaded.",
         ),
         (
@@ -93,7 +93,7 @@ metric_row(
         ),
         (
             "Weakest topic",
-            weakest[0] if weakest else "—",
+            weakest[0] if weakest else "Pending first test",
             "Where a study camp would help most.",
         ),
     ]
