@@ -1049,7 +1049,7 @@ def privacy_notice() -> None:
         _privacy_page_link("Read the full privacy details")
 
 
-def _privacy_page_link(label: str, icon: str = "") -> None:
+def _privacy_page_link(label: str, icon: str | None = None) -> None:
     """Use Streamlit's in-app navigation, with a direct-page test fallback.
 
     The application registers Privacy in `app.py`. A few focused page tests run
