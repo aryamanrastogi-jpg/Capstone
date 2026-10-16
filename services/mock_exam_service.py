@@ -19,7 +19,8 @@ import pandas as pd
 
 from models import Assessment, GradingResult
 from models.mock_exam import MockExam, MockExamItem
-from services import grading_service
+from models.submission import MOCK_EXAM_SOURCE
+from services import assessment_service, grading_service
 from services.study_camp_service import baseline_for
 
 DEFAULT_QUESTION_COUNT = 5
@@ -61,7 +62,11 @@ def question_pool(assessments: Sequence[Assessment], topics: Sequence[str]) -> L
             if key in seen:
                 continue
             seen.add(key)
-            pool.append(MockExamItem(topic=assessment.topic, question=question))
+            pool.append(
+                MockExamItem(
+                    topic=assessment.topic, question=question, assessment_id=assessment.id
+                )
+            )
     return pool
 
 
@@ -107,6 +112,7 @@ def build_exam(
         time_limit_minutes=max(1, len(items) * int(minutes_per_question)),
         started_at=now or datetime.now(),
         baseline_percentage=baseline,
+        topic_baselines=topic_baselines(frame, topics),
     )
 
 
@@ -145,14 +151,77 @@ def submit_exam(
         item.question.id: (answers.get(item.question.id) or "").strip()
         for item in exam.items
     }
-    exam.results = [
-        grading_service.grade_submission(
+    outcomes = [
+        grading_service.grade_submission_outcomes(
             [item.question], "", exam.id, answers=exam.answers
         )[0]
         for item in exam.items
     ]
+    exam.results = [outcome.result for outcome in outcomes]
+    exam.ai_unavailable = any(outcome.ai_was_unavailable for outcome in outcomes)
     exam.submitted_at = now
     return exam
+
+
+def save_to_history(
+    exam: MockExam,
+    student_label: str,
+    assessments: Sequence[Assessment] = (),
+) -> List[str]:
+    """Save a handed-in paper as the student's own work, so it counts.
+
+    One self-study record per set the questions came from - the shape My
+    Work already saves, so My Progress, Study Camp and the database rules need
+    nothing new. Each is labelled as a mock exam (MOCK_EXAM_SOURCE), which
+    keeps it out of the attempt loop: a timed paper must not use up attempts
+    on, or settle questions in, the sets it borrowed from.
+
+    All or nothing: if any write fails, the records already written are taken
+    back out and the error is raised. Returns the new records' ids.
+    """
+    if not exam.is_submitted:
+        raise ValueError("Hand the paper in before saving it.")
+    if exam.saved_submission_ids:
+        return list(exam.saved_submission_ids)
+
+    set_of = {q.id: a.id for a in assessments for q in a.questions}
+    results_by_question = {r.question_id: r for r in exam.results}
+    groups: Dict[str, List[MockExamItem]] = {}
+    for item in exam.items:
+        set_id = item.assessment_id or set_of.get(item.question.id)
+        if set_id and item.question.id in results_by_question:
+            groups.setdefault(set_id, []).append(item)
+
+    saved: List[str] = []
+    try:
+        for set_id, items in groups.items():
+            submission = assessment_service.build_submission(
+                assessment_id=set_id,
+                student_identifier=student_label,
+                answers={i.question.id: exam.answers.get(i.question.id, "") for i in items},
+                questions=[i.question for i in items],
+                uploaded_filename=MOCK_EXAM_SOURCE,
+                student_id=exam.student_id,
+                is_self_study=True,
+            )
+            submission.submitted_at = exam.submitted_at or datetime.now()
+            assessment_service.save_submission(submission)
+            saved.append(submission.id)
+            for item in items:
+                result = results_by_question[item.question.id]
+                assessment_service.save_grading_result(
+                    result.model_copy(update={"submission_id": submission.id})
+                )
+    except Exception:
+        for submission_id in saved:
+            try:
+                assessment_service.delete_submission(submission_id)
+            except Exception:  # noqa: BLE001 - best effort; the first error matters
+                pass
+        raise
+    exam.saved_submission_ids = saved
+    exam.save_failed = False
+    return saved
 
 
 def _percentage(results: Sequence[GradingResult]) -> Optional[float]:
@@ -174,7 +243,10 @@ def topic_baselines(frame: pd.DataFrame, topics: Sequence[str]) -> Dict[str, Opt
 def score_summary(exam: MockExam, frame: Optional[pd.DataFrame] = None) -> Dict[str, object]:
     """Overall and per-topic AI-estimated scores, against the baseline."""
     by_id = {r.question_id: r for r in exam.results}
-    baselines = topic_baselines(frame, exam.topics) if frame is not None else {}
+    if exam.topic_baselines:
+        baselines = exam.topic_baselines
+    else:  # a paper set before the baselines were stored with it
+        baselines = topic_baselines(frame, exam.topics) if frame is not None else {}
     topics = []
     for topic in exam.topics:
         topic_results = [

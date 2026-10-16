@@ -197,7 +197,8 @@ with left:
                 [
                     {
                         "Student": s.student_identifier,
-                        "Work": titles.get(s.assessment_id, "Unknown"),
+                        "Work": ("Mock exam: " if s.is_mock_exam else "")
+                        + titles.get(s.assessment_id, "Unknown"),
                         "Status": submission_status_label(s.status),
                         "Added": s.submitted_at.strftime("%d %b"),
                     }

@@ -34,11 +34,17 @@ def attempts_for(
     assessment_id: str,
     submissions: Iterable[Submission],
 ) -> List[Submission]:
-    """Every attempt one student has made at one set, oldest first."""
+    """Every attempt one student has made at one set, oldest first.
+
+    A mock exam saved against the set is not an attempt: it is a timed paper
+    that borrowed the question, and it must not use up the student's goes.
+    """
     mine = [
         s
         for s in submissions
-        if s.student_id == student_id and s.assessment_id == assessment_id
+        if s.student_id == student_id
+        and s.assessment_id == assessment_id
+        and not s.is_mock_exam
     ]
     return sorted(mine, key=lambda s: (s.attempt_number, s.submitted_at))
 

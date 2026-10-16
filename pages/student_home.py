@@ -87,6 +87,10 @@ my_results = service.list_grading_results(student_id=student.id)
 frame = analytics.student_dataframe(student.id, my_results, assessments, my_submissions)
 
 average = round(float(frame["percentage"].mean()), 1) if not frame.empty else None
+# A mock exam is saved once per set its questions came from; it is one sitting.
+pieces_of_work = len([s for s in my_submissions if not s.is_mock_exam]) + len(
+    {s.submitted_at for s in my_submissions if s.is_mock_exam}
+)
 weakest = analytics.weakest_topics(frame, limit=1)
 # The prompt to build a camp only below the camp's own threshold: Study
 # Camp would otherwise answer "you are in good shape" for a topic at 96%.
@@ -94,7 +98,7 @@ needs_camp = analytics.weakest_topics(frame, limit=1, ceiling=camps.WEAKNESS_CEI
 
 metric_row(
     [
-        ("Pieces of work", len(my_submissions), "Everything you have added so far."),
+        ("Pieces of work", pieces_of_work, "Everything you have added so far; a mock exam counts once."),
         (
             "Average score",
             f"{average}%" if average is not None else "No marks yet",
@@ -524,7 +528,8 @@ for submission in recent:
     official = all(r.is_finalised for r in results)
 
     header = (
-        f"{parent.title} · {submission.submitted_at.strftime('%d %b %Y')} · "
+        f"{'Mock exam: ' if submission.is_mock_exam else ''}{parent.title} · "
+        f"{submission.submitted_at.strftime('%d %b %Y')} · "
         + (f"{awarded:g}/{available:g}" if scored else "no score yet")
     )
     with st.expander(header, expanded=submission is recent[0]):

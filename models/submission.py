@@ -20,6 +20,13 @@ class SubmissionStatus(str, Enum):
     REVIEWED = "reviewed"        # teacher has signed off on every question
 
 
+# The `uploaded_filename` of work saved from a Mock Exam sitting. Shown to the
+# teacher as its source, and what tells the attempt loop to leave it out. A
+# real upload can never collide with it: uploaded names are sanitised and so
+# contain no spaces.
+MOCK_EXAM_SOURCE = "Mock exam (timed)"
+
+
 class Submission(BaseModel):
     id: str = Field(default_factory=lambda: f"sub_{uuid.uuid4().hex[:8]}")
     assessment_id: str
@@ -94,6 +101,11 @@ class Submission(BaseModel):
     def is_segmented(self) -> bool:
         """True when answers are held per question rather than as one block."""
         return bool(self.answers)
+
+    @property
+    def is_mock_exam(self) -> bool:
+        """Saved from a Mock Exam sitting rather than added as an attempt."""
+        return self.uploaded_filename == MOCK_EXAM_SOURCE
 
     def answer_for(self, question_id: str) -> str:
         """The answer to one question.

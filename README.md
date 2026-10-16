@@ -63,7 +63,7 @@ their homework for them.
 | **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. Or start from a file: upload the worksheet (PDF, Word or text - a Google Doc downloads as either) and its numbered questions, marks and any answer key fill the table, ready to check and save. Every saved set can be opened, edited (wording, answers, marks, adding or removing a question) or deleted. |
 | **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
-| **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. |
+| **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. The result is saved to your work as a mock exam, so it counts in My Progress and Study Camp without using any attempts on the sets its questions came from. |
 | **Practice Generator** | Practice picked from your own results: weakest topics first, the error types that keep recurring, at a matching difficulty — and each question says why it was chosen. Method pointers, never worked solutions. |
 | **Profile** | Name, year group and profile photo; redeem a teacher invite code; delete your account. |
 
@@ -181,7 +181,7 @@ moves to a different framework, the services come across unchanged.
 ├── docs/                       # deployment, metrics, testing plan, presentation
 ├── scripts/evaluate_grading.py # grading accuracy report
 ├── utils/                      # config and validation
-├── tests/                      # 731 pytest tests
+├── tests/                      # 736 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -306,7 +306,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-731 tests, covering:
+736 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions

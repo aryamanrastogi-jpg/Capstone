@@ -15,7 +15,7 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 import pandas as pd
 
-from models import Assessment, GradingResult, ReviewStatus, Submission
+from models import Assessment, AssessmentType, GradingResult, ReviewStatus, Submission
 
 # Statuses that represent a teacher decision that a score is real.
 FINALISED_STATUSES = (ReviewStatus.APPROVED, ReviewStatus.EDITED)
@@ -108,15 +108,21 @@ def results_dataframe(
         if score is None:
             continue
 
+        # Work saved from a Mock Exam sitting counts as the type of work it
+        # was - a timed mock - not as the homework its questions came from.
+        from_mock = submission is not None and submission.is_mock_exam
         rows.append(
             {
                 "submission_id": result.submission_id,
                 "student_id": submission.student_id if submission else None,
                 "student_identifier": submission.student_identifier if submission else "unknown",
                 "assessment_id": assessment.id if assessment else "unknown",
-                "assessment_title": assessment.title if assessment else "Unknown assessment",
+                "assessment_title": (
+                    f"Mock exam: {assessment.title}" if from_mock else assessment.title
+                ),
                 "assessment_type": (
-                    assessment.assessment_type.label if assessment else "Unknown"
+                    AssessmentType.MOCK_EXAM.label if from_mock
+                    else assessment.assessment_type.label
                 ),
                 "topic": assessment.topic if assessment else "Unknown topic",
                 "grade_level": assessment.grade_level if assessment else None,

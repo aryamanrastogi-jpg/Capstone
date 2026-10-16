@@ -60,6 +60,15 @@ def _answer_key(question_id: str) -> str:
     return f"mock_answer_{exam.id}_{question_id}"
 
 
+def _save_to_history(paper) -> None:
+    """Save the handed-in paper as the student's work. A failure is shown on
+    the results screen with a way to try again; the paper itself is kept."""
+    try:
+        exams.save_to_history(paper, service.student_label(student.display_name), assessments)
+    except Exception:  # noqa: BLE001 - shown plainly, with a retry
+        paper.save_failed = True
+
+
 # ---------------------------------------------------------------------------
 # No exam yet: set one up
 # ---------------------------------------------------------------------------
@@ -187,6 +196,7 @@ if not exam.is_submitted:
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:
+            _save_to_history(exam)
             st.rerun()
 
     # A blank answer scores 0 and the paper is compared as a real result, so
@@ -233,10 +243,27 @@ st.info(
     "mark. Use them to see where to focus next.",
     icon=":material/gavel:",
 )
-st.caption(
-    "A mock exam is practice for this visit only: it is not added to My "
-    "Progress or Study Camp, and it is gone once you leave or refresh the page."
-)
+if exam.saved_submission_ids:
+    st.caption(
+        ":material/check_circle: Saved to your work as a mock exam. It now counts "
+        "in My Progress and Study Camp, and uses none of your attempts on the sets "
+        "its questions came from."
+    )
+else:
+    st.warning(
+        "This result could not be saved to My Progress just now. It is still "
+        "here until you leave or refresh the page.",
+        icon=":material/cloud_off:",
+    )
+    if st.button("Save it now", key=f"mock_save_{exam.id}"):
+        _save_to_history(exam)
+        st.rerun()
+if exam.ai_unavailable:
+    st.warning(
+        "The AI marker was busy (it has a free daily limit), so the simpler "
+        "built-in marker made these estimates - they are rougher than usual.",
+        icon=":material/hourglass_top:",
+    )
 if summary["late"]:
     st.warning(
         "This paper was submitted after the time limit, so the score is not a "
