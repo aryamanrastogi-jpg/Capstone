@@ -30,6 +30,7 @@ import secrets
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from postgrest.exceptions import APIError
 from postgrest.types import ReturnMethod
 
 from models import (
@@ -544,12 +545,59 @@ class SupabaseRepository(Repository):
         return [mappers.grading_result_from_row(r) for r in query.execute().data or []]
 
     def save_grading_result(self, result: GradingResult) -> GradingResult:
-        # (submission_id, question_id) is the primary key, so upsert is the
-        # re-grade path as well as the first-grade path.
-        self._client.table("grading_results").upsert(
-            mappers.grading_result_to_row(result), returning=ReturnMethod.minimal
-        ).execute()
+        # An explicit insert or update, never an upsert. Under RLS, Postgres
+        # needs SELECT on EVERY column for INSERT ... ON CONFLICT DO UPDATE,
+        # and teacher_note, errors and correct_elements are withheld from
+        # direct reads (db/policies.sql), so an upsert is refused outright.
+        # Both writes return nothing for the same reason.
+        row = mappers.grading_result_to_row(result)
+        existing = (
+            self._client.table("grading_results")
+            .select("submission_id")
+            .eq("submission_id", result.submission_id)
+            .eq("question_id", result.question_id)
+            .limit(1)
+            .execute()
+            .data
+        )
+        if existing:
+            self._update_grading_result(result, row)
+            return result
+        try:
+            self._client.table("grading_results").insert(
+                row, returning=ReturnMethod.minimal
+            ).execute()
+        except APIError as exc:
+            # Another request saved this result between the check and the
+            # insert (unique_violation). Treat it as the re-grade it now is.
+            if exc.code != "23505":
+                raise
+            self._update_grading_result(result, row)
         return result
+
+    def _update_grading_result(self, result: GradingResult, row: Dict[str, Any]) -> None:
+        """A re-grade or a teacher's review decision, written in place.
+
+        Only a teacher may change a saved result (grading_results_update_teacher
+        in db/policies.sql). For anyone else RLS would match no row and the
+        update would "succeed" having changed nothing, so it is refused here
+        instead of reporting a save that never happened.
+        """
+        from services import auth_service
+
+        viewer = auth_service.current_user()
+        if viewer is None or not viewer.is_teacher:
+            raise PermissionError(
+                "This result is already saved, and only a teacher can change it."
+            )
+        changes = {
+            k: v for k, v in row.items() if k not in ("submission_id", "question_id")
+        }
+        self._client.table("grading_results").update(
+            changes, returning=ReturnMethod.minimal
+        ).eq("submission_id", result.submission_id).eq(
+            "question_id", result.question_id
+        ).execute()
 
     # --- Users ---------------------------------------------------------
     def list_users(self) -> List[User]:

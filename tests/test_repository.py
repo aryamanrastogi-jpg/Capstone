@@ -26,6 +26,8 @@ from datetime import date
 from typing import Any, Dict, List
 
 import pytest
+from postgrest.exceptions import APIError
+from postgrest.types import ReturnMethod
 
 from models import (
     Assessment,
@@ -59,6 +61,7 @@ class _Query:
         self._filters: List[Any] = []
         self._op = "select"
         self._payload: Any = None
+        self._kwargs: Dict[str, Any] = {}
 
     # --- builder ---
     def select(self, *_columns: str) -> "_Query":
@@ -66,9 +69,10 @@ class _Query:
         self._db.select_calls.append(self._table)
         return self
 
-    def insert(self, payload: Any) -> "_Query":
+    def insert(self, payload: Any, **kwargs: Any) -> "_Query":
         self._op = "insert"
         self._payload = payload
+        self._kwargs = kwargs
         return self
 
     def upsert(self, payload: Any, **_kwargs: Any) -> "_Query":
@@ -76,9 +80,10 @@ class _Query:
         self._payload = payload
         return self
 
-    def update(self, payload: Dict[str, Any]) -> "_Query":
+    def update(self, payload: Dict[str, Any], **kwargs: Any) -> "_Query":
         self._op = "update"
         self._payload = payload
+        self._kwargs = kwargs
         return self
 
     def delete(self) -> "_Query":
@@ -102,6 +107,8 @@ class _Query:
 
     def execute(self) -> _Response:
         rows = self._db.tables.setdefault(self._table, [])
+        self._db.operations.append((self._table, self._op))
+        self._db.write_kwargs.append((self._table, self._op, dict(self._kwargs)))
 
         if self._op == "select":
             return _Response([dict(r) for r in rows if self._matches(r)])
@@ -116,8 +123,10 @@ class _Query:
                 for index, existing in enumerate(rows):
                     if tuple(existing.get(k) for k in keys) == identity:
                         if self._op == "insert":
-                            raise AssertionError(
-                                f"duplicate key in {self._table}: {identity}"
+                            # What PostgREST returns for a unique_violation.
+                            raise APIError(
+                                {"code": "23505", "message":
+                                 f"duplicate key in {self._table}: {identity}"}
                             )
                         rows[index] = dict(new_row)
                         break
@@ -161,6 +170,10 @@ class FakeSupabase:
         }
         # Every select, in order, so a test can assert on round trips.
         self.select_calls: List[str] = []
+        # Every executed (table, operation), in order.
+        self.operations: List[tuple] = []
+        # Every executed (table, operation, keyword arguments), in order.
+        self.write_kwargs: List[tuple] = []
 
     def table(self, name: str) -> _Query:
         # The role-specific read views expose rows from the grading table.
@@ -344,10 +357,28 @@ def test_resaving_a_submission_replaces_its_answers(
 # --------------------------------------------------------------------------
 # Grading
 # --------------------------------------------------------------------------
+@pytest.fixture()
+def as_teacher(monkeypatch: pytest.MonkeyPatch) -> User:
+    from services import auth_service
+
+    teacher = User(id="usr_t1", display_name="Teacher", role=Role.TEACHER)
+    monkeypatch.setattr(auth_service, "current_user", lambda: teacher)
+    return teacher
+
+
+@pytest.fixture()
+def as_student(monkeypatch: pytest.MonkeyPatch) -> User:
+    from services import auth_service
+
+    student = User(id="usr_s01", display_name="S-1101", role=Role.STUDENT)
+    monkeypatch.setattr(auth_service, "current_user", lambda: student)
+    return student
+
+
 def test_regrading_updates_the_existing_row(
-    repo: SupabaseRepository, db: FakeSupabase
+    repo: SupabaseRepository, db: FakeSupabase, as_teacher: User
 ) -> None:
-    """(submission_id, question_id) is the key, so a re-grade is an upsert."""
+    """(submission_id, question_id) is the key: a re-grade updates in place."""
     first = GradingResult(
         submission_id="sub_1", question_id="q_1", max_marks=2,
         suggested_score=1, confidence=0.5,
@@ -368,7 +399,73 @@ def test_regrading_updates_the_existing_row(
     assert stored[0].final_score == 1
 
 
-def test_grading_results_scope_to_one_submission(repo: SupabaseRepository) -> None:
+def test_grading_results_are_never_upserted(
+    repo: SupabaseRepository, db: FakeSupabase, as_teacher: User
+) -> None:
+    """Under RLS an upsert needs SELECT on every column, and the teacher-only
+    columns are withheld, so the live database refuses it (42501). The first
+    grade must be a plain insert and a review a plain update."""
+    result = GradingResult(
+        submission_id="sub_1", question_id="q_1", max_marks=2,
+        suggested_score=1, confidence=0.5,
+    )
+    repo.save_grading_result(result)
+    repo.save_grading_result(result)
+
+    writes = [op for table, op in db.operations
+              if table == "grading_results" and op != "select"]
+    assert writes == ["insert", "update"]
+    # Returning the row would need SELECT on the withheld columns as well.
+    assert all(
+        kwargs.get("returning") == ReturnMethod.minimal
+        for table, op, kwargs in db.write_kwargs
+        if table == "grading_results" and op != "select"
+    )
+
+
+def test_a_student_cannot_overwrite_a_saved_result(
+    repo: SupabaseRepository, db: FakeSupabase, as_student: User
+) -> None:
+    """RLS would match no row and change nothing; say so instead."""
+    result = GradingResult(
+        submission_id="sub_1", question_id="q_1", max_marks=2,
+        suggested_score=1, confidence=0.5,
+    )
+    repo.save_grading_result(result)
+
+    with pytest.raises(PermissionError):
+        repo.save_grading_result(result.model_copy(update={"suggested_score": 2}))
+    assert db.tables["grading_results"][0]["suggested_score"] == 1
+
+
+def test_a_result_saved_in_between_becomes_an_update(
+    repo: SupabaseRepository, db: FakeSupabase, as_teacher: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two saves race: the existence check sees nothing, then the insert
+    collides with the row the other request just wrote (23505)."""
+    first = GradingResult(
+        submission_id="sub_1", question_id="q_1", max_marks=2,
+        suggested_score=1, confidence=0.5,
+    )
+    repo.save_grading_result(first)
+    real_execute = _Query.execute
+
+    def blind_existence_check(self: _Query):
+        if self._table == "grading_results" and self._op == "select":
+            return _Response([])
+        return real_execute(self)
+
+    monkeypatch.setattr(_Query, "execute", blind_existence_check)
+    repo.save_grading_result(first.model_copy(update={"suggested_score": 2}))
+
+    assert len(db.tables["grading_results"]) == 1
+    assert db.tables["grading_results"][0]["suggested_score"] == 2
+
+
+def test_grading_results_scope_to_one_submission(
+    repo: SupabaseRepository, as_teacher: User
+) -> None:
     repo.save_grading_result(
         GradingResult(submission_id="sub_1", question_id="q_1", max_marks=2,
                       suggested_score=1, confidence=0.5)

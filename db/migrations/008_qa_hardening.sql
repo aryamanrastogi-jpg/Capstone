@@ -174,12 +174,12 @@ create policy submissions_delete_own on public.submissions
 -- explanations, correct-elements text, and the teacher-only note. Only error
 -- categories with a generic prompt are returned for student analytics.
 revoke select on public.grading_results from public, anon, authenticated;
--- Column-level read access, not none. Every write to this table is an upsert
--- (INSERT ... ON CONFLICT DO UPDATE), which must read the key columns to find
--- the conflicting row, and RLS checks that existing row against the SELECT
--- policy. With no SELECT privilege at all, teacher approvals and AI-result
--- saves would fail. teacher_note, errors and correct_elements stay ungranted,
--- so a direct read cannot reach them; both roles read those through the views.
+-- Column-level read access, not none. The app writes this table with a plain
+-- INSERT or UPDATE (services/repository.py), and finding the row to update
+-- reads the key columns. It must NOT upsert: under RLS, INSERT ... ON CONFLICT
+-- DO UPDATE needs SELECT on every column, and is refused with 42501.
+-- teacher_note, errors and correct_elements stay ungranted, so a direct read
+-- cannot reach them; both roles read those through the views.
 grant select (submission_id, question_id, max_marks, suggested_score,
               confidence, student_feedback, review_status,
               teacher_approved_score, teacher_approved_feedback, graded_at)
