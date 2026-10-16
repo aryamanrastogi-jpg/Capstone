@@ -20,7 +20,10 @@ from typing import Any, Optional
 
 from utils.config import Settings
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+# Google limits the 2.5 models to projects that already used them and points
+# new projects at 3.8 Flash (stable, free tier) - checked 16 Oct 2026 on
+# https://ai.google.dev/gemini-api/docs/models.
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 # Free-tier limits are per minute, so a short back-off usually clears a 429.
 # Kept small: a student is waiting, and a daily quota will not clear at all.

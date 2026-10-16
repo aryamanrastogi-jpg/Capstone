@@ -55,12 +55,12 @@ their homework for them.
 
 | Page | What it does |
 |---|---|
-| **My Work** | Upload past work (typed, `.txt` or digital PDF) and get an instant estimate: score, what went well, which *categories* of mistake, and next steps. Optionally record the mark your teacher gave. |
+| **My Work** | Upload past work (typed, `.txt`, Word `.docx` or digital PDF) and get an instant estimate: score, what went well, which *categories* of mistake, and next steps. Optionally record the mark your teacher gave. |
 | **The attempt loop** | Work a set, and the questions you get right — 80% of the marks or better — *settle* and drop out. The next attempt covers only what is left, so your time goes where it is still needed. Capped at 10 attempts — past that, another guess is not what helps, and the app says so. |
 | **Compare your attempts** | Every go at a question side by side: what you wrote each time, what it scored, and the change. What you altered between two attempts is the actual learning. |
 | **Shared library** | Share a question set and any student can take a copy. A copy is a copy — their own attempts, their own progress, and nothing they do reaches your set. Your answers and scores are never shared. |
 | **Guidance** | On any set, *Show me how to approach these* gives the method for each question — how to go at it, what a full answer contains, and the easy marks to lose. Built from the question text alone, so it cannot contain the answer. A set with no answers saved gets this instead of a score. |
-| **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. Every saved set can be opened, edited (wording, answers, marks, adding or removing a question) or deleted. |
+| **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. Or start from a file: upload the worksheet (PDF, Word or text - a Google Doc downloads as either) and its numbered questions, marks and any answer key fill the table, ready to check and save. Every saved set can be opened, edited (wording, answers, marks, adding or removing a question) or deleted. |
 | **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
 | **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. |
@@ -72,7 +72,7 @@ their homework for them.
 | Page | What it does |
 |---|---|
 | **Class Overview** | Roster of your students with averages, weakest topics and last activity — plus the **mark mismatch panel**. |
-| **Create Assessment** | Author questions, model answers, marking criteria and marks. Tag the work as homework, exercise, mock exam or exam. Your own assessments can be opened, edited or deleted afterwards; work already handed in stays attached to every question you keep. |
+| **Create Assessment** | Author questions, model answers, marking criteria and marks - typed, or imported from a question paper file (PDF, Word or text) instead of one cell at a time. Tag the work as homework, exercise, mock exam or exam. Your own assessments can be opened, edited or deleted afterwards; work already handed in stays attached to every question you keep. |
 | **Upload Responses** | Add a response on a student's behalf and link it to their account. Uploaded answers are split per question (`Q1`, `1.`, `Question 1`…) with an editable preview; when the split is not confident, the whole text is graded as before and the page says why. |
 | **Review Grading** | Accept, edit or flag every AI recommendation. Nothing counts until you act. |
 | **Class Analytics** | Score distribution, hardest questions, error categories, revision priorities, and how often you accept the AI unedited. |
@@ -100,7 +100,7 @@ enough to be worth a second look — in either direction.
 
 ## Technology stack
 
-Python 3.11+ · Streamlit · Pydantic · Pandas · Plotly · PyMuPDF · python-dotenv ·
+Python 3.11+ · Streamlit · Pydantic · Pandas · Plotly · PyMuPDF · python-docx · python-dotenv ·
 Supabase Python client · Pytest
 
 The whole application runs as a single Streamlit project. No separate frontend,
@@ -141,6 +141,7 @@ moves to a different framework, the services come across unchanged.
 │   ├── guidance.py             # renders Guidance
 │   ├── layout.py               # page header, sidebar, metrics, empty states
 │   ├── question_set_editor.py  # see, edit and delete a saved question set
+│   ├── question_import.py      # start a question set from an uploaded file
 │   ├── navigation.py           # role-aware st.Page / st.navigation
 │   └── status_badges.py        # review, submission and confidence badges
 ├── models/
@@ -157,6 +158,7 @@ moves to a different framework, the services come across unchanged.
 │   ├── ai_grading_service.py   # AI provider slot, output validation, fallback
 │   ├── grading_evaluation.py   # accuracy metrics against teacher marks
 │   ├── answer_splitter.py      # splits uploaded text into per-question answers
+│   ├── question_import.py      # reads the questions, marks and answers out of a paper
 │   ├── targeted_practice_service.py  # practice from a student's error history
 │   ├── mock_exam_service.py    # builds, times and marks mock exams
 │   ├── report_service.py       # CSV / PDF reports of approved results
@@ -165,7 +167,7 @@ moves to a different framework, the services come across unchanged.
 │   ├── analytics_service.py    # all Pandas maths, including the trend analysis
 │   ├── study_camp_service.py   # builds camps from weak topics
 │   ├── assessment_service.py   # storage for everything
-│   ├── document_service.py     # TXT / digital-PDF text extraction
+│   ├── document_service.py     # TXT / Word / digital-PDF text extraction
 │   ├── attempt_service.py      # the attempt loop: what is settled, what is left
 │   ├── hint_service.py         # guidance + the escalating hint ladder
 │   ├── practice_service.py     # template practice generator
@@ -179,7 +181,7 @@ moves to a different framework, the services come across unchanged.
 ├── docs/                       # deployment, metrics, testing plan, presentation
 ├── scripts/evaluate_grading.py # grading accuracy report
 ├── utils/                      # config and validation
-├── tests/                      # 699 pytest tests
+├── tests/                      # 725 pytest tests
 ├── CODE_WALKTHROUGH.md         # guided tour of the codebase
 └── README.md
 ```
@@ -272,16 +274,18 @@ cp .env.example .env
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 LLM_API_KEY=
-LLM_MODEL=gemini:gemini-2.5-flash
+LLM_MODEL=gemini:gemini-3.8-flash
 ```
 
 - All four are **optional**. The app runs fully without any of them.
 - Supabase uses only `SUPABASE_PUBLISHABLE_KEY` for its client key.
 - `LLM_API_KEY` and `LLM_MODEL` (`provider:model`) switch grading to an AI model.
   Google Gemini is built in: get a free key at https://aistudio.google.com/apikey
-  and set `LLM_MODEL=gemini:gemini-2.5-flash` (any Gemini model id works after
-  the colon). If a call fails, is rate-limited or returns output that breaks the
-  rules, that answer is marked by the rule-based grader instead.
+  and set `LLM_MODEL=gemini:gemini-3.8-flash` (any Gemini model id works after
+  the colon; the 2.5 models are now served only to projects that used them
+  before). If a call fails, is rate-limited or returns output that breaks the
+  rules, that answer is marked by the rule-based grader instead, and the page
+  says the AI was busy.
 - The same key also has Gemini write the hints (approach guidance and the
   step-by-step hint ladder) and the practice questions, aimed at the questions
   a student lost marks on. Each falls back to its built-in templates in the
@@ -302,7 +306,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-699 tests, covering:
+725 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions
@@ -321,6 +325,10 @@ python -m pytest -v
   loop, and finishing is distinguished from running out of attempts
 - **The library** — a set is private until shared, a copy gets fresh question ids,
   and editing a copy never touches the original
+- **Importing a paper** — numbered questions split in order (a numbered list of
+  working steps inside a question is not split), marks and answer keys are read,
+  nothing is invented, Word list numbers are kept, and anything the AI reading
+  returns must be found in the file's own text
 - **Editing a set** — a kept question keeps its id, and so its answers and marks; a
   form opened before another save cannot delete questions it never saw; questions
   with reviewed work cannot be removed by the student; a re-marked question scales
@@ -364,7 +372,8 @@ A prototype. A privacy notice on every page says what is stored and who can see 
 - Users can delete their own account from Profile
 - Data is scoped by student ID in the **service layer**, not in the pages
 - Environment variables are never rendered in the UI or written to logs
-- Uploads restricted to `.txt` and `.pdf`, capped at 5 MB
+- Uploads restricted to `.txt`, `.docx` and `.pdf`, capped at 5 MB (a Word file is
+  also refused if it would unpack to more than 40 MB)
 - File **contents** are checked against the claimed extension
 - Uploaded filenames are sanitised before use
 
