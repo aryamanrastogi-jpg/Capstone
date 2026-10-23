@@ -569,124 +569,472 @@ _STYLES = f"""
   }}
 
   /* --- Landing page ---------------------------------------------------- */
+  /* The welcome page is the app's one dark screen, after the HackerRank
+     landing page Aryaman picked: a near-black canvas, a huge centred
+     headline with an icon set into it, a green glow under the main button,
+     then a white "choose your path" panel and dark product sections. Every
+     rule is scoped to this page (through its h1 or a cp- class), so the
+     inner pages keep their pale indigo canvas. */
+  .stApp:has(.campprep-hero-title) {{
+      background: {palette.NIGHT_DEEP};
+      color: {palette.ON_DARK};
+  }}
+  .stApp:has(.campprep-hero-title) [data-testid="stHeader"] {{
+      background: transparent;
+      backdrop-filter: none;
+  }}
+  .stApp:has(.campprep-hero-title) [data-testid="stHeader"] button {{
+      color: {palette.ON_DARK_MUTED};
+  }}
+  .stMainBlockContainer:has(.campprep-hero-title) {{
+      max-width: 1240px;
+      padding-top: 1.4rem;
+  }}
+
+  /* Top bar: the emblem and name, and anchors down the page. */
+  {_IN} .cp-nav {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+  }}
+  {_IN} .cp-brand {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      color: #FFFFFF;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+  }}
+  {_IN} .cp-brand img {{ width: 38px; height: 38px; }}
+  {_IN} .cp-nav-links {{
+      display: flex;
+      align-items: center;
+      gap: 1.7rem;
+  }}
+  {_IN} .cp-nav-links a {{
+      color: {palette.ON_DARK_MUTED};
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 150ms ease, border-color 150ms ease;
+  }}
+  {_IN} .cp-nav-links a:hover {{ color: #FFFFFF; }}
+  {_IN} .cp-nav-links a.cp-nav-pill {{
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      padding: 0.45rem 1.05rem;
+  }}
+  {_IN} .cp-nav-links a.cp-nav-pill:hover {{ border-color: {palette.GREEN}; }}
+
+  /* Hero: a faint grid fading out from the centre, and a green glow where
+     the button sits. */
+  {_IN} .cp-hero {{
+      position: relative;
+      isolation: isolate;
+      text-align: center;
+      padding: 5.5rem 0 0.4rem 0;
+  }}
+  {_IN} .cp-hero::before {{
+      content: "";
+      position: absolute;
+      inset: -3rem 0 -9rem 0;
+      z-index: -1;
+      background-image:
+          linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 64px 64px;
+      -webkit-mask-image: radial-gradient(55% 60% at 50% 45%, #000 0%, transparent 75%);
+      mask-image: radial-gradient(55% 60% at 50% 45%, #000 0%, transparent 75%);
+  }}
+  {_IN} .cp-hero::after {{
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -9rem;
+      width: min(760px, 100%);
+      height: 340px;
+      transform: translateX(-50%);
+      z-index: -1;
+      background: radial-gradient(closest-side, rgba(118, 196, 87, 0.22), rgba(118, 196, 87, 0));
+  }}
   {_IN} .campprep-hero-eyebrow {{
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      color: {palette.PRIMARY};
-      background: {palette.SURFACE};
-      border: 1px solid {palette.BORDER};
-      box-shadow: var(--cp-shadow);
+      gap: 0.5rem;
+      color: {palette.ON_DARK};
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 999px;
-      padding: 0.25rem 0.85rem 0.25rem 0.35rem;
-      font-size: 0.78rem;
-      font-weight: 700;
+      padding: 0.3rem 0.95rem 0.3rem 0.35rem;
+      font-size: 0.8rem;
+      font-weight: 650;
   }}
   {_IN} .campprep-hero-eyebrow b {{
-      background: {palette.TINT_CORRECT[0]};
-      color: {palette.TINT_CORRECT[1]};
+      background: rgba(118, 196, 87, 0.16);
+      color: {palette.GREEN};
       border-radius: 999px;
-      padding: 0.05rem 0.55rem;
+      padding: 0.08rem 0.6rem;
       font-size: 0.68rem;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
   }}
+  /* Grey fading up into white, the way the reference's headline does. */
   {_IN} .campprep-hero-title {{
-      font-size: clamp(2.2rem, 1.4rem + 3vw, 3.6rem);
-      font-weight: 800;
+      font-size: clamp(2.5rem, 0.9rem + 5vw, 5.2rem);
+      font-weight: 600;
       line-height: 1.02;
-      letter-spacing: -0.045em;
-      color: {palette.INK};
-      margin: 1.1rem 0 1rem 0;
+      letter-spacing: -0.055em;
+      margin: 1.6rem auto 1.5rem auto;
       padding: 0;
-  }}
-  {_IN} .campprep-hero-title span {{
-      background: linear-gradient(95deg, {palette.PRIMARY} 10%, {palette.TINT_HINT[1]} 95%);
+      background: linear-gradient(180deg, #4F557F 0%, #B9BEE0 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
   }}
-  /* An orange marker swipe under one word. */
-  {_IN} .campprep-hero-title em {{
-      font-style: normal;
-      white-space: nowrap;
-      background: linear-gradient(180deg, transparent 64%,
-                  rgba(255, 145, 0, 0.55) 64%, rgba(255, 145, 0, 0.55) 88%,
-                  transparent 88%);
+  {_IN} .campprep-hero-title span {{
+      display: block;
+      padding-bottom: 0.06em;
+      background: linear-gradient(180deg, #FFFFFF 35%, #C9CDEA 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+  }}
+  /* The glowing tick set into the second line. */
+  {_IN} .campprep-hero-title i {{
+      display: inline-grid;
+      place-items: center;
+      width: 0.82em;
+      height: 0.82em;
+      margin: 0 0.1em 0 0.06em;
+      vertical-align: -0.08em;
+      border-radius: 0.24em;
+      background: radial-gradient(circle at 30% 25%, #9BE07D 0%, {palette.GREEN} 45%, #2F7A1B 100%);
+      box-shadow: 0 0 0 1px rgba(155, 224, 125, 0.5),
+                  0 0 34px rgba(118, 196, 87, 0.55);
+  }}
+  /* The tick is drawn in CSS: st.html strips inline SVG. */
+  {_IN} .campprep-hero-title i::after {{
+      content: "";
+      width: 0.2em;
+      height: 0.38em;
+      margin-top: -0.08em;
+      border: solid #0B1A05;
+      border-width: 0 0.07em 0.07em 0;
+      border-radius: 0.02em;
+      transform: rotate(45deg);
   }}
   {_IN} .campprep-hero-lede {{
-      font-size: 1.08rem;
+      font-size: 1.12rem;
       line-height: 1.65;
-      color: {palette.MUTED};
-      max-width: 34rem;
-      margin: 0 0 1.3rem 0;
+      color: {palette.ON_DARK_MUTED};
+      max-width: 40rem;
+      margin: 0 auto;
   }}
-  {_IN} .campprep-chips {{
+
+  /* The two calls to action, centred under the lede. */
+  .st-key-landing_cta {{
+      gap: 0.9rem;
+      margin-top: 0.6rem;
+  }}
+  .stMainBlockContainer .st-key-landing_demo button[kind] {{
+      background: {palette.SURFACE_DARK};
+      color: #FFFFFF;
+      border: 1px solid rgba(118, 196, 87, 0.75);
+      border-radius: 12px;
+      padding: 0.75rem 1.6rem;
+      min-height: 3rem;
+      box-shadow: 0 0 0 4px rgba(118, 196, 87, 0.08),
+                  0 0 34px -4px rgba(118, 196, 87, 0.55);
+  }}
+  .stMainBlockContainer .st-key-landing_demo button[kind]:hover {{
+      background: #101633;
+      color: #FFFFFF;
+      border-color: #9BE07D;
+      box-shadow: 0 0 0 4px rgba(118, 196, 87, 0.12),
+                  0 0 44px -2px rgba(118, 196, 87, 0.7);
+  }}
+  .stMainBlockContainer .st-key-landing_demo button[kind]:active:not(:disabled) {{
+      transform: translateY(1px) !important;
+      box-shadow: 0 0 22px -4px rgba(118, 196, 87, 0.55) !important;
+  }}
+  {_IN} .cp-ghost {{
+      display: inline-flex;
+      align-items: center;
+      min-height: 3rem;
+      padding: 0 1.4rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: {palette.ON_DARK};
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: border-color 150ms ease, color 150ms ease;
+  }}
+  {_IN} .cp-ghost:hover {{ border-color: rgba(255, 255, 255, 0.4); color: #FFFFFF; }}
+  {_IN} .cp-proof {{
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      margin: 0 0 1.6rem 0;
+      justify-content: center;
+      gap: 0.5rem 1.6rem;
+      margin: 1.6rem 0 0 0;
+      color: {palette.ON_DARK_MUTED};
+      font-size: 0.86rem;
+      font-weight: 600;
   }}
-  {_IN} .campprep-chip {{
+  {_IN} .cp-proof span {{ display: inline-flex; align-items: center; gap: 0.45rem; }}
+  {_IN} .cp-proof b {{ font-weight: 800; }}
+
+  /* Shared section headings. */
+  {_IN} .cp-kicker {{
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: {palette.GREEN};
+      margin: 0 0 0.9rem 0;
+  }}
+  {_IN} .cp-section-title {{
+      font-size: clamp(2rem, 1.1rem + 2.8vw, 3.3rem);
+      font-weight: 600;
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+      margin: 0 0 0.9rem 0;
+      padding: 0;
+      color: #FFFFFF;
+  }}
+  {_IN} .cp-section-title em {{ font-style: normal; color: {palette.GREEN}; }}
+  {_IN} .cp-section-lede {{
+      font-size: 1rem;
+      line-height: 1.65;
+      color: {palette.ON_DARK_MUTED};
+      max-width: 34rem;
+      margin: 0;
+  }}
+
+  /* "Choose your path": a white panel with big rounded corners holding the
+     two dark cards, one per audience. */
+  {_IN} .cp-panel {{
+      background: {palette.SURFACE};
+      border-radius: 40px;
+      padding: 4.5rem clamp(1.1rem, 4vw, 3.5rem) 3.6rem clamp(1.1rem, 4vw, 3.5rem);
+      margin: 7rem 0 0 0;
+      text-align: center;
+      box-shadow: 0 -30px 90px -50px rgba(118, 196, 87, 0.55);
+  }}
+  {_IN} .cp-panel .cp-section-title {{ color: {palette.INK}; }}
+  {_IN} .cp-panel .cp-section-title em {{ color: {palette.GREEN_ON_LIGHT}; }}
+  {_IN} .cp-panel .cp-section-lede {{ color: {palette.MUTED}; margin: 0 auto 2.6rem auto; }}
+  {_IN} .cp-paths {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.2rem;
+      text-align: left;
+  }}
+  {_IN} .cp-path {{
+      display: flex;
+      flex-direction: column;
+      border-radius: 26px;
+      padding: 2.1rem 2rem 2rem 2rem;
+      color: {palette.ON_DARK};
+      background:
+          radial-gradient(90% 70% at 100% 0%, rgba(118, 196, 87, 0.2) 0%, rgba(118, 196, 87, 0) 60%),
+          {palette.SURFACE_DARK};
+  }}
+  {_IN} .cp-path--teacher {{
+      background:
+          radial-gradient(90% 70% at 100% 0%, rgba(29, 206, 216, 0.18) 0%, rgba(29, 206, 216, 0) 60%),
+          {palette.SURFACE_DARK};
+  }}
+  {_IN} .cp-path h3 {{
+      color: #FFFFFF;
+      font-size: 1.65rem;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.5rem 0;
+      padding: 0;
+  }}
+  {_IN} .cp-path p {{
+      color: {palette.ON_DARK_MUTED};
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin: 0 0 1.2rem 0;
+  }}
+  {_IN} .cp-path ul {{
+      list-style: none;
+      display: grid;
+      gap: 0.6rem;
+      margin: 0 0 1.8rem 0;
+      padding: 0;
+  }}
+  {_IN} .cp-path li {{
+      display: flex;
+      gap: 0.6rem;
+      margin: 0;
+      font-size: 0.93rem;
+      line-height: 1.5;
+      color: {palette.ON_DARK};
+  }}
+  {_IN} .cp-path li::before {{ content: "✓"; color: {palette.GREEN}; font-weight: 800; }}
+  {_IN} .cp-path--teacher li::before {{ color: {palette.CYAN}; }}
+  {_IN} .cp-path small {{
+      display: block;
+      color: {palette.ON_DARK_MUTED};
+      font-size: 0.8rem;
+      line-height: 1.5;
+      margin: -0.6rem 0 1.4rem 0;
+  }}
+  {_IN} .cp-path a {{
+      align-self: flex-start;
+      margin-top: auto;
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      background: {palette.SURFACE};
-      border: 1px solid {palette.BORDER};
-      border-radius: 999px;
-      padding: 0.3rem 0.8rem 0.3rem 0.4rem;
-      font-size: 0.82rem;
-      font-weight: 650;
-      color: {palette.INK};
+      border-radius: 11px;
+      padding: 0.72rem 1.25rem;
+      font-size: 0.93rem;
+      font-weight: 700;
+      text-decoration: none;
+      background: {palette.GREEN};
+      color: #0B1A05;
+      transition: filter 150ms ease, border-color 150ms ease;
   }}
-  {_IN} .campprep-chip i {{
-      display: grid;
-      place-items: center;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      font-style: normal;
-      font-size: 0.7rem;
-      font-weight: 800;
+  {_IN} .cp-path a:hover {{ filter: brightness(1.08); }}
+  {_IN} .cp-path--teacher a {{
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.18);
       color: #FFFFFF;
   }}
-  {_IN} .campprep-steps {{
+  {_IN} .cp-path--teacher a:hover {{ border-color: {palette.CYAN}; filter: none; }}
+
+  /* How it works: three statements beside a picture of the product. Where
+     the browser supports scroll-driven animation, each statement brightens
+     as it scrolls into view, as in the reference. */
+  {_IN} .cp-how {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.8rem;
-      margin: 0.4rem 0 1.2rem 0;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(2rem, 6vw, 5.5rem);
+      align-items: center;
+      padding: 7rem 0 1rem 0;
   }}
+  {_IN} .campprep-steps {{ display: grid; gap: 2.1rem; margin-top: 2.4rem; }}
   {_IN} .campprep-step {{
-      background: {palette.SURFACE};
-      border: 1px solid {palette.BORDER};
-      border-radius: var(--cp-radius);
-      padding: 1rem 1rem 1.05rem 1rem;
-      box-shadow: var(--cp-shadow);
+      border-left: 2px solid rgba(255, 255, 255, 0.1);
+      padding: 0.1rem 0 0.1rem 1.4rem;
   }}
   {_IN} .campprep-step b {{
-      display: grid;
-      place-items: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
-      color: #FFFFFF;
+      display: block;
+      font-size: 0.8rem;
       font-weight: 800;
-      margin-bottom: 0.6rem;
+      letter-spacing: 0.1em;
+      color: {palette.GREEN};
+      margin-bottom: 0.35rem;
   }}
   {_IN} .campprep-step h2 {{
-      margin: 0 0 0.2rem 0;
+      margin: 0 0 0.3rem 0;
       padding: 0;
-      font-size: 0.95rem;
-      font-weight: 750;
-      color: {palette.INK};
+      font-size: 1.55rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: #FFFFFF;
   }}
   {_IN} .campprep-step p {{
       margin: 0;
-      font-size: 0.84rem;
-      line-height: 1.5;
-      color: {palette.MUTED};
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: {palette.ON_DARK_MUTED};
   }}
-  /* The welcome panel above the sign-in forms. */
+  @keyframes cp-step-in {{
+      from {{ opacity: 0.25; border-left-color: rgba(255, 255, 255, 0.1); }}
+      to {{ opacity: 1; border-left-color: {palette.GREEN}; }}
+  }}
+  @supports (animation-timeline: view()) {{
+      @media (prefers-reduced-motion: no-preference) {{
+          {_IN} .campprep-step {{
+              animation: cp-step-in linear both;
+              animation-timeline: view();
+              animation-range: entry 30% cover 45%;
+          }}
+      }}
+  }}
+  /* The product picture: the topic breakdown a student gets back. */
+  {_IN} .campprep-preview {{
+      position: relative;
+      background: {palette.SURFACE_DARK};
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 26px;
+      padding: 1.6rem 1.6rem 1.5rem 1.6rem;
+      box-shadow: 0 0 0 1px rgba(118, 196, 87, 0.06),
+                  0 40px 100px -40px rgba(118, 196, 87, 0.45);
+  }}
+  {_IN} .campprep-preview-head {{
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0 1.2rem 0;
+  }}
+  {_IN} .campprep-preview-head strong {{ font-size: 1rem; color: #FFFFFF; }}
+  {_IN} .campprep-preview-head span {{
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: {palette.ON_DARK_MUTED};
+  }}
+  {_IN} .campprep-bar {{ margin: 0 0 1rem 0; }}
+  {_IN} .campprep-bar-label {{
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 650;
+      color: {palette.ON_DARK};
+      margin-bottom: 0.4rem;
+  }}
+  {_IN} .campprep-bar-track {{
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+  }}
+  {_IN} .campprep-bar-track i {{ display: block; height: 100%; border-radius: 999px; }}
+  {_IN} .campprep-preview-foot {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.3rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }}
+  {_IN} .campprep-preview-foot span {{
+      border-radius: 999px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+  }}
+
+  /* Account: a heading on the dark canvas beside a white card that holds
+     the sign-in forms. */
+  {_IN} .cp-account-copy {{ padding: 1rem 0; }}
+  {_IN} .cp-account-copy .cp-section-lede {{ margin-bottom: 1.2rem; }}
+  .stMainBlockContainer .st-key-landing_account[data-testid] {{
+      background: {palette.SURFACE};
+      color: {palette.INK};
+      border: none;
+      border-radius: 26px;
+      padding: 1.4rem;
+      box-shadow: 0 40px 100px -50px rgba(118, 196, 87, 0.5);
+  }}
+  /* A keyed container carries the same scroll attributes as a bordered
+     one, so it would pick up the white card surface too. */
+  .stMainBlockContainer .st-key-landing_account_row[data-testid] {{
+      background: transparent;
+      box-shadow: none;
+      margin-top: 6rem;
+  }}
   {_IN} .campprep-panel-head {{
       position: relative;
       overflow: hidden;
@@ -728,75 +1076,42 @@ _STYLES = f"""
       line-height: 1.5;
       margin: 0 0 0.6rem 0;
   }}
-  {_IN} .campprep-foot {{ margin-top: 1.5rem; }}
-  {_IN} .campprep-card-pair {{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-top: 1rem;
-  }}
-  @media (max-width: {_STACK_BREAKPOINT}) {{
-      {_IN} .campprep-card-pair {{ grid-template-columns: 1fr; }}
-  }}
-  /* The welcome page keeps Streamlit's own page geometry (top padding, full
-     wide width). Everything on it is drawn before this stylesheet arrives, so
-     a different padding or max-width made the whole page jump once it did. */
-  .stMainBlockContainer:has(.campprep-hero-title) {{
-      max-width: none;
-      padding-top: 6rem;
-  }}
-  /* A small, static "what you get" card under the sign-in panel. */
-  {_IN} .campprep-preview {{
-      background: {palette.SURFACE};
-      border: 1px solid {palette.BORDER};
-      border-radius: 22px;
-      padding: 1.1rem 1.2rem 1.2rem 1.2rem;
-      margin-top: 0.4rem;
-      box-shadow: var(--cp-shadow-lift);
-      position: relative;
-      overflow: hidden;
-  }}
-  {_IN} .campprep-preview::before {{
-      content: "";
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-      height: 5px;
-      background: var(--cp-stripe);
-  }}
-  {_IN} .campprep-preview-head {{
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin: 0.2rem 0 0.8rem 0;
-  }}
-  {_IN} .campprep-preview-head strong {{ font-size: 0.95rem; color: {palette.INK}; }}
-  {_IN} .campprep-preview-head span {{ font-size: 0.75rem; color: {palette.MUTED}; font-weight: 600; }}
-  {_IN} .campprep-bar {{ margin: 0 0 0.7rem 0; }}
-  {_IN} .campprep-bar-label {{
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      font-weight: 650;
-      color: {palette.INK};
-      margin-bottom: 0.3rem;
-  }}
-  {_IN} .campprep-bar-track {{
-      height: 10px;
-      border-radius: 999px;
-      background: {palette.SURFACE_ALT};
-      overflow: hidden;
-  }}
-  {_IN} .campprep-bar-track i {{ display: block; height: 100%; border-radius: 999px; }}
-  {_IN} .campprep-preview-foot {{
+
+  /* Footer. */
+  {_IN} .cp-footer {{
       display: flex;
       flex-wrap: wrap;
-      gap: 0.4rem;
-      margin-top: 0.9rem;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem 3rem;
+      margin-top: 5rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
   }}
-  {_IN} .campprep-logo {{ margin: 0 0 1.6rem 0; }}
-  {_IN} .campprep-logo img {{ height: 80px; width: auto; max-width: 100%; }}
+  {_IN} .cp-footer p {{
+      max-width: 40rem;
+      margin: 0;
+      color: {palette.ON_DARK_MUTED};
+      font-size: 0.8rem;
+      line-height: 1.6;
+  }}
+
+  @media (max-width: {_WRAP_BREAKPOINT}) {{
+      {_IN} .cp-how {{ grid-template-columns: 1fr; padding-top: 5rem; }}
+  }}
+  @media (max-width: {_STACK_BREAKPOINT}) {{
+      {_IN} .cp-nav-links a:not(.cp-nav-pill) {{ display: none; }}
+      {_IN} .cp-hero {{ padding-top: 3.2rem; }}
+      {_IN} .campprep-hero-lede {{ font-size: 1rem; }}
+      {_IN} .cp-panel {{ border-radius: 28px; margin-top: 5rem; padding-top: 3rem; }}
+      {_IN} .cp-paths {{ grid-template-columns: 1fr; }}
+      {_IN} .cp-path {{ padding: 1.6rem 1.3rem; }}
+      {_IN} .campprep-step h2 {{ font-size: 1.3rem; }}
+      .st-key-landing_cta {{ flex-direction: column; align-items: stretch; }}
+      {_IN} .cp-ghost {{ justify-content: center; width: 100%; }}
+      .stMainBlockContainer .st-key-landing_account_row[data-testid] {{ margin-top: 4rem; }}
+      .stMainBlockContainer .st-key-landing_account[data-testid] {{ padding: 1rem; }}
+  }}
 
   /* --- Responsive ------------------------------------------------------ */
   /* Columns wrap rather than compress once the row would get tight. */
@@ -812,20 +1127,6 @@ _STYLES = f"""
 
   /* Below the stack breakpoint every column is its own full-width row. */
   @media (max-width: {_STACK_BREAKPOINT}) {{
-      /* On a phone, put the sign-in/demo action first. The hero remains below
-         it, so the account form is reachable without scrolling past the tour. */
-      .stMainBlockContainer:has(.campprep-hero-title)
-      [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {{
-          order: 2;
-      }}
-      .stMainBlockContainer:has(.campprep-hero-title)
-      [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {{
-          order: 1;
-      }}
-      .stMainBlockContainer:has(.campprep-hero-title) .campprep-steps,
-      .stMainBlockContainer:has(.campprep-hero-title) .campprep-card-pair {{
-          display: none;
-      }}
       .stMainBlockContainer {{
           padding-top: 1.2rem;
           padding-left: 1rem;
@@ -848,8 +1149,6 @@ _STYLES = f"""
       {_IN} .campprep-header {{ padding: 1.3rem 1.2rem 1.7rem 1.2rem; border-radius: 20px; }}
       {_IN} .campprep-header::after {{ display: none; }}
       {_IN} .campprep-subtitle {{ font-size: 0.9rem; }}
-      {_IN} .campprep-steps {{ grid-template-columns: 1fr; }}
-      {_IN} .campprep-step h2 {{ font-size: 1rem; }}
   }}
 
   /* Sidebar copy inherits Streamlit's muted/disabled styles in a few states.
