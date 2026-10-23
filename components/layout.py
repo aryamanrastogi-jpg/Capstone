@@ -30,7 +30,7 @@ import streamlit as st
 
 from services import state as store
 from utils import palette
-from utils.config import AI_DISCLAIMER, APP_TAGLINE, PRIVACY_NOTICE
+from utils.config import AI_DISCLAIMER, PRIVACY_NOTICE
 
 HEADING = palette.INK
 ACCENT = palette.PRIMARY
@@ -121,9 +121,11 @@ _STYLES = f"""
   /* --- Page canvas ----------------------------------------------------- */
   /* A measured column rather than the full width of a 27" monitor: long
      feedback text is unreadable at 1800px. */
+  /* The top padding clears Streamlit's header strip (56px), which the page
+     banner otherwise starts underneath. */
   .stMainBlockContainer {{
       max-width: 1180px;
-      padding-top: 2.2rem;
+      padding-top: 4.4rem;
       padding-bottom: 4rem;
   }}
   [data-testid="stHeader"] {{
@@ -190,7 +192,7 @@ _STYLES = f"""
       border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 999px;
       padding: 0.18rem 0.7rem;
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -229,7 +231,7 @@ _STYLES = f"""
       gap: 0.25rem;
       padding: 0.2rem 0.7rem;
       border-radius: 999px;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 700;
       line-height: 1.5;
       white-space: nowrap;
@@ -307,7 +309,7 @@ _STYLES = f"""
       border-radius: 50%;
       background: {palette.TINT_HINT[1]};
       color: #FFFFFF;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 800;
   }}
 
@@ -368,7 +370,7 @@ _STYLES = f"""
   }}
   [data-testid="stMetricLabel"] p {{
       color: {palette.MUTED};
-      font-size: 0.72rem;
+      font-size: 0.8rem;
       font-weight: 700;
       letter-spacing: 0.07em;
       text-transform: uppercase;
@@ -500,15 +502,6 @@ _STYLES = f"""
   }}
   {_SIDEBAR} [data-testid="stSidebarContent"],
   {_SIDEBAR} [data-testid="stSidebarHeader"] {{ background: transparent; }}
-  /* st.logo tops out at 32px, too small for the emblem's detail. The name is
-     left off here on purpose, so the emblem can take the room instead. */
-  {_SIDEBAR} [data-testid="stSidebarHeader"] {{ height: auto; padding-top: 1.1rem; }}
-  {_SIDEBAR} [data-testid="stSidebarLogo"] {{
-      height: 4.5rem;
-      width: auto;
-      max-width: none;
-      filter: drop-shadow(0 4px 10px rgba(4, 8, 48, 0.45));
-  }}
   {_SIDEBAR}::after {{
       content: "";
       position: absolute;
@@ -542,6 +535,67 @@ _STYLES = f"""
   }}
   [data-testid="stSidebarNavSeparator"] {{ border-color: rgba(255, 255, 255, 0.1); }}
   [data-testid="stSidebarUserContent"] {{ padding-top: 0.75rem; }}
+  /* Under the menu: who you are, then the demo controls and Feedback. */
+  {_IN} .cp-side-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0 0 0.2rem 0;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(255, 145, 0, 0.16);
+      color: #FFD9A8;
+      font-size: max(12px, 0.78rem);
+      font-weight: 650;
+  }}
+  {_IN} .cp-side-pill b {{
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: {palette.ORANGE};
+  }}
+  {_IN} .cp-side-who {{
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.7rem 0.8rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }}
+  {_IN} .cp-side-who img, {_IN} .cp-side-who i {{
+      flex: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+  }}
+  {_IN} .cp-side-who i {{
+      display: grid;
+      place-items: center;
+      font-style: normal;
+      font-weight: 800;
+      background: {palette.CYAN};
+      color: {palette.NIGHT};
+  }}
+  {_IN} .cp-side-who b {{ display: block; color: #FFFFFF; font-size: 0.92rem; }}
+  {_IN} .cp-side-who span {{ display: block; color: #C9CEF5; font-size: max(12px, 0.78rem); }}
+  .st-key-sidebar_demo_actions {{ gap: 0.5rem; }}
+  .st-key-sidebar_demo_actions button {{ min-height: 2.3rem; padding: 0 0.5rem; font-size: 0.85rem; }}
+  {_SIDEBAR} .st-key-sidebar_feedback {{
+      margin-top: 0.4rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }}
+  {_SIDEBAR} .st-key-sidebar_feedback button[kind] {{
+      background: rgba(29, 206, 216, 0.14);
+      border: 1px solid rgba(29, 206, 216, 0.55);
+      box-shadow: none;
+  }}
+  {_SIDEBAR} .st-key-sidebar_feedback button[kind]:hover {{
+      background: rgba(29, 206, 216, 0.24);
+      border-color: {palette.CYAN};
+  }}
   {_SIDEBAR} [data-testid="stCaptionContainer"] p {{ color: #E9ECFF; }}
   {_SIDEBAR} hr {{ border-color: rgba(255, 255, 255, 0.12) !important; }}
   {_SIDEBAR} button[kind="secondary"] {{
@@ -559,14 +613,6 @@ _STYLES = f"""
       transform: translateY(3px);
       box-shadow: 0 0 0 transparent;
   }}
-  {_IN} .campprep-brand {{
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #E9ECFF;
-      margin: 0 0 0.2rem 0;
-  }}
 
   /* --- Landing page ---------------------------------------------------- */
   /* The welcome page is the app's one dark screen, after the HackerRank
@@ -579,20 +625,40 @@ _STYLES = f"""
       background: {palette.NIGHT_DEEP};
       color: {palette.ON_DARK};
   }}
+  /* Streamlit's header strip lies over the top bar and swallowed clicks on
+     its links. Clicks fall through it; its own menu button still takes them. */
   .stApp:has(.campprep-hero-title) [data-testid="stHeader"] {{
       background: transparent;
       backdrop-filter: none;
   }}
+  .stApp:has(.campprep-hero-title) [data-testid="stHeader"],
+  .stApp:has(.campprep-hero-title) [data-testid="stHeader"] * {{
+      pointer-events: none;
+  }}
   .stApp:has(.campprep-hero-title) [data-testid="stHeader"] button {{
       color: {palette.ON_DARK_MUTED};
+      pointer-events: auto;
   }}
+  /* Leaving the demo or signing out comes back here with the sidebar the
+     inner pages drew still open and empty: the welcome page has none. */
+  .stApp:has(.campprep-hero-title) [data-testid="stSidebar"],
+  .stApp:has(.campprep-hero-title) [data-testid="stSidebarCollapsedControl"],
+  .stApp:has(.campprep-hero-title) [data-testid="stExpandSidebarButton"] {{
+      display: none;
+  }}
+  /* The top bar starts below Streamlit's header strip, where Community
+     Cloud puts its Share and GitHub buttons. */
   .stMainBlockContainer:has(.campprep-hero-title) {{
       max-width: 1240px;
-      padding-top: 1.4rem;
+      padding-top: 4.25rem;
   }}
+  /* Anchor jumps stop short of the header strip. */
+  {_IN} :is(#account, #how-it-works, #who-its-for) {{ scroll-margin-top: 4.5rem; }}
 
   /* Top bar: the emblem and name, and anchors down the page. */
   {_IN} .cp-nav {{
+      position: relative;
+      z-index: 2;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -643,6 +709,7 @@ _STYLES = f"""
       position: absolute;
       inset: -3rem 0 -9rem 0;
       z-index: -1;
+      pointer-events: none;
       background-image:
           linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
           linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
@@ -659,6 +726,7 @@ _STYLES = f"""
       height: 340px;
       transform: translateX(-50%);
       z-index: -1;
+      pointer-events: none;
       background: radial-gradient(closest-side, rgba(118, 196, 87, 0.22), rgba(118, 196, 87, 0));
   }}
   {_IN} .campprep-hero-eyebrow {{
@@ -678,7 +746,7 @@ _STYLES = f"""
       color: {palette.GREEN};
       border-radius: 999px;
       padding: 0.08rem 0.6rem;
-      font-size: 0.68rem;
+      font-size: 0.8rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
   }}
@@ -791,7 +859,7 @@ _STYLES = f"""
   /* Shared section headings. */
   {_IN} .cp-kicker {{
       display: block;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -979,7 +1047,7 @@ _STYLES = f"""
   }}
   {_IN} .campprep-preview-head strong {{ font-size: 1rem; color: #FFFFFF; }}
   {_IN} .campprep-preview-head span {{
-      font-size: 0.72rem;
+      font-size: 0.8rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -1012,7 +1080,7 @@ _STYLES = f"""
   {_IN} .campprep-preview-foot span {{
       border-radius: 999px;
       padding: 0.3rem 0.75rem;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 700;
   }}
 
@@ -1128,7 +1196,7 @@ _STYLES = f"""
   /* Below the stack breakpoint every column is its own full-width row. */
   @media (max-width: {_STACK_BREAKPOINT}) {{
       .stMainBlockContainer {{
-          padding-top: 1.2rem;
+          padding-top: 4.1rem;
           padding-left: 1rem;
           padding-right: 1rem;
           padding-bottom: 2.5rem;
@@ -1237,20 +1305,16 @@ def _section_for(title: str) -> str:
 
 
 def sidebar_status() -> None:
-    """Backend status, the demo identity switch and the privacy notice."""
+    """Who you are, the demo controls and the Feedback button.
+
+    Kept short on purpose. The menu above already links Privacy, so the long
+    notice and its second link are gone from here, and so are the emblem and
+    the About blurb: the rail is for getting around, not for reading.
+    """
+    from components.feedback import feedback_dialog
+
     status = store.backend_status()
     with st.sidebar:
-        # The emblem is drawn above the navigation by `st.logo` in app.py, so
-        # all this block owes the reader is what the app is for and whether it
-        # is talking to a real backend.
-        st.markdown('<p class="campprep-brand">About</p>', unsafe_allow_html=True)
-        st.caption(APP_TAGLINE)
-
-        if status["demo_mode"]:
-            st.warning("Demo Mode", icon=":material/science:")
-        else:
-            st.success("Connected to Supabase", icon=":material/cloud_done:")
-
         # User-facing copy only. The backend message is setup advice for
         # whoever deploys the app (env vars, pip), so it stays out of the UI.
         if status["is_error"]:
@@ -1259,32 +1323,21 @@ def sidebar_status() -> None:
                 "mode - sample data, nothing is saved.",
                 icon=":material/error:",
             )
-        elif status["demo_mode"]:
-            st.caption("Demo mode — sample data, nothing is saved.")
-        else:
-            st.caption("Your work is saved to your account.")
 
-        st.divider()
-        _identity_switcher()
+        _identity_switcher(status["demo_mode"])
 
-        # Only meaningful while the sample data IS the data. Offering it to a
-        # signed-in user would imply it resets their saved work, which it does
-        # not touch.
-        if status["demo_mode"] and st.button(
-            "Reset demo data",
+        if st.button(
+            "Give feedback",
+            icon=":material/rate_review:",
             width="stretch",
-            help="Restore the seeded sample dataset.",
+            key="sidebar_feedback",
         ):
-            store.reset_to_samples()
-            st.rerun()
-
-        st.divider()
-        st.caption(PRIVACY_NOTICE)
-        _privacy_page_link("Privacy details", icon=":material/lock:")
+            feedback_dialog()
 
 
-def _identity_switcher() -> None:
-    """Pick who you are signed in as. Demo only - not authentication.
+def _identity_switcher(demo_mode: bool) -> None:
+    """Who is using the app. In the demo, a switch between sample people -
+    not authentication.
 
     Hidden entirely once somebody is really signed in: the role then comes from
     their profile row, and offering a control that appears to change it would be
@@ -1294,15 +1347,26 @@ def _identity_switcher() -> None:
 
     signed_in = auth_service.current_user()
     if signed_in is not None:
-        if signed_in.avatar_url:
-            st.image(signed_in.avatar_url, width=56)
-        st.markdown(f"**{signed_in.display_name}**")
-        st.caption(f"{signed_in.role.label} · signed in")
-        if st.button("Sign out", width="stretch"):
+        avatar = (
+            f'<img src="{escape(signed_in.avatar_url, quote=True)}" alt="">'
+            if signed_in.avatar_url
+            else f"<i>{escape(signed_in.display_name[:1].upper())}</i>"
+        )
+        st.html(
+            f'<div class="cp-side-who">{avatar}<div><b>{escape(signed_in.display_name)}</b>'
+            f"<span>{escape(signed_in.role.label)} · work saved to your account</span>"
+            "</div></div>"
+        )
+        if st.button("Sign out", icon=":material/logout:", width="stretch"):
             auth_service.sign_out()
             store.leave_demo()
             st.rerun()
         return
+
+    if demo_mode:
+        st.html(
+            '<p class="cp-side-pill"><b></b>Demo · sample data, not saved</p>'
+        )
 
     users = store.get_users()
     if not users:
@@ -1317,20 +1381,36 @@ def _identity_switcher() -> None:
     )
 
     chosen = st.selectbox(
-        "Signed in as",
+        "Viewing as",
         options=[u.id for u in ordered],
         format_func=lambda uid: labels[uid],
         index=index,
-        help="Demo identity switch. This is not real authentication.",
+        help="Switch between the sample student and teacher. This is not a login.",
     )
     if current is None or chosen != current.id:
         store.set_current_user(chosen)
         st.rerun()
 
-    st.caption(":material/info: Demo switch, not a login.")
-    if st.button("Back to welcome page", width="stretch"):
-        store.leave_demo()
-        st.rerun()
+    with st.container(horizontal=True, key="sidebar_demo_actions"):
+        if st.button(
+            "Welcome page",
+            icon=":material/arrow_back:",
+            width="stretch",
+            help="Leave the demo and go back to the welcome page.",
+        ):
+            store.leave_demo()
+            st.rerun()
+        # Only meaningful while the sample data IS the data. Offering it to a
+        # signed-in user would imply it resets their saved work, which it does
+        # not touch.
+        if demo_mode and st.button(
+            "Reset",
+            icon=":material/restart_alt:",
+            width="stretch",
+            help="Restore the sample data.",
+        ):
+            store.reset_to_samples()
+            st.rerun()
 
 
 def ai_disclaimer(extra: str = "") -> None:

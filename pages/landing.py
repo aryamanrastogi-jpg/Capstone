@@ -148,11 +148,14 @@ finds the pattern across all of it.</p>
 )
 
 with st.container(key="landing_account_row"):
+    # The jump target sits above both columns: on the heading beside the
+    # card, the taller, centred card started above the screen (cut in half).
+    st.html('<div id="account"></div>')
     intro, auth = st.columns([1, 1.05], gap="large", vertical_alignment="center")
 
 with intro:
     st.html(
-        '''<div class="cp-account-copy" id="account">
+        '''<div class="cp-account-copy">
 <span class="cp-kicker">Get started</span>
 <h2 class="cp-section-title">Start in under <em>a minute</em></h2>
 <p class="cp-section-lede">Make an account to keep your work and progress, or

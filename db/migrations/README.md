@@ -16,6 +16,9 @@ in order. Run `008` before deploying code that depends on its changes. Finally
 re-run `db/policies.sql` to sync the policy/view definitions. Each step is
 idempotent.
 
+`009` (the in-app survey) runs on its own after that, and needs nothing
+else re-run. It is also in `db/setup_all.sql`.
+
 After running `008`, before deploying, check on a test project that a
 student's self-study submission still gets an AI estimate saved, and that a
 teacher can approve, edit and flag a result. Both write to `grading_results`
@@ -31,6 +34,7 @@ with an upsert.
 | `006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
 | `007_bug_fixes.sql` | Audit fixes: students read teacher/shared questions via `student_questions` (BUG-001), teachers read only their own and their students' questions (BUG-002), a student's submission freezes once reviewed (BUG-016), camp baseline may be NULL (BUG-010) |
 | `008_qa_hardening.sql` | Pins student grading rows to real questions, separates student-safe grading reads (direct table reads are limited to non-sensitive columns, which upserts still need), preserves student work when a teacher account is deleted, limits class-code guesses, and revokes public execution of helper functions |
+| `009_app_feedback.sql` | `app_feedback` for the sidebar survey (a 1-5 rating, what to include, any feedback). Signed-in users can only add their own rows; nobody can read them through the app, so they are read in the Supabase dashboard |
 
 ## Checking what you have applied
 

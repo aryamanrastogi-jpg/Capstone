@@ -1,6 +1,6 @@
 -- Camp Prep AI: all-in-one Supabase setup and repair.
 -- Run the ENTIRE file in the Supabase SQL Editor for this app's project.
--- Includes schema, migrations 001-008, final policies and API cache reload.
+-- Includes schema, migrations 001-009, final policies and API cache reload.
 -- Generated from the current repository SQL files on 2026-10-09.
 -- Existing app rows and account roles are preserved; repeat runs are supported.
 -- One transaction: any failing statement prevents the setup from committing.
@@ -1016,6 +1016,37 @@ revoke all on function public.rotate_class_code() from public, anon;
 revoke all on function public.leave_class() from public, anon;
 revoke all on function public.remove_from_roster(text) from public, anon;
 revoke all on function public.redeem_teacher_invite(text) from public, anon;
+
+-- Source: db/migrations/009_app_feedback.sql
+-- One row per survey sent. The author is filled in by the database from the
+-- signed-in account, so a client cannot file feedback as somebody else, and
+-- the row goes when the account does (Profile > Delete account).
+create table if not exists public.app_feedback (
+    id          uuid primary key default gen_random_uuid(),
+    profile_id  text not null default public.app_profile_id()
+                references public.profiles (id) on delete cascade,
+    role        text check (role in ('student', 'teacher')),
+    rating      smallint not null check (rating between 1 and 5),
+    suggestion  text check (length(suggestion) <= 1000),
+    comments    text check (length(comments) <= 1000),
+    created_at  timestamptz not null default now()
+);
+
+create index if not exists app_feedback_created_at_idx
+    on public.app_feedback (created_at desc);
+
+-- Write-only from the app: a signed-in user may add their own rows and
+-- nothing else. No select, update or delete policy exists, so no client role
+-- can read feedback back - the team reads it in the Supabase dashboard.
+alter table public.app_feedback enable row level security;
+
+revoke all on public.app_feedback from anon, authenticated;
+grant insert (role, rating, suggestion, comments) on public.app_feedback to authenticated;
+
+drop policy if exists app_feedback_insert on public.app_feedback;
+create policy app_feedback_insert on public.app_feedback
+    for insert to authenticated
+    with check (profile_id = public.app_profile_id());
 
 -- Source: db/policies.sql
 create or replace function public.app_profile_id()
