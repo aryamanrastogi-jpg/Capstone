@@ -43,7 +43,7 @@ their homework for them.
 | | Students | Teachers |
 |---|---|---|
 | **Main job** | See where I'm weak, fix it before the exam | Keep an eye on the class, sign off marks |
-| **Pages** | My Work, My Questions, My Progress, Study Camp | Class Overview, Create Assessment, Upload Responses, Review Grading, Class Analytics |
+| **Pages** | My Work, My Questions, Study Camp, Mock Exam | Class Overview, Create Assessment, Upload Responses, Review Grading, Class Analytics |
 | **Sees model answers?** | Never | Always |
 | **Scores are** | AI estimates until a teacher confirms | Official once approved |
 
@@ -61,9 +61,8 @@ their homework for them.
 | **Shared library** | Share a question set and any student can take a copy. A copy is a copy — their own attempts, their own progress, and nothing they do reaches your set. Your answers and scores are never shared. |
 | **Guidance** | On any set, *Show me how to approach these* gives the method for each question — how to go at it, what a full answer contains, and the easy marks to lose. Built from the question text alone, so it cannot contain the answer. A set with no answers saved gets this instead of a score. |
 | **My Questions** | Type up the questions you have actually been set — a worksheet, a past paper, the end-of-chapter problems — and they become something to work through and track. Answers are optional: most students have the questions and nothing else. Or start from a file: upload the worksheet (PDF, Word or text - a Google Doc downloads as either) and its numbered questions, marks and any answer key fill the table, ready to check and save. Every saved set can be opened, edited (wording, answers, marks, adding or removing a question) or deleted. |
-| **My Progress** | The weakness dashboard. Score trend per topic across the term, topic-by-topic standing (Secure → Priority), repeated mistake patterns, and performance split by type of work. |
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
-| **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. The result is saved to your work as a mock exam, so it counts in My Progress and Study Camp without using any attempts on the sets its questions came from. |
+| **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. The result is saved to your work as a mock exam, so it counts in Study Camp and the teacher's Class Analytics without using any attempts on the sets its questions came from. |
 | **Practice Generator** | Practice picked from your own results: weakest topics first, the error types that keep recurring, at a matching difficulty — and each question says why it was chosen. Method pointers, never worked solutions. |
 | **Profile** | Name, year group and profile photo; redeem a teacher invite code; delete your account. |
 

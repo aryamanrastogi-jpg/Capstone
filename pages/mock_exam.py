@@ -246,12 +246,12 @@ st.info(
 if exam.saved_submission_ids:
     st.caption(
         ":material/check_circle: Saved to your work as a mock exam. It now counts "
-        "in My Progress and Study Camp, and uses none of your attempts on the sets "
+        "in Study Camp, and uses none of your attempts on the sets "
         "its questions came from."
     )
 else:
     st.warning(
-        "This result could not be saved to My Progress just now. It is still "
+        "This result could not be saved to your work just now. It is still "
         "here until you leave or refresh the page.",
         icon=":material/cloud_off:",
     )

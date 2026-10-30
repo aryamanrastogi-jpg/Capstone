@@ -17,7 +17,6 @@ APP = str(Path(__file__).resolve().parent.parent / "app.py")
 STUDENT_PAGES = [
     "pages/student_home.py",
     "pages/my_questions.py",
-    "pages/my_progress.py",
     "pages/study_camp.py",
     "pages/practice_generator.py",
     "pages/mock_exam.py",
@@ -130,7 +129,7 @@ def test_teacher_pages_refuse_a_student_who_reaches_them_directly(page):
     assert any("teacher" in e.value.lower() for e in at.error)
 
 
-@pytest.mark.parametrize("page", STUDENT_PAGES[:4])
+@pytest.mark.parametrize("page", STUDENT_PAGES[:3])
 def test_student_pages_refuse_a_teacher_who_reaches_them_directly(page):
     at = _app_as("student")
     at.switch_page(page)
@@ -144,16 +143,6 @@ def test_student_pages_refuse_a_teacher_who_reaches_them_directly(page):
     assert any("student" in e.value.lower() for e in at.error)
 
 
-def test_seeded_student_sees_a_populated_progress_page():
-    """The demo must not look broken on first launch."""
-    at = _app_as("student")
-    at.switch_page("pages/my_progress.py")
-    at.run()
-
-    assert not at.exception
-    # An empty history would show the "nothing to chart yet" empty state.
-    assert not any("nothing to chart" in i.value.lower() for i in at.info)
-    assert at.metric, "the headline metrics should be present"
 
 
 def test_a_student_can_build_a_study_camp_from_seeded_data():
@@ -252,3 +241,18 @@ def test_my_work_points_a_student_with_nothing_at_my_questions():
     assert "Add my questions" in labels, (
         "the empty state must offer a way out, not a dead end"
     )
+
+
+def test_students_and_teachers_get_separate_menus():
+    """Progress across the class is the teacher's view; students have none."""
+    from components.navigation import pages_for
+    from models import Role
+
+    student = {spec["title"] for spec in pages_for(Role.STUDENT)}
+    teacher = {spec["title"] for spec in pages_for(Role.TEACHER)}
+
+    assert "My Progress" not in student
+    assert {"My Work", "Mock Exam", "Study Camp"} <= student
+    assert {"Class Overview", "Review Grading", "Class Analytics"} <= teacher
+    assert not student & {"Class Overview", "Review Grading", "Class Analytics"}
+    assert not teacher & {"My Work", "Mock Exam", "Study Camp"}

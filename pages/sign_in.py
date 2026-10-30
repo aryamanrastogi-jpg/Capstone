@@ -3,13 +3,13 @@
 WHAT A PERSON CAN AND CANNOT CHOOSE HERE
   They can choose their email and their password. That is the whole list.
 
-  There is no role selector, and there will not be one. The role is written by a
-  database trigger at sign-up and is always `student`. A teacher signs up the
-  same way, then redeems an invite code on the Profile page; the operator mints
-  those codes by hand (db/migrations/005_teacher_invites.sql) and the database
-  decides whether one is good. A form that let you pick "I am a teacher" would
-  hand the class register to anybody who asked for it, and every read policy
-  downstream would believe the answer.
+  The role is written by a database trigger at sign-up and is always `student`.
+  The "I am a Teacher" choice on the sign-up form sends no role: it only asks
+  for an invite code, redeemed right after sign-up (components/auth_forms.py);
+  the operator mints those codes by hand (db/migrations/005_teacher_invites.sql)
+  and the database decides whether one is good. A form whose answer became the
+  role would hand the class register to anybody who asked for it, and every
+  read policy downstream would believe the answer.
 
   Sign-up asks for a name, which the database trigger stores as the display
   name (db/migrations/004_profile_details.sql). It can be changed later on the

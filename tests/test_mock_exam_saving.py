@@ -174,13 +174,12 @@ def test_the_mock_exam_page_saves_the_result():
     new = [s for s in mine if s.id not in before]
     assert new and all(s.is_mock_exam and s.is_self_study for s in new)
 
-    # My Progress counts every question on the paper as mock exam work.
+    # Every question on the paper is saved as mock exam work.
     from services import state
 
     paper = at.session_state[state.MOCK_EXAM]
-    at.switch_page("pages/my_progress.py")
-    at.run()
-    assert not at.exception, at.exception
-    by_type = next(d.value for d in at.dataframe if "Type" in d.value.columns)
-    mock_questions = int(by_type.loc[by_type["Type"] == "Mock Exam", "Questions"].iloc[0])
-    assert mock_questions >= len(paper.items)
+    new_ids = {s.id for s in new}
+    saved = [
+        r for r in at.session_state["grading_results"] if r.submission_id in new_ids
+    ]
+    assert len(saved) >= len(paper.items)

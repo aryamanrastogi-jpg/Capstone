@@ -131,7 +131,12 @@ def test_student_view_never_reveals_the_model_answer(question):
     view = student_safe_view(result, question)
 
     blob = " ".join(
-        [*view["strengths"], *view["pointers"], *view["error_labels"]]
+        [
+            *view["strengths"],
+            *view["pointers"],
+            *view["error_labels"],
+            view["feedback"] or "",
+        ]
     ).lower()
 
     assert "60" not in blob, "the expected answer must not leak to the student"
@@ -143,7 +148,9 @@ def test_student_view_still_says_something_useful(question):
     result = grade_answer(question, "I multiplied them and got 17", "sub_leak")
     view = student_safe_view(result, question)
 
-    assert view["strengths"], "a student should always get some encouragement"
+    assert view["strengths"] or view["feedback"], (
+        "a student should always get some encouragement"
+    )
     assert view["pointers"], "a student should always get a next step"
     assert view["question_text"] == question.question_text
     assert view["max_marks"] == question.max_marks
@@ -162,6 +169,47 @@ def test_pointers_are_derived_from_the_detected_errors(question):
     view = student_safe_view(result, question)
     assert any(e == ErrorType.UNIT_ERROR.label for e in view["error_labels"])
     assert any("unit" in p.lower() for p in view["pointers"])
+
+
+def test_student_view_shows_the_written_feedback_without_correct_elements(question):
+    # Students read results through a view that withholds correct_elements.
+    result = grade_answer(question, "12 x 5 = 60 cm2", "sub_view")
+    result.correct_elements = []
+    result.student_feedback = "Really strong work here. Your method is clear."
+    view = student_safe_view(result, question)
+
+    assert view["feedback"] == result.student_feedback
+    assert view["strengths"] == []
+
+
+def test_student_view_drops_written_feedback_that_leaks_the_answer(question):
+    result = grade_answer(question, "12 x 5 = 60 cm2", "sub_view_leak")
+    result.correct_elements = []
+    result.student_feedback = "Spot on, the area is 60 cm2."
+    view = student_safe_view(result, question)
+
+    assert view["feedback"] is None
+    assert view["strengths"] == ["You made a genuine attempt at this question."]
+
+
+def test_teacher_feedback_replaces_the_written_feedback(question):
+    result = grade_answer(question, "12 x 5 = 60 cm2", "sub_view_teacher")
+    apply_teacher_decision(result, ReviewStatus.EDITED, feedback="Neat work.")
+    view = student_safe_view(result, question)
+
+    assert view["teacher_feedback"] == "Neat work."
+    assert view["feedback"] is None
+
+
+def test_full_marks_get_a_stretch_next_step(question):
+    result = grade_answer(question, "12 x 5 = 60 cm2", "sub_full")
+    result.suggested_score = result.max_marks
+    result.errors = []
+    view = student_safe_view(result, question)
+
+    assert view["pointers"] == [
+        "Full marks - try a harder question on this topic next."
+    ]
 
 
 # ---------------------------------------------------------------------------

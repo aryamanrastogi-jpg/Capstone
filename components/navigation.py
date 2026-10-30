@@ -42,14 +42,6 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "default": False,
     },
     {
-        "path": "pages/my_progress.py",
-        "title": "My Progress",
-        "icon": ":material/trending_up:",
-        "section": "My study",
-        "roles": [STUDENT],
-        "default": False,
-    },
-    {
         "path": "pages/study_camp.py",
         "title": "Study Camp",
         "icon": ":material/local_fire_department:",

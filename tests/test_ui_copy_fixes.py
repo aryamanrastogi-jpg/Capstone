@@ -209,32 +209,6 @@ def test_retry_result_keeps_its_original_question_number():
     assert any("Question 2 ·" in item.value for item in at.markdown)
 
 
-def test_progress_error_chart_excludes_flagged_items(monkeypatch):
-    at = _app_as("student")
-    student_id = at.session_state["current_user_id"]
-    submissions = {s.id: s for s in at.session_state["submissions"]}
-    own_result = next(
-        result for result in at.session_state["grading_results"]
-        if result.submission_id in submissions
-        and submissions[result.submission_id].student_id == student_id
-    )
-    flagged = own_result.model_copy(update={"review_status": ReviewStatus.FLAGGED})
-    at.session_state["grading_results"] = [*at.session_state["grading_results"], flagged]
-
-    chart_inputs = []
-    original = analytics_service.error_frequency
-
-    def record_inputs(results, *args, **kwargs):
-        materialized = list(results)
-        chart_inputs.extend(materialized)
-        return original(materialized, *args, **kwargs)
-
-    monkeypatch.setattr(analytics_service, "error_frequency", record_inputs)
-    at.switch_page("pages/my_progress.py").run()
-
-    assert not at.exception, at.exception
-    assert flagged not in chart_inputs
-    assert chart_inputs
 
 
 def test_mock_exam_navigation_remains_hidden_when_registered():

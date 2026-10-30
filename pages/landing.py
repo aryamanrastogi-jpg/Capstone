@@ -85,7 +85,7 @@ an eye on the class and sign off every mark.</p>
 <div class="cp-paths">
 <article class="cp-path">
 <h3>For students</h3>
-<p>See your weak topics, practise them in Study Camp and track your progress.</p>
+<p>See your weak topics, practise them in Study Camp, with your teacher keeping track.</p>
 <ul><li>Upload homework or a mock exam you have already done</li>
 <li>See which topics cost you marks</li>
 <li>Practise weak spots in Study Camp, with hints rather than answers</li></ul>
@@ -97,9 +97,9 @@ an eye on the class and sign off every mark.</p>
 <ul><li>Set an assessment and upload the class's responses</li>
 <li>Review every AI-suggested mark before it counts</li>
 <li>See where the class is slipping</li></ul>
-<small>Create an account, then enter the invite code from your administrator
-on your Profile page.</small>
-<a href="#account">Set up teacher access →</a>
+<small>Create a teacher account with the invite code from your administrator,
+then share your class code with your students.</small>
+<a href="?as=teacher#account">Set up teacher access →</a>
 </article>
 </div>
 </section>'''

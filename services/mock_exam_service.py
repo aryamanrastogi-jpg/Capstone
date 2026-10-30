@@ -171,7 +171,7 @@ def save_to_history(
     """Save a handed-in paper as the student's own work, so it counts.
 
     One self-study record per set the questions came from - the shape My
-    Work already saves, so My Progress, Study Camp and the database rules need
+    Work already saves, so Study Camp, Class Analytics and the database rules need
     nothing new. Each is labelled as a mock exam (MOCK_EXAM_SOURCE), which
     keeps it out of the attempt loop: a timed paper must not use up attempts
     on, or settle questions in, the sets it borrowed from.

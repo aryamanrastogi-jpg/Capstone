@@ -491,6 +491,19 @@ def student_safe_view(
     def _leaks(text: str) -> bool:
         return bool(expected_values.intersection(_numbers(text)))
 
+    teacher_feedback = (
+        result.final_feedback.strip() or None if result.is_finalised else None
+    )
+    # The grader's own written feedback, until the teacher's replaces it.
+    # Students read results through a view that withholds correct_elements,
+    # so without this they only ever saw the generic fallback lines.
+    feedback = result.student_feedback.strip()
+    if teacher_feedback or _leaks(feedback):
+        feedback = ""
+    strengths = [item for item in result.correct_elements if not _leaks(item)]
+    if not strengths and not feedback:
+        strengths = ["You made a genuine attempt at this question."]
+
     return {
         "question_text": question.question_text,
         "max_marks": result.max_marks,
@@ -505,13 +518,11 @@ def student_safe_view(
         # The teacher's feedback, only once they have signed the result off.
         # Never the model answer or marking scheme - just what the teacher
         # approved under "Feedback the student will see".
-        "teacher_feedback": (
-            result.final_feedback.strip() or None if result.is_finalised else None
-        ),
-        # Keep only praise that does not restate the expected numbers.
-        "strengths": [
-            item for item in result.correct_elements if not _leaks(item)
-        ] or ["You made a genuine attempt at this question."],
+        "teacher_feedback": teacher_feedback,
+        "feedback": feedback or None,
+        # Keep only praise that does not restate the expected numbers. Empty
+        # when there is written feedback to show instead.
+        "strengths": strengths,
         "error_labels": [e.error_type.label for e in result.errors],
         "pointers": (
             _pointers(result)
@@ -550,7 +561,9 @@ def _pointers(result: GradingResult) -> List[str]:
         ),
     }
     hints = [tips[e.error_type] for e in result.errors if e.error_type in tips]
-    if not hints:
+    if not hints and result.effective_score >= result.max_marks:
+        hints.append("Full marks - try a harder question on this topic next.")
+    elif not hints:
         hints.append("Nothing specific flagged - compare your working against your notes.")
     return list(dict.fromkeys(hints))
 

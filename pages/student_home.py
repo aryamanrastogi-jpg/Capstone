@@ -166,12 +166,10 @@ if assessment is None:
 
 if assessment.is_archived:
     st.info(
-        "This assessment is archived. Your past submissions and marks remain "
-        "in My Progress, but you cannot add another attempt.",
+        "This assessment is archived. Your past submissions and marks are "
+        "kept, but you cannot add another attempt.",
         icon=":material/archive:",
     )
-    if st.button("View My Progress", type="primary"):
-        goto("My Progress")
     privacy_notice()
     st.stop()
 
@@ -575,9 +573,13 @@ for submission in recent:
                 if view["teacher_feedback"]:
                     st.markdown("*Your teacher's feedback*")
                     st.markdown(view["teacher_feedback"])
-                st.markdown("*What went well*")
-                for item in view["strengths"]:
-                    st.markdown(f"- {item}")
+                elif view["feedback"]:
+                    st.markdown("*Feedback*")
+                    st.markdown(view["feedback"])
+                if view["strengths"]:
+                    st.markdown("*What went well*")
+                    for item in view["strengths"]:
+                        st.markdown(f"- {item}")
                 if view["error_labels"]:
                     st.markdown("*What to look at*")
                     badge_row(

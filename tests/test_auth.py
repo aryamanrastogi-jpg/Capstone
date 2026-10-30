@@ -391,14 +391,15 @@ def _sign_in_page() -> str:
     return str(Path(__file__).resolve().parent.parent / "pages" / "sign_in.py")
 
 
-def test_the_sign_in_page_renders_and_offers_no_role_choice(
+def test_the_sign_in_page_renders_and_offers_no_role_field(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The form must never grow a "sign up as a teacher" control.
+    """The form offers Student or Teacher, but never a role to send.
 
-    Rendering the page is the cheap half; the assertion that matters is the
-    absence of any widget offering a role. A selector here would let anybody
-    claim the teacher role, and every read policy downstream would believe it.
+    Rendering the page is the cheap half; the assertion that matters is that
+    no widget sets a role. Picking "Teacher" only asks for an invite code (see
+    the tests below); a role field would let anybody claim the teacher role,
+    and every read policy downstream would believe it.
 
     The connection status is forced rather than read from the environment. The
     page stops early when there is nothing to sign in to, so without this the
@@ -434,7 +435,128 @@ def test_the_sign_in_page_renders_and_offers_no_role_choice(
         + [w.label or "" for w in at.text_input]
     ).lower()
     assert "role" not in labels
-    assert "teacher" not in labels
+    # Student by default, with no invite field until Teacher is picked.
+    assert at.radio(key="sign_up_role").value == "Student"
+    assert "invite" not in labels
+
+
+def _sign_up_page(monkeypatch: pytest.MonkeyPatch, sign_up_result, redeem_ok=True):
+    """The Sign In page with sign-up and invite redemption recorded, not sent."""
+    import services.supabase_client as client_module
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setattr(
+        client_module,
+        "get_connection_status",
+        lambda: client_module.ConnectionStatus(
+            connected=True, demo_mode=True, signed_out=True, message="Connected."
+        ),
+    )
+    monkeypatch.setattr(auth_service, "current_user", lambda: None)
+    calls: Dict[str, Any] = {"sign_up": [], "redeem": []}
+
+    def fake_sign_up(email, password, full_name=""):
+        calls["sign_up"].append((email, full_name))
+        return sign_up_result
+
+    def fake_redeem(code):
+        calls["redeem"].append(code)
+        return auth_service.AuthOutcome(
+            redeem_ok, "ok" if redeem_ok else auth_service.INVALID_INVITE_MESSAGE
+        )
+
+    monkeypatch.setattr(auth_service, "sign_up", fake_sign_up)
+    monkeypatch.setattr(auth_service, "redeem_teacher_invite", fake_redeem)
+    at = AppTest.from_file(_sign_in_page(), default_timeout=60)
+    at.run()
+    return at, calls
+
+
+def _fill_sign_up(at, invite: Optional[str] = None) -> None:
+    at.text_input(key="sign_up_name").input("Ms Rao")
+    at.text_input(key="sign_up_email").input("rao@example.com")
+    at.text_input(key="sign_up_password").input("hunter22")
+    at.text_input(key="sign_up_confirm").input("hunter22")
+    if invite is not None:
+        at.text_input(key="sign_up_invite").input(invite)
+    at.button[1].click().run()
+
+
+def test_choosing_teacher_asks_for_an_invite_code_and_redeems_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    at, calls = _sign_up_page(
+        monkeypatch, auth_service.AuthOutcome(True, "Account created and signed in.")
+    )
+    at.radio(key="sign_up_role").set_value("Teacher").run()
+    assert at.text_input(key="sign_up_invite")
+    assert at.button[1].label == "Create teacher account"
+
+    _fill_sign_up(at, invite="ABC-123")
+
+    assert not at.exception, at.exception
+    # Sign-up itself still carries no role; the code goes to the redeem RPC.
+    assert calls["sign_up"] == [("rao@example.com", "Ms Rao")]
+    assert calls["redeem"] == ["ABC-123"]
+
+
+def test_a_teacher_sign_up_without_a_code_is_refused_before_creating_anything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    at, calls = _sign_up_page(
+        monkeypatch, auth_service.AuthOutcome(True, "Account created and signed in.")
+    )
+    at.radio(key="sign_up_role").set_value("Teacher").run()
+    _fill_sign_up(at, invite="")
+
+    assert calls["sign_up"] == [] and calls["redeem"] == []
+    assert any("invite code" in e.value for e in at.error)
+
+
+def test_a_refused_invite_code_leaves_a_student_account_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    at, calls = _sign_up_page(
+        monkeypatch,
+        auth_service.AuthOutcome(True, "Account created and signed in."),
+        redeem_ok=False,
+    )
+    at.radio(key="sign_up_role").set_value("Teacher").run()
+    _fill_sign_up(at, invite="WRONG")
+
+    assert calls["redeem"] == ["WRONG"]
+    assert any("student account" in w.value for w in at.warning)
+
+
+def test_an_invite_code_waits_for_sign_in_when_email_needs_confirming(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from components.auth_forms import PENDING_INVITE
+
+    at, calls = _sign_up_page(
+        monkeypatch,
+        auth_service.AuthOutcome(
+            True, "Account created. Check your email.", needs_confirmation=True
+        ),
+    )
+    at.radio(key="sign_up_role").set_value("Teacher").run()
+    _fill_sign_up(at, invite="ABC-123")
+
+    assert calls["redeem"] == []
+    assert at.session_state[PENDING_INVITE] == "ABC-123"
+    assert any("invite code is applied" in s.value for s in at.success)
+
+
+def test_a_student_sign_up_never_redeems_anything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    at, calls = _sign_up_page(
+        monkeypatch, auth_service.AuthOutcome(True, "Account created and signed in.")
+    )
+    _fill_sign_up(at)
+
+    assert calls["sign_up"] == [("rao@example.com", "Ms Rao")]
+    assert calls["redeem"] == []
 
 
 def test_the_sign_in_page_says_so_when_there_is_nothing_to_sign_in_to(

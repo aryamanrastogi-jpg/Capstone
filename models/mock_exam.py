@@ -4,8 +4,8 @@ A mock exam is a timed, in-app sitting built from questions the student can
 already see, marked by the same grader as everything else. The sitting itself
 lives in session state. Once handed in, its answers and estimates are saved as
 self-study work on the sets the questions came from, labelled as a mock exam
-(see mock_exam_service.save_to_history), so the result counts in My Progress
-and Study Camp without using up attempts.
+(see mock_exam_service.save_to_history), so the result counts in Study Camp
+without using up attempts.
 """
 
 from __future__ import annotations
