@@ -55,8 +55,35 @@ def test_build_exam_uses_markable_questions_interleaved_across_topics():
     )
     assert [i.topic for i in exam.items] == ["Algebra", "Geometry", "Algebra"]
     assert all(i.question.has_model_answer for i in exam.items)
-    assert exam.time_limit_minutes == 3 * exams.MINUTES_PER_QUESTION
+    assert exam.time_limit_minutes == 3 * exams.DIFFICULTY_MINUTES["hard"]  # all 4-mark
     assert exam.baseline_percentage == pytest.approx(56.7)
+
+
+@pytest.mark.parametrize(
+    "marks, difficulty, minutes",
+    [
+        (1, "easy", 2),
+        (2, "easy", 2),
+        (2.5, "medium", 3),
+        (3, "medium", 3),
+        (4, "hard", 4),
+        (10, "hard", 4),
+    ],
+)
+def test_marks_set_the_difficulty_and_the_time(marks, difficulty, minutes):
+    question = Question(question_text="A question", model_answer="An answer.", max_marks=marks)
+    assert exams.question_difficulty(question) == difficulty
+    assert exams.minutes_for(question) == minutes
+
+
+def test_the_time_limit_adds_up_each_questions_own_time():
+    questions = [
+        Question(question_text=f"Question {marks}", model_answer="An answer.", max_marks=marks)
+        for marks in (2, 3, 4)
+    ]
+    paper = Assessment(title="Mixed", grade_level=9, topic="Algebra", questions=questions)
+    exam = exams.build_exam("s1", [paper], ["Algebra"], _frame(), 3, now=START)
+    assert exam.time_limit_minutes == 2 + 3 + 4
 
 
 def test_build_exam_refuses_when_nothing_is_markable():

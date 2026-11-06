@@ -124,9 +124,54 @@ def test_a_method_pointer_never_contains_the_answer(topic):
                     )
 
 
-def test_practice_questions_carry_no_answer_field():
-    question = generate_practice_questions("Percentages", ErrorType.UNIT_ERROR, "Core", 1)[0]
-    assert not any("answer" in name for name in vars(question))
+@pytest.mark.parametrize("topic", practice_service.TOPICS)
+def test_every_template_marks_its_own_answer_correct(topic):
+    for builder in practice_service._TEMPLATES[topic]:
+        for difficulty in DIFFICULTIES:
+            low, high = practice_service._DIFFICULTY_RANGE[difficulty]
+            for index in range(25):
+                built = builder(random.Random(f"{topic}|{difficulty}|{index}"), low, high)
+                assert built.solution, builder.__name__
+                assert practice_service.check_answer(built.solution, built.solution) == practice_service.CORRECT, (
+                    f"{builder.__name__}: {built.solution}"
+                )
+
+
+@pytest.mark.parametrize(
+    "typed, correct, verdict",
+    [
+        ("5", "x = 5", practice_service.CORRECT),
+        ("x=5", "x = 5", practice_service.CORRECT),
+        ("15", "x = 5", practice_service.INCORRECT),
+        ("-5", "x = 5", practice_service.INCORRECT),
+        ("x = -3", "x = -3", practice_service.CORRECT),
+        ("x = −3", "x = -3", practice_service.CORRECT),
+        ("no idea", "x = 5", practice_service.INCORRECT),
+        ("0.5", "1/2", practice_service.CORRECT),
+        ("1 / 2", "1/2", practice_service.CORRECT),
+        ("2/4", "1/2", practice_service.SIMPLIFY),
+        ("1 1/12", "13/12", practice_service.CORRECT),
+        ("40 %", "0.4 = 40%", practice_service.PARTLY),
+        ("0.4, 40%", "0.4 = 40%", practice_service.CORRECT),
+        ("1,200 rupees", "1200 rupees", practice_service.CORRECT),
+        ("12 cm2 and 14 cm", "Area 12 cm², perimeter 14 cm", practice_service.CORRECT),
+        ("12", "Area 12 cm², perimeter 14 cm", practice_service.PARTLY),
+        ("3:4", "3 : 4", practice_service.CORRECT),
+        ("4:3", "3 : 4", practice_service.INCORRECT),
+        ("6:8", "3 : 4", practice_service.INCORRECT),
+        ("3/0", "x = 3", practice_service.INCORRECT),
+        ("the mean", "The  Mean", practice_service.CORRECT),
+        ("the median", "The mean", practice_service.UNCHECKED),
+    ],
+)
+def test_check_answer(typed, correct, verdict):
+    assert practice_service.check_answer(typed, correct) == verdict
+
+
+def test_the_download_leaves_out_the_answer():
+    page = (Path(__file__).resolve().parent.parent / PRACTICE_PAGE).read_text(encoding="utf-8")
+    start = page.index("def _download(")
+    assert "answer" not in page[start : page.index("# From results", start)]
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +408,36 @@ def _page_as(user_id: str) -> AppTest:
 
 def _markdown(at: AppTest) -> str:
     return " ".join(m.value for m in at.markdown)
+
+
+def _all_text(at: AppTest) -> str:
+    return " ".join(
+        [m.value for m in at.markdown] + [t.value for t in at.text]
+    )
+
+
+def test_the_answer_stays_hidden_until_an_attempt_is_submitted():
+    at = _page_as("usr_s03")
+    assert len(at.text_input) == targeted.DEFAULT_TOTAL
+    assert "Correct answer:" not in _all_text(at)
+
+    # An empty submission is not an attempt.
+    check = next(b for b in at.button if b.label == "Check answer")
+    check.click().run()
+    assert not at.exception, at.exception
+    assert "Correct answer:" not in _all_text(at)
+    assert any("Type your answer first" in w.value for w in at.warning)
+
+    at.text_input[0].set_value("7")
+    next(b for b in at.button if b.label == "Check answer").click().run()
+    assert not at.exception, at.exception
+    assert _all_text(at).count("Correct answer:") == 1
+    assert len(at.text_input) == targeted.DEFAULT_TOTAL - 1
+
+    next(b for b in at.button if b.label == "Try again").click().run()
+    assert not at.exception, at.exception
+    assert "Correct answer:" not in _all_text(at)
+    assert len(at.text_input) == targeted.DEFAULT_TOTAL
 
 
 def test_a_student_gets_practice_from_their_own_results():

@@ -5,11 +5,15 @@ the error categories that keep coming up there, at a difficulty that fits.
 Each question says why it was chosen. A manual mode is kept for picking a
 topic and error category by hand.
 
-Pointers, not answers: the method pointer names the approach, never the
-worked solution or the final value.
+Pointers first, answers after an attempt: the method pointer names the approach,
+never the worked solution or the final value. Each question has an answer box,
+and the correct answer appears only once something has been submitted. Attempts
+stay in this session and are not saved.
 """
 
 from __future__ import annotations
+
+import hashlib
 
 import streamlit as st
 
@@ -42,8 +46,8 @@ _viewer = store.get_current_user()
 _is_student = _viewer is not None and _viewer.is_student
 
 st.info(
-    "**Pointers, not answers.** Each question comes with a method pointer that "
-    "names the approach - never a worked solution.",
+    "**Try it first.** Each question comes with a method pointer that names the "
+    "approach. Type your answer and check it to see the correct one.",
     icon=":material/lightbulb:",
 )
 
@@ -99,6 +103,65 @@ mode = st.radio(
 )
 
 
+CHECKED_KEY = "practice_checked"
+EMPTY_ATTEMPT_KEY = "practice_empty_attempt"
+
+_VERDICTS = {
+    practice_service.CORRECT: (st.success, "That matches the correct answer.", ":material/check_circle:"),
+    practice_service.SIMPLIFY: (st.warning, "Right value, but it can be simplified further.", ":material/info:"),
+    practice_service.PARTLY: (st.warning, "Part of that matches. Compare it with the correct answer.", ":material/info:"),
+    practice_service.INCORRECT: (st.error, "That doesn't match the correct answer.", ":material/cancel:"),
+    practice_service.UNCHECKED: (st.info, "Compare your answer with the correct one.", ":material/info:"),
+}
+
+
+def _forget_attempt(key: str) -> None:
+    st.session_state.get(CHECKED_KEY, {}).pop(key, None)
+
+
+def _submit_attempt(key: str) -> None:
+    """Runs before the page redraws, so the box is already gone beside the result."""
+    typed = (st.session_state.get(f"practice_input_{key}") or "").strip()
+    if typed:
+        st.session_state.setdefault(CHECKED_KEY, {})[key] = typed
+    else:
+        st.session_state[EMPTY_ATTEMPT_KEY] = key
+
+
+def _render_attempt(question) -> None:
+    """The answer box; the correct answer appears only after a submitted attempt."""
+    if not question.answer:
+        return
+    digest = hashlib.sha1(question.question_text.encode("utf-8")).hexdigest()[:12]
+    key = f"{question.number}_{digest}"
+    attempts = st.session_state.setdefault(CHECKED_KEY, {})
+
+    if key not in attempts:
+        with st.form(f"practice_form_{key}", border=False):
+            st.text_input(
+                f"Your answer to question {question.number}",
+                max_chars=300,
+                placeholder="Your final answer",
+                key=f"practice_input_{key}",
+            )
+            st.form_submit_button("Check answer", on_click=_submit_attempt, args=(key,))
+        if st.session_state.get(EMPTY_ATTEMPT_KEY) == key:
+            del st.session_state[EMPTY_ATTEMPT_KEY]
+            st.warning("Type your answer first, then check it.", icon=":material/edit:")
+        return
+
+    attempt = attempts[key]
+    show, message, icon = _VERDICTS[practice_service.check_answer(attempt, question.answer)]
+    show(message, icon=icon)
+    st.text(f"Your answer: {attempt}\nCorrect answer: {question.answer}")
+    st.button(
+        "Try again",
+        key=f"practice_retry_{key}",
+        on_click=_forget_attempt,
+        args=(key,),
+    )
+
+
 def _render_question(question, reason: str = "") -> None:
     with st.container(border=True):
         st.markdown(f"**Question {question.number}.** {question.question_text}")
@@ -111,6 +174,7 @@ def _render_question(question, reason: str = "") -> None:
             hint_note("How to go at it")
             st.markdown(question.method_hint)
             st.markdown(f"**Focus:** {question.skill_focus}")
+        _render_attempt(question)
 
 
 def _download(questions, reasons, file_name: str) -> None:
@@ -239,6 +303,7 @@ else:
         )
 
     if st.button("Generate practice questions", type="primary"):
+        st.session_state.pop(CHECKED_KEY, None)
         st.session_state["practice_request"] = {
             "topic": topic,
             "error_type": error_label_map[error_label].value,

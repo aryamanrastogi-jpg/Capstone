@@ -114,9 +114,10 @@ if exam is None:
         value=exams.DEFAULT_QUESTION_COUNT,
     )
     st.caption(
-        "You get 2 minutes for an easy question, 3 minutes for a medium question, "
-        "and 4 minutes for a hard question. The clock starts when you press start. "
-        "While the paper is open, use Submit or Abandon to leave."
+        "You get 2 minutes for an easy question (up to 2 marks), 3 minutes for a "
+        "medium one (3 marks) and 4 minutes for a hard one (4 marks or more). The "
+        "clock starts when you press start. While the paper is open, use Submit or "
+        "Abandon to leave."
     )
 
     if st.button("Start the mock exam", type="primary", disabled=not chosen):
@@ -165,7 +166,8 @@ if not exam.is_submitted:
     for number, item in enumerate(exam.items, start=1):
         st.markdown(
             f"**{number}.** {item.question.question_text}  \n"
-            f"*{item.topic} · {item.question.max_marks:g} marks*"
+            f"*{item.topic} · {exams.question_difficulty(item.question).capitalize()} · "
+            f"{item.question.max_marks:g} marks · {exams.minutes_for(item.question)} min*"
         )
         key = _answer_key(item.question.id)
         if key not in st.session_state:

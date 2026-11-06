@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Sequence
 
 import pandas as pd
 
-from models import Assessment, GradingResult
+from models import Assessment, GradingResult, Question
 from models.mock_exam import MockExam, MockExamItem
 from models.submission import MOCK_EXAM_SOURCE
 from services import assessment_service, grading_service
@@ -26,7 +26,8 @@ from services.study_camp_service import baseline_for
 DEFAULT_QUESTION_COUNT = 5
 MAX_QUESTION_COUNT = 15
 
-# Difficulty-based time mapping (Easy: 2m, Medium: 3m, Hard: 4m)
+# Time allowed per question, by difficulty. Questions store no difficulty of
+# their own, so it comes from their marks (see `question_difficulty`).
 DIFFICULTY_MINUTES = {
     "easy": 2,
     "medium": 3,
@@ -88,12 +89,18 @@ def _interleave(pool: List[MockExamItem], topics: Sequence[str], count: int) -> 
     return chosen
 
 
-def _get_difficulty_minutes(question) -> int:
-    """Get time allowance based on question difficulty, defaulting to 3 minutes."""
-    diff = getattr(question, "difficulty", "medium")
-    if hasattr(diff, "value"):
-        diff = diff.value
-    return DIFFICULTY_MINUTES.get(str(diff).lower(), 3)
+def question_difficulty(question: Question) -> str:
+    """Easy up to 2 marks, medium under 4, hard from 4 marks up."""
+    if question.max_marks <= 2:
+        return "easy"
+    if question.max_marks < 4:
+        return "medium"
+    return "hard"
+
+
+def minutes_for(question: Question) -> int:
+    """Minutes this question adds to the paper's time limit."""
+    return DIFFICULTY_MINUTES[question_difficulty(question)]
 
 
 def build_exam(
@@ -120,8 +127,7 @@ def build_exam(
     if not frame.empty and frame["topic"].isin(topics).any():
         baseline = baseline_for(frame, topics)
 
-    # Calculate total time limit based on tiered question difficulties
-    total_time_minutes = sum(_get_difficulty_minutes(item.question) for item in items)
+    total_time_minutes = sum(minutes_for(item.question) for item in items)
 
     return MockExam(
         student_id=student_id,

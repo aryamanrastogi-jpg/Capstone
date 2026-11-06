@@ -11,10 +11,11 @@ Each template builds its numbers *backwards from a chosen answer* rather than
 picking them at random. A generator that emits "36x + 36 = 21" is worse than
 useless to a Grade 7 class, so every question here resolves to a clean value.
 
-Pointers, not answers. Students see `method_hint`, so it names the method and
-what to check - never the worked solution or the final value. The answer each
-template chose is kept on the internal `_Built` record so tests can prove the
-hint does not give it away; it is never put on a `PracticeQuestion`.
+Pointers first, answers after an attempt. `method_hint` names the method and
+what to check - never the worked solution or the final value. The final answer
+travels on `PracticeQuestion.answer`, and the page shows it only once the
+student has submitted something; `check_answer` compares the two. `_Built.answers`
+also lists intermediate values, so tests can prove the hint gives none of them away.
 
 Choosing *which* topic, error category and difficulty to practise from a
 student's own results lives in `services/targeted_practice_service.py`.
@@ -25,6 +26,7 @@ from __future__ import annotations
 import random
 import re
 from dataclasses import dataclass
+from fractions import Fraction
 from math import gcd
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
@@ -97,6 +99,8 @@ class PracticeQuestion:
     question_text: str
     method_hint: str
     skill_focus: str
+    # Shown only after the student has submitted an attempt.
+    answer: str = ""
 
 
 class _Built(NamedTuple):
@@ -106,6 +110,12 @@ class _Built(NamedTuple):
     pointer: str
     focus: str
     answers: Tuple[str, ...]
+    solution: str
+
+
+def _fraction_text(numerator: int, denominator: int) -> str:
+    """A simplified fraction as text: a whole number stays whole, not "2/1"."""
+    return str(numerator) if denominator == 1 else f"{numerator}/{denominator}"
 
 
 # --------------------------------------------------------------------------
@@ -129,6 +139,7 @@ def _solve_ax_plus_b(rng: random.Random, low: int, high: int) -> _Built:
         "substituting it back into the original equation.",
         "Isolating the variable one operation at a time.",
         (str(x), str(a * x)),
+        f"x = {x}",
     )
 
 
@@ -145,6 +156,7 @@ def _word_equation(rng: random.Random, low: int, high: int) -> _Built:
         "original sentence, not just your equation.",
         "Translating a word problem into an equation.",
         (str(n), str(a * n)),
+        f"The number is {n}",
     )
 
 
@@ -159,6 +171,7 @@ def _equation_with_brackets(rng: random.Random, low: int, high: int) -> _Built:
         "Say which you chose and why, then isolate x one step at a time.",
         "Equations with brackets.",
         (str(x), str(x + b)),
+        f"x = {x}",
     )
 
 
@@ -173,6 +186,7 @@ def _equation_with_division(rng: random.Random, low: int, high: int) -> _Built:
         "both sides next, then check by substituting back.",
         "Undoing division in an equation.",
         (str(x), str(x // d)),
+        f"x = {x}",
     )
 
 
@@ -194,6 +208,7 @@ def _add_fractions(rng: random.Random, low: int, high: int) -> _Built:
             f"{numerator}/{denominator}",
             f"{numerator // divisor}/{denominator // divisor}",
         ),
+        _fraction_text(numerator // divisor, denominator // divisor),
     )
 
 
@@ -208,6 +223,7 @@ def _fraction_to_percentage(rng: random.Random, low: int, high: int) -> _Built:
         "percentage.",
         "Moving between fractions, decimals and percentages.",
         (f"{decimal:g}", f"{decimal * 100:g}%"),
+        f"{decimal:g} = {decimal * 100:g}%",
     )
 
 
@@ -228,6 +244,7 @@ def _multiply_fractions(rng: random.Random, low: int, high: int) -> _Built:
             f"{numerator}/{denominator}",
             f"{numerator // divisor}/{denominator // divisor}",
         ),
+        _fraction_text(numerator // divisor, denominator // divisor),
     )
 
 
@@ -243,6 +260,7 @@ def _share_in_ratio(rng: random.Random, low: int, high: int) -> _Built:
         "up to the total.",
         "Dividing a quantity in a given ratio.",
         (str(part), str(a * part), str(b * part)),
+        f"{a * part} and {b * part} counters",
     )
 
 
@@ -258,6 +276,7 @@ def _unitary_method(rng: random.Random, low: int, high: int) -> _Built:
         "the unit on every line of working.",
         "Unitary method and correct units.",
         (str(unit_cost), str(b * unit_cost)),
+        f"{b * unit_cost} rupees",
     )
 
 
@@ -272,6 +291,7 @@ def _simplify_ratio(rng: random.Random, low: int, high: int) -> _Built:
         "sides by it. Keep going until the only number that divides both is 1.",
         "Simplifying ratios using common factors.",
         (f"{a} : {b}", f"{a}:{b}"),
+        f"{a} : {b}",
     )
 
 
@@ -287,6 +307,7 @@ def _scale_a_recipe(rng: random.Random, low: int, high: int) -> _Built:
         "original amount before you calculate.",
         "Direct proportion in context.",
         (str(per_person), str(per_person * wanted)),
+        f"{per_person * wanted} g",
     )
 
 
@@ -301,6 +322,7 @@ def _rectangle(rng: random.Random, low: int, high: int) -> _Built:
         "answers need different units.",
         "Applying the correct formula and unit.",
         (str(a * b), str(2 * (a + b))),
+        f"Area {a * b} cm², perimeter {2 * (a + b)} cm",
     )
 
 
@@ -314,6 +336,7 @@ def _triangle(rng: random.Random, low: int, high: int) -> _Built:
         "to choose the formula, write it out, then substitute.",
         "Choosing the right area formula.",
         (str(base * height // 2), str(base * height)),
+        f"{base * height // 2} cm²",
     )
 
 
@@ -327,6 +350,7 @@ def _missing_side(rng: random.Random, low: int, high: int) -> _Built:
         "need both sides before you can work out the perimeter.",
         "Working backwards from an area.",
         (str(length), str(2 * (width + length))),
+        f"Length {length} cm, perimeter {2 * (width + length)} cm",
     )
 
 
@@ -340,6 +364,7 @@ def _compound_shape(rng: random.Random, low: int, high: int) -> _Built:
         "then combine them. Say which unit an area takes and why.",
         "Area of compound shapes.",
         (str(a * b + c * d),),
+        f"{a * b + c * d} m²",
     )
 
 
@@ -352,6 +377,7 @@ def _percentage_of(rng: random.Random, low: int, high: int) -> _Built:
         "percentage you need. Check the size of your answer: is it sensible?",
         "Percentage of an amount.",
         (str(amount * percent // 100),),
+        str(amount * percent // 100),
     )
 
 
@@ -367,6 +393,7 @@ def _percentage_decrease(rng: random.Random, low: int, high: int) -> _Built:
         "that directly.",
         "Percentage decrease in context.",
         (str(reduction), str(price - reduction)),
+        f"{price - reduction} rupees",
     )
 
 
@@ -381,6 +408,7 @@ def _percentage_increase(rng: random.Random, low: int, high: int) -> _Built:
         "whether it is added or taken away. The new wage should be more than the old one.",
         "Percentage increase in context.",
         (str(rise), str(salary + rise)),
+        f"{salary + rise} rupees",
     )
 
 
@@ -394,6 +422,7 @@ def _express_as_percentage(rng: random.Random, low: int, high: int) -> _Built:
         "into a percentage - an equivalent fraction out of 100 is one way.",
         "Expressing one quantity as a percentage of another.",
         (f"{part * 100 / total:g}%",),
+        f"{part * 100 / total:g}%",
     )
 
 
@@ -411,6 +440,7 @@ def _mean_of_four(rng: random.Random, low: int, high: int) -> _Built:
         "many values there are. Your mean should sit between the smallest and largest value.",
         "Calculating the mean.",
         (str(total), str(total // 4)),
+        str(total // 4),
     )
 
 
@@ -428,6 +458,7 @@ def _missing_value_from_mean(rng: random.Random, low: int, high: int) -> _Built:
         "add up to. Compare that with the total of the scores you already know.",
         "Working backwards from a mean.",
         (str(missing), str(mean * count)),
+        str(missing),
     )
 
 
@@ -444,6 +475,7 @@ def _range_and_median(rng: random.Random, low: int, high: int) -> _Built:
         "halfway between the middle two.",
         "Range and median from an unordered list.",
         (str(ordered[-1] - ordered[0]), f"{median:g}"),
+        f"Range {ordered[-1] - ordered[0]}, median {median:g}",
     )
 
 
@@ -526,6 +558,7 @@ def generate_practice_questions(
             question_text=item["question_text"],
             method_hint=item["method_hint"],
             skill_focus=f"{item['skill_focus'].rstrip('.')}. {remediation}",
+            answer=item["answer"],
         )
         for item in written
     ]
@@ -545,6 +578,7 @@ def generate_practice_questions(
                     question_text=built.question,
                     method_hint=built.pointer,
                     skill_focus=f"{built.focus} {remediation}",
+                    answer=built.solution,
                 )
             )
 
@@ -553,6 +587,77 @@ def generate_practice_questions(
     for number, question in enumerate(questions, start=1):
         question.number = number
     return questions
+
+
+# --------------------------------------------------------------------------
+# Checking an attempt
+#
+# Compares the values in the student's answer with the values in the correct
+# one, so "x = 5", "5" and "5 cm" all match 5, and 0.5 matches 1/2. The correct
+# answer is always shown beside the verdict, so a wrong verdict is visible.
+# --------------------------------------------------------------------------
+CORRECT = "correct"
+SIMPLIFY = "simplify"      # the right value, but the fraction is not simplified
+PARTLY = "partly"          # some of the values in a multi-part answer
+INCORRECT = "incorrect"
+UNCHECKED = "unchecked"    # the correct answer has no value to compare
+
+_THOUSANDS = re.compile(r"(?<=[0-9]),(?=[0-9]{3}(?![0-9]))")
+_VALUE = re.compile(
+    r"(?<![\w.])(-(?=[0-9]))?"
+    r"(?:([0-9]+)\s+([0-9]+)/([0-9]+)"                        # 1 1/2
+    r"|([0-9]+(?:\.[0-9]+)?)\s*/\s*([0-9]+(?:\.[0-9]+)?)"     # 3/4
+    r"|([0-9]+(?:\.[0-9]+)?))"                                # 12 or 0.5
+)
+
+
+def _values(text: str) -> List[Tuple[Fraction, bool]]:
+    """Each number in `text`, in order, with whether it is an unsimplified fraction."""
+    cleaned = _THOUSANDS.sub("", (text or "").replace("−", "-"))
+    found: List[Tuple[Fraction, bool]] = []
+    for match in _VALUE.finditer(cleaned):
+        minus, whole, mixed_top, mixed_bottom, top, bottom, plain = match.groups()
+        unsimplified = False
+        if plain is not None:
+            value = Fraction(plain)
+        else:
+            over, under = (mixed_top, mixed_bottom) if whole else (top, bottom)
+            if Fraction(under) == 0:
+                continue
+            value = Fraction(over) / Fraction(under) + Fraction(whole or 0)
+            if over.isdigit() and under.isdigit():
+                unsimplified = gcd(int(over), int(under)) > 1
+        found.append((-value if minus else value, unsimplified))
+    return found
+
+
+def _in_order(wanted: Sequence[Fraction], given: Sequence[Fraction]) -> bool:
+    remaining = iter(given)
+    return all(value in remaining for value in wanted)
+
+
+def check_answer(student_answer: str, correct_answer: str) -> str:
+    """How an attempt compares with the correct answer: one of the constants above."""
+    expected = [value for value, _ in _values(correct_answer)]
+    given = _values(student_answer)
+    if not expected:
+        wanted = " ".join((correct_answer or "").casefold().split())
+        typed = " ".join((student_answer or "").casefold().split())
+        return CORRECT if wanted and wanted == typed else UNCHECKED
+
+    given_values = [value for value, _ in given]
+    # 3 : 4 is not 4 : 3, so a ratio's order counts.
+    if ":" in correct_answer and not _in_order(expected, given_values):
+        return INCORRECT
+
+    matched = [value for value in dict.fromkeys(expected) if value in given_values]
+    if not matched:
+        return INCORRECT
+    if len(matched) < len(set(expected)):
+        return PARTLY
+    if any(flag and value in matched for value, flag in given):
+        return SIMPLIFY
+    return CORRECT
 
 
 def available_topics(extra: Sequence[str] = ()) -> List[str]:
