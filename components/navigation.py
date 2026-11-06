@@ -147,7 +147,7 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "path": "pages/privacy.py",
         "title": "Privacy",
         "icon": ":material/lock:",
-        # Not "About": the sidebar already has an About block under the menu.
+        # The sidebar's only route to the privacy details.
         "section": "Account",
         "roles": [STUDENT, TEACHER],
         "default": False,

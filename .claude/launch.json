@@ -26,6 +26,25 @@
         "true"
       ],
       "port": 8503
+    },
+    {
+      "name": "campprep-demo",
+      "runtimeExecutable": ".venv/Scripts/streamlit.exe",
+      "runtimeArgs": [
+        "run",
+        "app.py",
+        "--server.port",
+        "8504",
+        "--server.headless",
+        "true"
+      ],
+      "port": 8504,
+      "env": {
+        "SUPABASE_URL": "",
+        "SUPABASE_PUBLISHABLE_KEY": "",
+        "LLM_API_KEY": "",
+        "LLM_MODEL": ""
+      }
     }
   ]
 }

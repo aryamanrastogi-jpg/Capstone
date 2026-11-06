@@ -50,6 +50,15 @@ SURFACE = "#FFFFFF"
 SURFACE_ALT = "#F1F3FC"
 CANVAS = "#F6F7FE"
 
+# --- The welcome page's dark canvas ----------------------------------------
+# The one dark screen, after the HackerRank landing page Aryaman pointed at:
+# a near-black that still leans indigo, with the green as its glow.
+NIGHT_DEEP = "#05071A"     # page background
+SURFACE_DARK = "#0B0F2A"   # cards on that background
+ON_DARK = "#E9ECFF"        # body text on it
+ON_DARK_MUTED = "#9AA0C3"  # secondary text on it (7:1 on NIGHT_DEEP)
+GREEN_ON_LIGHT = "#3A8A22" # green display text on white (4.3:1, large text only)
+
 # --- Badge pairs: (background tint, readable text colour) ------------------
 # Tints are the palette colour lightened; the text colour is the same hue
 # darkened enough to clear WCAG AA on that tint.

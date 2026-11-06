@@ -27,7 +27,7 @@ MAX_PDF_EXTRACTION_SECONDS = 10
 # .docx is what Word saves and what Google Docs downloads as.
 ALLOWED_UPLOAD_EXTENSIONS: Set[str] = {".txt", ".pdf", ".docx"}
 
-# The short notice at the foot of every page and in the sidebar. It has to be
+# The short notice at the foot of every page. It has to be
 # true in both modes: a signed-in account really does store a name and an
 # email, and the demo stores nothing beyond the browser session. The older
 # wording ("do not upload real names") stopped being true the day sign-up began
@@ -45,14 +45,16 @@ PRIVACY_NOTICE = (
 # parent would ask: what, why, who, how long, how to get rid of it.
 PRIVACY_DETAILS = (
     "**What we store.** Your full name, your email address, your year group "
-    "if you add one, an optional profile photo, and the work you save.",
+    "if you add one, an optional profile photo, the work you save, and any "
+    "survey answers you send with Give feedback.",
     "**Why.** Your email is how you sign in. Your name is how your teacher "
     "tells your work apart from everyone else's.",
     "**Who can see it.** You can see your own details. A teacher can see the "
     "names and work of students on their own class list, and nobody else's. "
     "Other students cannot see your name or details; a question set you "
     "choose to share to the library is shown without your name. Your email "
-    "is shown only to you, on your Profile page.",
+    "is shown only to you, on your Profile page. Survey answers are read "
+    "only by the Camp Prep AI team, never by teachers or other students.",
     "**What we never do.** Passwords are handled by our sign-in provider, "
     "kept only as a one-way hash, and cannot be read by the app or your "
     "teacher. Emails, passwords and sign-in tokens are never written to logs "
@@ -62,9 +64,10 @@ PRIVACY_DETAILS = (
     "service to be marked. If you ask the AI to find the questions in a file "
     "you upload, that file's text is sent the same way. On Gemini's free tier, "
     "Google may use that text to improve its products.",
-    "**Deleting it.** Profile > Delete account removes your account, photo and "
-    "profile. A teacher's assessment is retained in an archived state when a "
-    "student has submitted work to it, so that student's history remains. Your "
+    "**Deleting it.** Profile > Delete account removes your account, photo, "
+    "profile and survey answers. A teacher's assessment is retained in an "
+    "archived state when a student has submitted work to it, so that "
+    "student's history remains. Your "
     "unused assessments are deleted. A student's own saved work is deleted, "
     "except a shared set used by another student, which is archived for that "
     "student's history. This cannot be undone.",
