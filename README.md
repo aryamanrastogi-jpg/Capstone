@@ -305,7 +305,7 @@ python -m pytest
 python -m pytest -v
 ```
 
-789 tests, covering:
+791 tests, covering:
 
 - **Score integrity** — negative scores and scores above the maximum are rejected;
   confidence stays within 0–1; assessment totals derive from the questions

@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from components import charts
-from components.layout import empty_state, metric_row, page_header, privacy_notice
+from components.layout import empty_state, how_it_works, metric_row, page_header, privacy_notice
 from components.navigation import goto
 from services import analytics_service as analytics
 from services import assessment_service as service
@@ -38,14 +38,14 @@ if student is None or not student.is_student:
 page_header(
     "Study Camp",
     "A short, focused programme built from your own weak spots.",
-    "Pick the topics you want to drill, work through one session a day, and record "
-    "how you did. The camp shows whether you actually improved.",
 )
 
-st.caption(
-    ":material/auto_awesome: When you are signed in, practice questions are "
-    "written by Gemini from the topic and the kind of mistake - never your own "
-    "answers. In the demo they come from built-in templates."
+how_it_works(
+    "Pick the topics you want to drill, work through one session a day, and record "
+    "how you did. The camp shows whether you actually improved.",
+    "When you are signed in, practice questions are written by Gemini from the "
+    "topic and the kind of mistake - never your own answers. In the demo they come "
+    "from built-in templates.",
 )
 
 assessments = service.list_assessments_for_student(student.id)

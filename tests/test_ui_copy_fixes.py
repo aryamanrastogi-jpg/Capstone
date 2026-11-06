@@ -111,11 +111,34 @@ def test_study_camp_copy_matches_how_practice_questions_are_written(monkeypatch)
     at = _app_as("student")
     at.switch_page("pages/study_camp.py").run()
     assert not at.exception, at.exception
-    captions = " ".join(c.value for c in at.caption)
-    assert "written by Gemini" in captions
-    assert "never your own answers" in captions
-    assert "built-in templates" in captions
-    assert "does not send your work to Gemini" not in captions
+    notes = " ".join(block.value for block in at.markdown)
+    assert "written by Gemini" in notes
+    assert "never your own answers" in notes
+    assert "built-in templates" in notes
+    assert "does not send your work to Gemini" not in notes
+
+
+def test_review_grading_explains_its_engine_in_plain_words():
+    at = _app_as("teacher")
+    at.switch_page("pages/review_grading.py").run()
+    assert not at.exception, at.exception
+    notice = " ".join(item.value for item in at.info)
+    assert "built-in checker, not AI" in notice
+    assert "LLM" not in notice
+    assert "Rule-based" not in notice
+    assert any("sets the result aside" in block.value for block in at.markdown)
+
+
+def test_the_engine_note_names_the_provider_but_not_the_model(monkeypatch):
+    from services import ai_grading_service as ai
+    from utils.config import Settings
+
+    monkeypatch.setattr(ai, "_has_authenticated_user", lambda: True)
+    note = ai.grading_engine_note(
+        Settings(llm_api_key="secret-key", llm_model="gemini:gemini-3.8-flash")
+    )
+    assert note == "Suggestions come from Gemini, or the built-in checker if it is unavailable."
+    assert "secret-key" not in note and "3.8" not in note
 
 
 def test_demo_reset_clears_exam_and_teacher_class_codes(monkeypatch: pytest.MonkeyPatch):

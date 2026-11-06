@@ -17,7 +17,7 @@ import hashlib
 
 import streamlit as st
 
-from components.layout import hint_note, page_header, privacy_notice
+from components.layout import hint_note, how_it_works, page_header, privacy_notice
 from models import ErrorType
 from services import analytics_service as analytics
 from services import assessment_service as service
@@ -32,24 +32,19 @@ BY_HAND = "Choose it yourself"
 page_header(
     "Practice Generator",
     "Practice aimed at where the marks are actually being lost.",
-    "Questions are picked from graded work: the weakest topics first, the error "
-    "types that keep coming up, at a level that fits. Each one says why it was "
-    "chosen.",
+    "Try each question, then check your answer to see the correct one.",
 )
 
-if llm_service.ai_enabled():
-    st.info(practice_service.generator_label(), icon=":material/smart_toy:")
-else:
-    st.warning(practice_service.generator_label(), icon=":material/construction:")
+how_it_works(
+    "Questions are picked from graded work: the weakest topics first, the error "
+    "types that keep coming up, at a level that fits. Each one says why it was chosen.",
+    "Each question comes with a method pointer that names the approach, never a "
+    "worked solution.",
+    practice_service.generator_label(),
+)
 
 _viewer = store.get_current_user()
 _is_student = _viewer is not None and _viewer.is_student
-
-st.info(
-    "**Try it first.** Each question comes with a method pointer that names the "
-    "approach. Type your answer and check it to see the correct one.",
-    icon=":material/lightbulb:",
-)
 
 # ---------------------------------------------------------------------------
 # Whose results to target
@@ -297,10 +292,7 @@ else:
         )
 
     if not llm_service.ai_enabled():
-        st.caption(
-            "The same selections always produce the same questions - the generator is "
-            "deterministic, not random."
-        )
+        st.caption("The same choices always give the same questions.")
 
     if st.button("Generate practice questions", type="primary"):
         st.session_state.pop(CHECKED_KEY, None)

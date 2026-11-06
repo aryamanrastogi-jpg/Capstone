@@ -238,7 +238,7 @@ if st.button("Confirm submission", type="primary"):
                     if any(o.ai_was_unavailable for o in outcomes):
                         st.warning(
                             "The AI marker was unavailable (busy, or over its free "
-                            "daily limit), so the rule-based grader made these "
+                            "daily limit), so the built-in checker made these "
                             "suggestions. Check them with extra care.",
                             icon=":material/hourglass_top:",
                         )

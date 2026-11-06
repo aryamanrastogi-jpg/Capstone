@@ -375,6 +375,27 @@ _STYLES = f"""
       letter-spacing: 0.07em;
       text-transform: uppercase;
   }}
+  /* Labels wrap too: "Submissions awa..." does not say what the number counts. */
+  [data-testid="stMetricLabel"],
+  [data-testid="stMetricLabel"] div,
+  [data-testid="stMetricLabel"] p {{
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      height: auto;
+  }}
+  /* A label that wraps makes its tile taller, so tiles in a row match heights. */
+  [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:only-child > [data-testid="stMetric"]) > [data-testid="stVerticalBlock"],
+  [data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:only-child:has(> [data-testid="stMetric"]) {{
+      height: 100%;
+  }}
+  /* Toggle and checkbox labels wrap rather than end in "...". */
+  [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"],
+  [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] p {{
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+  }}
 
   /* --- Buttons --------------------------------------------------------- */
   /* Chunky, with a darker lip underneath: a press sinks the button into it.
@@ -1289,6 +1310,14 @@ def page_header(
     st.markdown("".join(parts), unsafe_allow_html=True)
     if help_text:
         st.caption(help_text)
+
+
+def how_it_works(*lines: str) -> None:
+    """Explanations a returning user no longer needs, closed by default, so the
+    page's task stays near the top."""
+    with st.expander("How this works", icon=":material/help:"):
+        for line in lines:
+            st.markdown(line)
 
 
 def _section_for(title: str) -> str:

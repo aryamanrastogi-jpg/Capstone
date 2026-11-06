@@ -130,6 +130,15 @@ def describe_grading_engine(settings: Optional[Settings] = None) -> str:
     return f"{name}, with the rule-based grader as fallback"
 
 
+def grading_engine_note(settings: Optional[Settings] = None) -> str:
+    """What will mark the next answer, in words a teacher can use."""
+    settings = settings or get_settings()
+    if describe_grading_engine(settings) == grading_service.MOCK_ENGINE_NAME:
+        return "Right now the suggestions come from the built-in checker, not AI."
+    provider = settings.llm_model.partition(":")[0].strip().title()
+    return f"Suggestions come from {provider}, or the built-in checker if it is unavailable."
+
+
 def _has_authenticated_user() -> bool:
     try:
         from services.auth_service import is_signed_in
@@ -372,6 +381,7 @@ __all__ = [
     "PATH_RULE_BASED",
     "PROMPT_VERSION",
     "describe_grading_engine",
+    "grading_engine_note",
     "get_grading_model",
     "grade_with_ai",
     "parse_ai_output",

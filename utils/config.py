@@ -76,7 +76,7 @@ PRIVACY_DETAILS = (
 )
 
 AI_DISCLAIMER = (
-    "All scores and feedback below are AI recommendations. "
+    "All scores and feedback below are suggestions. "
     "Nothing is final until you review and approve it."
 )
 

@@ -11,7 +11,7 @@ from typing import List
 
 import streamlit as st
 
-from components.layout import ai_disclaimer, empty_state, page_header, privacy_notice
+from components.layout import ai_disclaimer, empty_state, how_it_works, page_header, privacy_notice
 from components.navigation import goto
 from components.report_downloads import report_downloads
 from components.status_badges import (
@@ -24,7 +24,7 @@ from models.grading import rating_for
 from services import assessment_service as service
 from services import attempt_service
 from services import state as store
-from services.ai_grading_service import describe_grading_engine
+from services.ai_grading_service import grading_engine_note
 from services.grading_service import apply_teacher_decision, grade_submission_outcomes
 
 # Set when the last grading ran without the AI; shown once after the rerun.
@@ -81,12 +81,16 @@ if _viewer is None or not _viewer.is_teacher:
 
 page_header(
     "Review Grading",
-    "Check every AI recommendation before it counts towards a student's result.",
-    "Approve accepts the suggestion unchanged. Edit records your own score or wording. "
-    "Flag parks the result for a second look without approving it.",
+    "Check every suggestion before it counts towards a student's result.",
 )
 
-ai_disclaimer(f"Grading engine: {describe_grading_engine()}.")
+ai_disclaimer(grading_engine_note())
+
+how_it_works(
+    "**Approve** accepts the suggestion unchanged.",
+    "**Edit** records your own score or wording.",
+    "**Flag** sets the result aside for a second look without approving it.",
+)
 
 assessments = service.list_assessments_for_teacher()
 submissions = service.list_submissions_for_review()
@@ -185,7 +189,7 @@ results = service.list_grading_results(submission.id)
 if st.session_state.pop(AI_BUSY_KEY, False):
     st.warning(
         "The AI marker was unavailable (busy, or over its free daily limit), so "
-        "the rule-based grader made these suggestions. Check them with extra care.",
+        "the built-in checker made these suggestions. Check them with extra care.",
         icon=":material/hourglass_top:",
     )
 if not results:

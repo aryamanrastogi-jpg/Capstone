@@ -77,7 +77,8 @@ metric_row(
             len(mismatches),
             "Where the AI reads a piece of work very differently to the mark given.",
         ),
-    ]
+    ],
+    per_row=5,
 )
 
 st.write("")
