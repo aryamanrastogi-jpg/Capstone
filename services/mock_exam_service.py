@@ -25,7 +25,14 @@ from services.study_camp_service import baseline_for
 
 DEFAULT_QUESTION_COUNT = 5
 MAX_QUESTION_COUNT = 15
-MINUTES_PER_QUESTION = 4
+
+# Difficulty-based time mapping (Easy: 2m, Medium: 3m, Hard: 4m)
+DIFFICULTY_MINUTES = {
+    "easy": 2,
+    "medium": 3,
+    "hard": 4,
+}
+
 # A small allowance so a submit pressed as the clock hits zero still counts.
 GRACE_SECONDS = 30
 
@@ -81,13 +88,20 @@ def _interleave(pool: List[MockExamItem], topics: Sequence[str], count: int) -> 
     return chosen
 
 
+def _get_difficulty_minutes(question) -> int:
+    """Get time allowance based on question difficulty, defaulting to 3 minutes."""
+    diff = getattr(question, "difficulty", "medium")
+    if hasattr(diff, "value"):
+        diff = diff.value
+    return DIFFICULTY_MINUTES.get(str(diff).lower(), 3)
+
+
 def build_exam(
     student_id: str,
     assessments: Sequence[Assessment],
     topics: Sequence[str],
     frame: pd.DataFrame,
     question_count: int = DEFAULT_QUESTION_COUNT,
-    minutes_per_question: int = MINUTES_PER_QUESTION,
     now: Optional[datetime] = None,
 ) -> MockExam:
     """Build a paper and start its clock. Raises ValueError when there is
@@ -105,11 +119,15 @@ def build_exam(
     baseline = None
     if not frame.empty and frame["topic"].isin(topics).any():
         baseline = baseline_for(frame, topics)
+
+    # Calculate total time limit based on tiered question difficulties
+    total_time_minutes = sum(_get_difficulty_minutes(item.question) for item in items)
+
     return MockExam(
         student_id=student_id,
         topics=topics,
         items=items,
-        time_limit_minutes=max(1, len(items) * int(minutes_per_question)),
+        time_limit_minutes=max(1, total_time_minutes),
         started_at=now or datetime.now(),
         baseline_percentage=baseline,
         topic_baselines=topic_baselines(frame, topics),
