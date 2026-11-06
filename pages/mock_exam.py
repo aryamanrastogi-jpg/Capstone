@@ -8,9 +8,6 @@ WHAT THIS FILE DOES
 WHERE THE LOGIC LIVES
   `mock_exam_service` builds the paper, keeps time from timestamps and marks it
   with the ordinary grader. This file only collects answers and draws results.
-
-TRY CHANGING THIS
-  `MINUTES_PER_QUESTION` in services/mock_exam_service.py sets the time limit.
 """
 
 from __future__ import annotations
@@ -117,8 +114,9 @@ if exam is None:
         value=exams.DEFAULT_QUESTION_COUNT,
     )
     st.caption(
-        f"You get {exams.MINUTES_PER_QUESTION} minutes per question. The clock starts "
-        "when you press start. While the paper is open, use Submit or Abandon to leave."
+        "You get 2 minutes for an easy question, 3 minutes for a medium question, "
+        "and 4 minutes for a hard question. The clock starts when you press start. "
+        "While the paper is open, use Submit or Abandon to leave."
     )
 
     if st.button("Start the mock exam", type="primary", disabled=not chosen):
