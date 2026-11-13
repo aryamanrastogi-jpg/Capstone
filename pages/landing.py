@@ -97,9 +97,9 @@ an eye on the class and sign off every mark.</p>
 <ul><li>Set an assessment and upload the class's responses</li>
 <li>Review every AI-suggested mark before it counts</li>
 <li>See where the class is slipping</li></ul>
-<small>Create a teacher account with the invite code from your administrator,
-then share your class code with your students.</small>
-<a href="?as=teacher#account">Set up teacher access →</a>
+<small>Create an account, then enter the invite code from your admin on your
+Profile page. Share your class code with your students.</small>
+<a href="#account">Set up teacher access →</a>
 </article>
 </div>
 </section>'''

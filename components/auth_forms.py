@@ -1,11 +1,11 @@
 """The sign-in and create-account forms, shared by the landing and Sign In pages.
 
-Sign-up asks for a name, an email and a password, and whether you are a student
-or a teacher. Choosing "Teacher" sends no role anywhere: it only asks for the
-invite code, which is redeemed through `auth_service.redeem_teacher_invite` as
-soon as the account is signed in. The database decides whether the code is
-good, for the reasons set out at the top of pages/sign_in.py; a refused code
-leaves a student account, and the code can be tried again on Profile.
+Sign-up asks for a name, an email and a password, and every new account is a
+student account. Teacher access is not chosen here: a teacher signs up like
+anyone else, then enters the invite code an admin made for them on Profile,
+where `auth_service.redeem_teacher_invite` sends it to the database. The
+database decides whether the code is good, for the reasons set out at the top
+of pages/sign_in.py.
 
 WHAT THIS MODULE NEVER DOES
   It never echoes an email, a password or a token back onto the page, and never
@@ -20,29 +20,6 @@ import streamlit as st
 
 from services import auth_service
 from utils.config import PRIVACY_DETAILS
-
-# An invite code typed at sign-up, held until the account can sign in: an
-# account that needs its email confirmed has no session to redeem it with yet.
-PENDING_INVITE = "_pending_teacher_invite"
-
-STUDENT_CHOICE = "Student"
-TEACHER_CHOICE = "Teacher"
-
-
-def _redeem_pending_invite() -> bool:
-    """Redeem an invite code held from sign-up. False if one was refused."""
-    code = st.session_state.pop(PENDING_INVITE, None)
-    if not code:
-        return True
-    outcome = auth_service.redeem_teacher_invite(code)
-    if not outcome.ok:
-        st.warning(
-            "You are signed in with a student account: that invite code was not "
-            "accepted. Check it and enter it again on your Profile page.",
-            icon=":material/key_off:",
-        )
-    return outcome.ok
-
 
 def privacy_details(expanded: bool = False) -> None:
     """The full privacy statement, folded away beside the forms."""
@@ -86,28 +63,15 @@ def auth_forms() -> None:
             else:
                 outcome = auth_service.sign_in(email, password)
                 if outcome.ok:
-                    if _redeem_pending_invite():
-                        st.rerun()
+                    st.rerun()
                 else:
                     st.error(outcome.message, icon=":material/error:")
 
     with sign_up_tab:
-        # Outside the form, so the invite code field appears as soon as
-        # "Teacher" is picked. The landing page's teacher link preselects it.
-        wants_teacher = st.query_params.get("as") == "teacher"
-        choice = st.radio(
-            "I am a",
-            [STUDENT_CHOICE, TEACHER_CHOICE],
-            index=1 if wants_teacher else 0,
-            horizontal=True,
-            key="sign_up_role",
+        st.caption(
+            "Teacher? Create your account here, then enter the invite code from "
+            "your admin on your Profile page."
         )
-        is_teacher = choice == TEACHER_CHOICE
-        if is_teacher:
-            st.caption(
-                "Teacher accounts need the invite code from whoever runs this "
-                "app. You only see students who join with your class code."
-            )
         st.caption(
             "We store your name and email to run your account. Your teacher can "
             "see your name on their class list. You can delete your account at "
@@ -139,18 +103,7 @@ def auth_forms() -> None:
                 key="sign_up_confirm",
                 max_chars=auth_service.MAX_PASSWORD_CHARS,
             )
-            invite_code = ""
-            if is_teacher:
-                invite_code = st.text_input(
-                    "Teacher invite code",
-                    type="password",
-                    key="sign_up_invite",
-                    max_chars=auth_service.MAX_INVITE_CODE_CHARS,
-                )
-            created = st.form_submit_button(
-                "Create teacher account" if is_teacher else "Create account",
-                type="primary",
-            )
+            created = st.form_submit_button("Create account", type="primary")
 
         if created:
             problem = (
@@ -165,27 +118,11 @@ def auth_forms() -> None:
                 st.error(problem, icon=":material/error:")
             elif new_password != confirm:
                 st.error("The two passwords do not match.", icon=":material/error:")
-            elif is_teacher and not invite_code.strip():
-                st.error(
-                    "Enter your teacher invite code, or choose Student.",
-                    icon=":material/error:",
-                )
             else:
                 outcome = auth_service.sign_up(new_email, new_password, full_name)
-                if outcome.ok and is_teacher:
-                    st.session_state[PENDING_INVITE] = invite_code
                 if outcome.ok and not outcome.needs_confirmation:
-                    if _redeem_pending_invite():
-                        st.rerun()
+                    st.rerun()
                 elif outcome.ok:
-                    st.success(
-                        outcome.message
-                        + (
-                            " Sign in here and your invite code is applied."
-                            if is_teacher
-                            else ""
-                        ),
-                        icon=":material/mark_email_read:",
-                    )
+                    st.success(outcome.message, icon=":material/mark_email_read:")
                 else:
                     st.error(outcome.message, icon=":material/error:")

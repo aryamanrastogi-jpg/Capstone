@@ -435,9 +435,11 @@ def test_the_sign_in_page_renders_and_offers_no_role_field(
         + [w.label or "" for w in at.text_input]
     ).lower()
     assert "role" not in labels
-    # Student by default, with no invite field until Teacher is picked.
-    assert at.radio(key="sign_up_role").value == "Student"
+    # No student/teacher choice and no invite field: every sign-up is a
+    # student account, and invite codes are redeemed on Profile.
+    assert len(at.radio) == 0
     assert "invite" not in labels
+    assert "Profile" in " ".join(c.value for c in at.caption)
 
 
 def _sign_up_page(monkeypatch: pytest.MonkeyPatch, sign_up_result, redeem_ok=True):
@@ -472,82 +474,15 @@ def _sign_up_page(monkeypatch: pytest.MonkeyPatch, sign_up_result, redeem_ok=Tru
     return at, calls
 
 
-def _fill_sign_up(at, invite: Optional[str] = None) -> None:
+def _fill_sign_up(at) -> None:
     at.text_input(key="sign_up_name").input("Ms Rao")
     at.text_input(key="sign_up_email").input("rao@example.com")
     at.text_input(key="sign_up_password").input("hunter22")
     at.text_input(key="sign_up_confirm").input("hunter22")
-    if invite is not None:
-        at.text_input(key="sign_up_invite").input(invite)
     at.button[1].click().run()
 
 
-def test_choosing_teacher_asks_for_an_invite_code_and_redeems_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    at, calls = _sign_up_page(
-        monkeypatch, auth_service.AuthOutcome(True, "Account created and signed in.")
-    )
-    at.radio(key="sign_up_role").set_value("Teacher").run()
-    assert at.text_input(key="sign_up_invite")
-    assert at.button[1].label == "Create teacher account"
-
-    _fill_sign_up(at, invite="ABC-123")
-
-    assert not at.exception, at.exception
-    # Sign-up itself still carries no role; the code goes to the redeem RPC.
-    assert calls["sign_up"] == [("rao@example.com", "Ms Rao")]
-    assert calls["redeem"] == ["ABC-123"]
-
-
-def test_a_teacher_sign_up_without_a_code_is_refused_before_creating_anything(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    at, calls = _sign_up_page(
-        monkeypatch, auth_service.AuthOutcome(True, "Account created and signed in.")
-    )
-    at.radio(key="sign_up_role").set_value("Teacher").run()
-    _fill_sign_up(at, invite="")
-
-    assert calls["sign_up"] == [] and calls["redeem"] == []
-    assert any("invite code" in e.value for e in at.error)
-
-
-def test_a_refused_invite_code_leaves_a_student_account_and_says_so(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    at, calls = _sign_up_page(
-        monkeypatch,
-        auth_service.AuthOutcome(True, "Account created and signed in."),
-        redeem_ok=False,
-    )
-    at.radio(key="sign_up_role").set_value("Teacher").run()
-    _fill_sign_up(at, invite="WRONG")
-
-    assert calls["redeem"] == ["WRONG"]
-    assert any("student account" in w.value for w in at.warning)
-
-
-def test_an_invite_code_waits_for_sign_in_when_email_needs_confirming(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from components.auth_forms import PENDING_INVITE
-
-    at, calls = _sign_up_page(
-        monkeypatch,
-        auth_service.AuthOutcome(
-            True, "Account created. Check your email.", needs_confirmation=True
-        ),
-    )
-    at.radio(key="sign_up_role").set_value("Teacher").run()
-    _fill_sign_up(at, invite="ABC-123")
-
-    assert calls["redeem"] == []
-    assert at.session_state[PENDING_INVITE] == "ABC-123"
-    assert any("invite code is applied" in s.value for s in at.success)
-
-
-def test_a_student_sign_up_never_redeems_anything(
+def test_sign_up_never_redeems_anything(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     at, calls = _sign_up_page(

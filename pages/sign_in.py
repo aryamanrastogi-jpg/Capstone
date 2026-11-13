@@ -4,9 +4,9 @@ WHAT A PERSON CAN AND CANNOT CHOOSE HERE
   They can choose their email and their password. That is the whole list.
 
   The role is written by a database trigger at sign-up and is always `student`.
-  The "I am a Teacher" choice on the sign-up form sends no role: it only asks
-  for an invite code, redeemed right after sign-up (components/auth_forms.py);
-  the operator mints those codes by hand (db/migrations/005_teacher_invites.sql)
+  There is no "teacher" choice on the sign-up form. A teacher signs up as a
+  student and redeems an invite code on Profile; an admin makes those codes on
+  the Admin page (db/migrations/010_admin.sql, on top of 005_teacher_invites.sql)
   and the database decides whether one is good. A form whose answer became the
   role would hand the class register to anybody who asked for it, and every
   read policy downstream would believe the answer.
