@@ -135,8 +135,10 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "default": False,
         "signed_in": False,
     },
-    # Only for signed-in accounts on `app_admins` (migration 010). Hidden from
-    # everyone else, including the demo; the database refuses them anyway.
+    # Opened with the ADMIN_PASSKEY secret, not an account (services/
+    # admin_service.py), so it is registered for everybody but never listed in
+    # the menu: it is reached at /admin or from the link on the sign-in form.
+    # `without_account` lets it open from the welcome screen too.
     {
         "path": "pages/admin.py",
         "title": "Admin",
@@ -144,8 +146,8 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "section": "Account",
         "roles": [STUDENT, TEACHER],
         "default": False,
-        "signed_in": True,
-        "admin_only": True,
+        "hidden": True,
+        "without_account": True,
     },
     {
         "path": "pages/privacy.py",
@@ -160,40 +162,33 @@ PAGE_SPECS: List[Dict[str, Any]] = [
 
 
 def pages_for(
-    role: Role,
-    signed_in: Optional[bool] = None,
-    accounts_available: bool = True,
-    is_admin: bool = False,
+    role: Role, signed_in: Optional[bool] = None, accounts_available: bool = True
 ) -> List[Dict[str, Any]]:
     """Pages for a role. With `signed_in` given, pages marked for the other
     state are left out: Profile only when signed in, Sign In only when not.
     With `accounts_available=False` (no Supabase) Sign In is left out too, since
-    it could only say that accounts are unavailable (BUG-032). Admin-only pages
-    need `is_admin` and a sign-in."""
+    it could only say that accounts are unavailable (BUG-032)."""
     return [
         spec
         for spec in PAGE_SPECS
         if role in spec["roles"]
         and (signed_in is None or spec.get("signed_in", signed_in) == signed_in)
         and (accounts_available or spec["path"] != "pages/sign_in.py")
-        and (not spec.get("admin_only") or (is_admin and signed_in is True))
     ]
 
 
 def build_navigation(
-    role: Role,
-    signed_in: bool = False,
-    accounts_available: bool = True,
-    is_admin: bool = False,
+    role: Role, signed_in: bool = False, accounts_available: bool = True
 ):
     """Build the grouped navigation object for the signed-in role."""
     sections: Dict[str, List] = {}
-    for spec in pages_for(role, signed_in, accounts_available, is_admin):
+    for spec in pages_for(role, signed_in, accounts_available):
         page = st.Page(
             spec["path"],
             title=spec["title"],
             icon=spec["icon"],
             default=spec["default"],
+            visibility="hidden" if spec.get("hidden") else "visible",
         )
         sections.setdefault(spec["section"], []).append(page)
     return st.navigation(sections)

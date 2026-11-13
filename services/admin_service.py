@@ -1,45 +1,76 @@
 """Admin actions: teacher invite codes and teachers.
 
-Everything that matters happens in Postgres (db/migrations/010_admin.sql).
-Every function there opens with `app_require_admin()`, so a caller who is not
-on `app_admins` is refused by the database whatever this module or the page
-does. The checks here only save a round trip and give a clear message.
+HOW THE ADMIN PAGE IS OPENED
+  With a passkey, not an account: whoever types the ADMIN_PASSKEY secret
+  unlocks the page for their browser session, for UNLOCK_SECONDS. Nobody has
+  to be signed in. The database cannot see that secret, so once the passkey
+  checks out the calls go to Supabase with the service-role key
+  (SUPABASE_SERVICE_ROLE_KEY), and db/migrations/011_admin_passkey.sql makes
+  every admin function executable by `service_role` only.
 
-Messages from the database are passed on only when they are one of the
-sentences 010 raises on purpose. Anything else (a constraint name, a network
-error) becomes one plain sentence, so internals never reach the page.
+WHAT KEEPS THAT SAFE ENOUGH
+  * The passkey is compared in constant time, must be at least
+    MIN_PASSKEY_CHARS long or admin stays switched off, and wrong guesses are
+    counted across every session: MAX_FAILURES within LOCKOUT_SECONDS locks the
+    form for everybody until the window passes.
+  * The service-role client is built per call, only after `is_unlocked()`,
+    and never stored in session state, a cache or a log. Nothing else in the
+    app can reach it: the repository and auth_service never import this module.
+  * Database messages are passed on only when they are one of the sentences
+    the migration raises on purpose; anything else becomes one plain sentence.
+
+The trade-off, chosen deliberately: anybody holding ADMIN_PASSKEY has full
+admin. Keep it long and random, and rotate it if it might have leaked.
 """
 
 from __future__ import annotations
 
+import hmac
+import os
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, List, Optional, Tuple
 
-from services import auth_service
+import streamlit as st
+
+PASSKEY_ENV = "ADMIN_PASSKEY"
+SERVICE_KEY_ENV = "SUPABASE_SERVICE_ROLE_KEY"
+
+MIN_PASSKEY_CHARS = 16
+MAX_PASSKEY_INPUT_CHARS = 256
+UNLOCK_SECONDS = 30 * 60
+MAX_FAILURES = 5
+LOCKOUT_SECONDS = 5 * 60
 
 MAX_USES = 20
 MAX_VALID_DAYS = 30
 MAX_NOTE_CHARS = 120
 
+UNLOCKED_AT = "_admin_unlocked_at"
+
 NOT_ADMIN_MESSAGE = "Admin access required."
+WRONG_PASSKEY_MESSAGE = "That passkey is not right."
 NOT_SET_UP_MESSAGE = (
     "Admin tools are not set up on this instance. Apply "
-    "db/migrations/010_admin.sql."
+    "db/migrations/011_admin_passkey.sql."
 )
 GENERIC_MESSAGE = "That did not work. Try again in a moment."
 
-# The sentences 010 raises deliberately. Only these are shown as they are.
+# The sentences the migration raises deliberately. Only these are shown as they are.
 _KNOWN_MESSAGES = (
     NOT_ADMIN_MESSAGE,
     "Uses must be between 1 and 20.",
     "Days valid must be between 1 and 30.",
     "Keep the note under 120 characters.",
     "No such invite code.",
-    "You cannot demote yourself.",
-    "That teacher is an admin. Remove their admin access first.",
     "That account is not a teacher.",
 )
+
+# Wrong passkeys across every session in this server process.
+_failures: List[float] = []
+_failures_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -75,7 +106,115 @@ class TeacherRow:
     profile_id: str
     display_name: str
     student_count: int
-    is_admin: bool
+
+
+# --------------------------------------------------------------------------
+# The passkey
+# --------------------------------------------------------------------------
+def _configured_passkey() -> str:
+    return os.getenv(PASSKEY_ENV, "").strip()
+
+
+def setup_problem() -> Optional[str]:
+    """Why admin cannot be used on this instance, or None when it can.
+
+    Never says what the passkey is, only whether it is usable.
+    """
+    passkey = _configured_passkey()
+    if not passkey:
+        return f"Admin is switched off: the {PASSKEY_ENV} secret is not set."
+    if len(passkey) < MIN_PASSKEY_CHARS:
+        return (
+            f"Admin is switched off: {PASSKEY_ENV} is shorter than "
+            f"{MIN_PASSKEY_CHARS} characters. Set a longer, random one."
+        )
+    if not os.getenv("SUPABASE_URL", "").strip():
+        return "Admin needs Supabase: SUPABASE_URL is not set."
+    if not os.getenv(SERVICE_KEY_ENV, "").strip():
+        return f"Admin needs the {SERVICE_KEY_ENV} secret, which is not set."
+    return None
+
+
+def locked_for() -> int:
+    """Seconds until the passkey form accepts guesses again (0 = open)."""
+    now = time.monotonic()
+    with _failures_lock:
+        _failures[:] = [t for t in _failures if now - t < LOCKOUT_SECONDS]
+        if len(_failures) < MAX_FAILURES:
+            return 0
+        return max(1, int(LOCKOUT_SECONDS - (now - _failures[0])))
+
+
+def _record_failure() -> None:
+    with _failures_lock:
+        _failures.append(time.monotonic())
+
+
+def _reset_failures() -> None:
+    with _failures_lock:
+        _failures.clear()
+
+
+def unlock(passkey: str) -> AdminOutcome:
+    problem = setup_problem()
+    if problem:
+        return AdminOutcome(False, problem)
+    wait = locked_for()
+    if wait:
+        return AdminOutcome(False, f"Too many wrong passkeys. Try again in {wait} seconds.")
+
+    typed = (passkey or "").strip()[:MAX_PASSKEY_INPUT_CHARS]
+    if not typed or not hmac.compare_digest(
+        typed.encode("utf-8"), _configured_passkey().encode("utf-8")
+    ):
+        _record_failure()
+        return AdminOutcome(False, WRONG_PASSKEY_MESSAGE)
+
+    st.session_state[UNLOCKED_AT] = time.monotonic()
+    return AdminOutcome(True, "Admin unlocked.")
+
+
+def is_unlocked() -> bool:
+    if setup_problem():
+        return False
+    try:
+        unlocked_at = st.session_state.get(UNLOCKED_AT)
+    except Exception:  # noqa: BLE001 - no session state available
+        return False
+    if unlocked_at is None:
+        return False
+    if time.monotonic() - unlocked_at >= UNLOCK_SECONDS:
+        lock()
+        return False
+    return True
+
+
+def lock() -> None:
+    try:
+        st.session_state.pop(UNLOCKED_AT, None)
+    except Exception:  # noqa: BLE001 - no session state available
+        pass
+
+
+# --------------------------------------------------------------------------
+# The service-role client
+# --------------------------------------------------------------------------
+def _new_service_client() -> Any:
+    from supabase import create_client  # imported lazily; optional at runtime
+
+    return create_client(
+        os.getenv("SUPABASE_URL", "").strip(), os.getenv(SERVICE_KEY_ENV, "").strip()
+    )
+
+
+def _admin_client() -> Tuple[Optional[Any], Optional[str]]:
+    """A service-role client, only for an unlocked session."""
+    if not is_unlocked():
+        return None, NOT_ADMIN_MESSAGE
+    try:
+        return _new_service_client(), None
+    except Exception:  # noqa: BLE001 - never echo the key or the URL
+        return None, GENERIC_MESSAGE
 
 
 def _parse_time(value: Any) -> Optional[datetime]:
@@ -98,19 +237,6 @@ def _message_for(exc: Exception) -> str:
         if known in text:
             return known
     return GENERIC_MESSAGE
-
-
-def _admin_client() -> Tuple[Optional[Any], Optional[str]]:
-    """The signed-in client, or the reason there is none to use."""
-    user = auth_service.current_user()
-    if user is None:
-        return None, "Sign in first."
-    if not user.is_admin:
-        return None, NOT_ADMIN_MESSAGE
-    client = auth_service.authenticated_client()
-    if client is None:
-        return None, "Sign in first."
-    return client, None
 
 
 # --------------------------------------------------------------------------
@@ -191,7 +317,6 @@ def list_teachers() -> Tuple[List[TeacherRow], Optional[str]]:
             profile_id=r["profile_id"],
             display_name=r.get("display_name") or r["profile_id"],
             student_count=int(r.get("student_count") or 0),
-            is_admin=bool(r.get("is_admin")),
         )
         for r in data
     ]

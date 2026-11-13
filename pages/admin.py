@@ -1,9 +1,10 @@
 """Admin - teacher invite codes and teachers.
 
-Shown only to signed-in accounts on `app_admins` (db/migrations/010_admin.sql).
-The page decides nothing: every action is a database function that refuses
-anybody who is not an admin, so the check below is only there to show a clear
-message instead of a failed call.
+Opened with the ADMIN_PASSKEY secret, not with an account: nobody has to be
+signed in, and the page is reached at /admin or from the link on the sign-in
+form. See services/admin_service.py for how the passkey and the service-role
+key are handled, and db/migrations/011_admin_passkey.sql for the functions it
+calls, which only the service role can run.
 
 WHAT IS SHOWN
   Teachers appear by display name and profile id, never by email: the Profile
@@ -20,24 +21,42 @@ import pandas as pd
 import streamlit as st
 
 from components.layout import page_header
-from services import admin_service, auth_service
+from services import admin_service
 
 page_header(
     "Admin",
     "Create teacher invite codes, see who is a teacher, and remove teacher access.",
 )
 
-user = auth_service.current_user()
-if user is None or not user.is_admin:
-    st.error(
-        "This page is for admins. Admin access is given by whoever runs this "
-        "instance.",
-        icon=":material/lock:",
-    )
-    st.stop()
-
 FLASH = "_admin_flash"
 NEW_CODE = "_admin_new_code"
+
+problem = admin_service.setup_problem()
+if problem:
+    st.error(problem, icon=":material/lock:")
+    st.stop()
+
+if not admin_service.is_unlocked():
+    wait = admin_service.locked_for()
+    if wait:
+        st.warning(
+            f"Too many wrong passkeys. Try again in {wait} seconds.",
+            icon=":material/lock_clock:",
+        )
+    with st.form("admin_unlock"):
+        passkey = st.text_input(
+            "Admin passkey",
+            type="password",
+            autocomplete="off",
+            max_chars=admin_service.MAX_PASSKEY_INPUT_CHARS,
+            help="The ADMIN_PASSKEY secret set for this app.",
+        )
+        if st.form_submit_button("Unlock", type="primary"):
+            outcome = admin_service.unlock(passkey)
+            if outcome.ok:
+                st.rerun()
+            st.error(outcome.message, icon=":material/error:")
+    st.stop()
 
 flash = st.session_state.pop(FLASH, None)
 if flash:
@@ -46,6 +65,10 @@ if flash:
         st.success(message, icon=":material/check_circle:")
     else:
         st.error(message, icon=":material/error:")
+
+if st.button("Lock admin", icon=":material/lock:"):
+    admin_service.lock()
+    st.rerun()
 
 
 def _done(outcome: admin_service.AdminOutcome) -> None:
@@ -68,7 +91,8 @@ new_code = st.session_state.pop(NEW_CODE, None)
 if new_code:
     st.success(
         "Send this code to the teacher privately. It is shown only now: once you "
-        "leave or refresh this page it cannot be shown again.",
+        "leave or refresh this page it cannot be shown again. They sign up, then "
+        "enter it on their Profile page.",
         icon=":material/key:",
     )
     st.code(new_code, language=None)
@@ -166,7 +190,6 @@ else:
                     "Name": teacher.display_name,
                     "Profile id": teacher.profile_id,
                     "Students": teacher.student_count,
-                    "Admin": "Yes" if teacher.is_admin else "",
                 }
                 for teacher in teachers
             ]
@@ -175,28 +198,26 @@ else:
         width="stretch",
     )
 
-    removable = [t for t in teachers if not t.is_admin and t.profile_id != user.id]
-    if removable:
-        with st.expander("Remove teacher access", icon=":material/person_remove:"):
-            st.caption(
-                "The account becomes a student account. Their assessments and the "
-                "work handed in against them stay. Admins cannot be removed here."
+    with st.expander("Remove teacher access", icon=":material/person_remove:"):
+        st.caption(
+            "The account becomes a student account. Their assessments and the "
+            "work handed in against them stay."
+        )
+        with st.form("admin_demote_teacher"):
+            target = st.selectbox(
+                "Teacher",
+                teachers,
+                format_func=lambda t: f"{t.display_name} ({t.profile_id})",
             )
-            with st.form("admin_demote_teacher"):
-                target = st.selectbox(
-                    "Teacher",
-                    removable,
-                    format_func=lambda t: f"{t.display_name} ({t.profile_id})",
-                )
-                release = st.checkbox(
-                    "Also take their students off their class",
-                    value=True,
-                    help="Otherwise their students stay linked to an account "
-                    "that is no longer a teacher.",
-                )
-                confirm = st.text_input('Type "REMOVE" to confirm')
-                if st.form_submit_button("Remove teacher access"):
-                    if confirm.strip() != "REMOVE":
-                        st.error('Type "REMOVE" to confirm.', icon=":material/error:")
-                    else:
-                        _done(admin_service.demote_teacher(target.profile_id, release))
+            release = st.checkbox(
+                "Also take their students off their class",
+                value=True,
+                help="Otherwise their students stay linked to an account "
+                "that is no longer a teacher.",
+            )
+            confirm = st.text_input('Type "REMOVE" to confirm')
+            if st.form_submit_button("Remove teacher access"):
+                if confirm.strip() != "REMOVE":
+                    st.error('Type "REMOVE" to confirm.', icon=":material/error:")
+                else:
+                    _done(admin_service.demote_teacher(target.profile_id, release))

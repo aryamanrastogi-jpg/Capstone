@@ -126,3 +126,11 @@ def auth_forms() -> None:
                     st.success(outcome.message, icon=":material/mark_email_read:")
                 else:
                     st.error(outcome.message, icon=":material/error:")
+
+    # The Admin page opens with a passkey rather than an account
+    # (services/admin_service.py), so its door sits beside the forms.
+    st.page_link(
+        "pages/admin.py",
+        label="Admin access (passkey)",
+        icon=":material/admin_panel_settings:",
+    )

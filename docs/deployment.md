@@ -126,7 +126,7 @@ In **Authentication**:
 **Project Settings -> API Keys** (or **Data API**):
 - **Project URL** -> `SUPABASE_URL`
 - **Publishable key** (`sb_publishable_...`) -> `SUPABASE_PUBLISHABLE_KEY`
-- **Secret key** / `service_role` -> **do not copy anywhere in this app.** It bypasses every RLS policy.
+- **Secret key** / `service_role` -> `SUPABASE_SERVICE_ROLE_KEY`, **only** if you want the Admin page. It bypasses every RLS policy: put it in Streamlit secrets and nowhere else.
 
 ---
 
@@ -160,11 +160,14 @@ SUPABASE_URL = "https://<project-ref>.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
 LLM_API_KEY = "<Gemini key from aistudio.google.com/apikey>"
 LLM_MODEL = "gemini:gemini-3.8-flash"
+# Optional: the Admin page at /admin
+ADMIN_PASSKEY = "<at least 16 random characters>"
+SUPABASE_SERVICE_ROLE_KEY = "<service_role / secret key>"
 ```
 
 - Keys must be at **root level** - no `[supabase]` section header. Community Cloud exposes root-level secrets as environment variables, and `utils/config.py` reads everything with `os.getenv`. Keys inside a `[section]` are not exported as environment variables, so the app would not see them.
 - `LLM_API_KEY` / `LLM_MODEL` turn on AI grading with Google Gemini (free tier works). Leave them empty and grading stays rule-based. The free tier is rate-limited; an answer that hits the limit is marked by the rule-based grader instead, and the page says so. Use a current model id: Google now serves the 2.5 models only to projects that used them before, so a newer key set to `gemini-2.5-flash` gets every call refused.
-- **Never** put the Supabase secret / `service_role` key here.
+- `ADMIN_PASSKEY` + `SUPABASE_SERVICE_ROLE_KEY` switch on the Admin page (`/admin`, also linked under the sign-in form). Anyone with the passkey gets full admin, so generate it (`python -c "import secrets; print(secrets.token_urlsafe(24))"`) and rotate it if it might have leaked. Leave both out and admin stays off. The service key is used by the Admin page only, after the passkey checks out; never put it anywhere but these secrets.
 - To change secrets later: app menu (three dots) -> **Settings -> Secrets**. The app restarts on save.
 
 ### B5. After the first deploy

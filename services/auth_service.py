@@ -405,26 +405,12 @@ def current_user() -> Optional[User]:
         return None
 
     user = mappers.user_from_row(rows[0])
-    user.is_admin = _is_app_admin(client)
     try:
         st.session_state[PROFILE] = user
         st.session_state[PROFILE_FETCHED_AT] = time.monotonic()
     except Exception:  # noqa: BLE001 - no session state available
         pass
     return user
-
-
-def _is_app_admin(client: Any) -> bool:
-    """Whether the signed-in caller is on `app_admins` (migration 010).
-
-    The database answers for the caller only. Anything other than a plain
-    `true` - the function missing before 010 is applied, a network error -
-    counts as not an admin, so the Admin page stays hidden.
-    """
-    try:
-        return client.rpc("is_app_admin").execute().data is True
-    except Exception:  # noqa: BLE001 - not an admin unless the database says so
-        return False
 
 
 def invalidate_cached_profile() -> None:
