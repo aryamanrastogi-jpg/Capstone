@@ -19,6 +19,7 @@ WHAT THEY DO NOT COVER
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -54,6 +55,10 @@ class _InviteClient(FakeAuthClient):
         self.calls: List[Tuple[str, Optional[Dict[str, Any]]]] = []
 
     def rpc(self, name: str, params: Optional[Dict[str, Any]] = None) -> _Rpc:
+        if name == "is_app_admin":
+            # Asked on every profile load since migration 010; not an admin.
+            # Not recorded: these tests count invite calls only.
+            return _Rpc(lambda: SimpleNamespace(data=False))
         self.calls.append((name, params))
 
         def run() -> Any:

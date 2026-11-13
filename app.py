@@ -118,13 +118,17 @@ if (
 from services.auth_service import current_user as signed_in_user  # noqa: E402
 from services.supabase_client import get_connection_status  # noqa: E402
 
-_signed_in = signed_in_user() is not None
+_account = signed_in_user()
+_signed_in = _account is not None
+# Only a signed-in profile can be an admin; the flag comes from the database.
+_is_admin = bool(_account and _account.is_admin)
 _role = get_current_role()
 navigation = build_navigation(
     _role,
     signed_in=_signed_in,
     # BUG-032: without Supabase there is nothing to sign in to.
     accounts_available=get_connection_status().connected,
+    is_admin=_is_admin,
 )
 
 # Identity changes trigger a rerun, which rebuilds the role-specific menu.
@@ -133,7 +137,9 @@ sidebar_status()
 # Finish a deep link that had to pass through the welcome page first, as long
 # as the page exists for this role.
 _requested = st.session_state.pop(REQUESTED_PAGE, None)
-if _requested and _requested in {spec["path"] for spec in pages_for(_role, _signed_in)}:
+if _requested and _requested in {
+    spec["path"] for spec in pages_for(_role, _signed_in, is_admin=_is_admin)
+}:
     st.switch_page(_requested)
 
 navigation.run()
