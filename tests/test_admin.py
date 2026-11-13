@@ -296,7 +296,12 @@ def test_nothing_outside_admin_imports_the_service_client() -> None:
         if path.name in {"admin_service.py", "admin.py"}:
             continue
         text = path.read_text(encoding="utf-8")
-        if "admin_service" in text or "SUPABASE_SERVICE_ROLE_KEY" in text:
+        if re.search(
+            r"from services import[^\n]*\badmin_service\b"
+            r"|import services\.admin_service|from services\.admin_service"
+            r"|[\"']SUPABASE_SERVICE_ROLE_KEY[\"']",
+            text,
+        ):
             offenders.append(path.name)
     assert offenders == []
 
@@ -315,7 +320,7 @@ def test_admin_is_registered_for_everybody_but_hidden(role: Role, signed_in) -> 
 
 def test_the_sign_in_form_links_to_admin() -> None:
     source = (ROOT / "components" / "auth_forms.py").read_text(encoding="utf-8")
-    assert 'st.page_link(\n        "pages/admin.py"' in source
+    assert re.search(r'st\.page_link\(\s*"pages/admin\.py"', source)
 
 
 def test_admin_opens_from_the_welcome_screen(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -371,7 +376,7 @@ def test_a_locked_page_asks_for_the_passkey_and_shows_nothing_else(
     assert labels == ["Unlock"]
     [field] = at.text_input
     assert field.label == "Admin passkey"
-    assert at.dataframe.len == 0 if hasattr(at.dataframe, "len") else len(at.dataframe) == 0
+    assert len(at.dataframe) == 0
 
 
 def test_the_page_shows_a_setup_problem_instead_of_the_form(

@@ -17,6 +17,7 @@ WHAT THIS MODULE NEVER DOES
 from __future__ import annotations
 
 import streamlit as st
+from streamlit.errors import StreamlitPageNotFoundError
 
 from services import auth_service
 from utils.config import PRIVACY_DETAILS
@@ -128,9 +129,14 @@ def auth_forms() -> None:
                     st.error(outcome.message, icon=":material/error:")
 
     # The Admin page opens with a passkey rather than an account
-    # (services/admin_service.py), so its door sits beside the forms.
-    st.page_link(
-        "pages/admin.py",
-        label="Admin access (passkey)",
-        icon=":material/admin_panel_settings:",
-    )
+    # (services/admin_service.py), so its door sits beside the forms. app.py
+    # registers it in every navigation; a page rendered on its own (a test)
+    # has no navigation, so the link is simply left out there.
+    try:
+        st.page_link(
+            "pages/admin.py",
+            label="Admin access (passkey)",
+            icon=":material/admin_panel_settings:",
+        )
+    except StreamlitPageNotFoundError:
+        pass
