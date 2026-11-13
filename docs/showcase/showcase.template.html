@@ -1,0 +1,104 @@
+<meta charset="utf-8">
+<title>Camp Prep AI Showcase</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one fixed 2000x1125 stage (a 16:9 showcase slide) scaled to the window. Brand and copy left, desktop browser frame, three phones stepping up to the right. Colours from .streamlit/config.toml. */
+:root{
+  --ink:#0E1340; --muted:#555C85; --primary:#1B2CC1; --rail:#141E8C; --cyan:#1DCED8;
+  --bg-a:#F6F7FE; --bg-b:#E6E9FC; --bg-c:#B6BDEE; --frame:#0E1340; --chrome:#EEF0FC; --page:#F1F3FC;
+  --font:"Plus Jakarta Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0B0F2E;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0B0F2E;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);font-family:var(--font);color:var(--ink)}
+.wrap{padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.fit{width:100%;max-width:1600px;margin:0 auto;aspect-ratio:2000/1125;position:relative;overflow:hidden;border-radius:18px;box-shadow:0 20px 60px rgba(14,19,64,.18)}
+.stage{position:absolute;top:0;left:0;width:2000px;height:1125px;transform-origin:0 0;
+  background:
+    radial-gradient(1100px 700px at 100% 0%, var(--bg-c) 0%, transparent 70%),
+    radial-gradient(900px 600px at 0% 100%, #D6DAF6 0%, transparent 70%),
+    linear-gradient(135deg, var(--bg-a) 0%, var(--bg-b) 100%);
+  color:var(--ink)}
+
+.brand{position:absolute;left:70px;top:52px;display:flex;align-items:baseline;gap:28px}
+.brand h1{margin:0;font-size:58px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.brand p{margin:0;font-size:27px;color:var(--muted);font-weight:500}
+.brand p b{color:var(--primary);font-weight:700}
+
+/* desktop browser */
+.browser{position:absolute;left:70px;top:158px;width:1040px;border-radius:16px;overflow:hidden;background:#fff;
+  box-shadow:0 30px 80px rgba(14,19,64,.25),0 0 0 1px rgba(14,19,64,.06)}
+.bar{height:44px;background:var(--chrome);display:flex;align-items:center;gap:8px;padding:0 18px;position:relative}
+.dot{width:13px;height:13px;border-radius:50%}
+.url{position:absolute;left:50%;transform:translateX(-50%);width:420px;height:26px;border-radius:13px;background:#fff;
+  color:var(--muted);font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.url i{width:9px;height:11px;border:2px solid var(--muted);border-radius:2px;display:inline-block;opacity:.6}
+.browser img{display:block;width:100%;height:auto}
+
+/* phones */
+.phone{position:absolute;width:300px;height:649px;border-radius:44px;background:var(--frame);padding:10px;
+  box-shadow:0 30px 70px rgba(14,19,64,.35)}
+.screen{width:100%;height:100%;border-radius:35px;overflow:hidden;background:#fff;position:relative}
+.screen img{display:block;width:calc(100% + 8px);height:auto}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:84px;height:22px;border-radius:0 0 14px 14px;background:var(--frame);z-index:2}
+.phone{width:260px;height:539px;border-radius:40px}
+.screen{border-radius:31px}
+.p1{left:1145px;top:340px}
+.p2{left:1425px;top:230px}
+.p3{left:1705px;top:350px;width:250px;height:517px}
+.label{position:absolute;font-size:17px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.label span{width:8px;height:8px;border-radius:50%;background:var(--cyan)}
+.l1{left:1150px;top:899px}.l2{left:1430px;top:789px}.l3{left:1710px;top:887px}
+
+/* how it works: a real sequence, so the numbers carry meaning */
+.steps{position:absolute;left:70px;top:890px;width:1040px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{background:rgba(255,255,255,.8);border:1px solid #D6DAF6;border-radius:16px;padding:18px 20px;display:grid;gap:6px;align-content:start}
+.step h3{margin:0;font-size:19px;font-weight:700;display:flex;align-items:center;gap:10px;color:var(--ink)}
+.step h3 i{font-style:normal;width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.step p{margin:0;font-size:16px;line-height:1.45;color:var(--muted)}
+.audience{position:absolute;left:70px;top:1056px;font-size:16px;color:var(--muted)}
+.audience b{color:var(--primary);font-weight:700}
+</style>
+
+<div class="wrap">
+  <div class="fit" id="fit">
+    <div class="stage" id="stage" role="img" aria-label="Camp Prep AI on desktop and phone: landing page, My Work, Study Camp and Practice Generator">
+      <div class="brand">
+        <h1>Camp Prep AI</h1>
+        <p>Upload past work, see your <b>weak topics</b>, fix them in a study camp. A teacher confirms every mark.</p>
+      </div>
+
+      <div class="browser">
+        <div class="bar">
+          <span class="dot" style="background:#FF5F57"></span><span class="dot" style="background:#FEBC2E"></span><span class="dot" style="background:#28C840"></span>
+          <div class="url"><i></i>Camp Prep AI</div>
+        </div>
+        <img alt="Camp Prep AI landing page" src="{{desktop}}">
+      </div>
+
+      <div class="phone p1"><div class="screen"><div class="notch"></div><img alt="My Work on a phone" src="{{work}}"></div></div>
+      <div class="phone p2"><div class="screen"><div class="notch"></div><img alt="Study Camp on a phone" src="{{camp}}"></div></div>
+      <div class="phone p3"><div class="screen"><div class="notch"></div><img alt="Practice Generator on a phone" src="{{practice}}"></div></div>
+      <div class="label l1"><span></span>My Work</div>
+      <div class="label l2"><span></span>Study Camp</div>
+      <div class="label l3"><span></span>Practice</div>
+
+      <div class="steps">
+        <div class="step"><h3><i>1</i>Upload past work</h3><p>Homework, exercises or a mock exam, typed or as a file. You get an estimate straight away.</p></div>
+        <div class="step"><h3><i>2</i>See your weak topics</h3><p>Scores across the whole term show which topics cost you marks. Pointers, never answers.</p></div>
+        <div class="step"><h3><i>3</i>Fix them in a camp</h3><p>A 3 to 14 day study camp, then a timed mock exam to check it worked.</p></div>
+      </div>
+      <div class="audience"><b>Students</b> &middot; My Work, My Questions, Study Camp, Mock Exam<span style="display:inline-block;width:36px"></span><b>Teachers</b> &middot; Class Overview, Review Grading, Class Analytics, invite-only</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var fit=document.getElementById('fit'), stage=document.getElementById('stage');
+  function size(){ stage.style.transform='scale('+(fit.clientWidth/2000)+')'; }
+  size(); window.addEventListener('resize', size);
+})();
+</script>
