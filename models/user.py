@@ -42,6 +42,9 @@ class User(BaseModel):
     year_group: Optional[int] = None
     # Public URL of a profile photo in the `avatars` bucket, if one was added.
     avatar_url: Optional[str] = None
+    # May open the Admin page. Read from the database (`is_app_admin()`,
+    # migration 010) for signed-in accounts only; demo users are never admins.
+    is_admin: bool = False
 
     @field_validator("display_name")
     @classmethod
