@@ -363,7 +363,8 @@ A prototype. A privacy notice on every page says what is stored and who can see 
 - Accounts store a name and email; only the user and their own teacher see them.
   Demo students use anonymous codes (`S-1101`)
 - Roles are never self-declared: sign-up always creates a student, and the teacher
-  role comes only from a hashed, expiring invite code (migration 005) or an operator
+  role comes only from a hashed, expiring invite code (migration 005), an account
+  created on the passkey-locked Admin page (migration 012), or an operator
 - Row Level Security on every table; users can update only their name, year group
   and photo
 - Passwords need 8+ characters with a letter and a number; sign-in locks for 60

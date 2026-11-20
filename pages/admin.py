@@ -1,10 +1,17 @@
-"""Admin - teacher invite codes and teachers.
+"""Admin - teacher accounts, teacher invite codes and teachers.
 
 Opened with the ADMIN_PASSKEY secret, not with an account: nobody has to be
 signed in, and the page is reached at /admin or from the link on the sign-in
 form. See services/admin_service.py for how the passkey and the service-role
 key are handled, and db/migrations/011_admin_passkey.sql for the functions it
 calls, which only the service role can run.
+
+ADDING A TEACHER
+  The admin types the teacher's name, email and a password; the account is
+  created through Supabase Auth's admin API and made a teacher in the same
+  step (db/migrations/012_admin_create_teacher.sql). The teacher then signs in
+  on the normal Sign In page. The email is sent to Supabase and never shown
+  back on this page.
 
 WHAT IS SHOWN
   Teachers appear by display name and profile id, never by email: the Profile
@@ -25,7 +32,8 @@ from services import admin_service
 
 page_header(
     "Admin",
-    "Create teacher invite codes, see who is a teacher, and remove teacher access.",
+    "Add teacher accounts, create teacher invite codes, see who is a teacher, "
+    "and remove teacher access.",
 )
 
 FLASH = "_admin_flash"
@@ -83,9 +91,36 @@ def _when(value: Optional[datetime]) -> str:
 
 
 # --------------------------------------------------------------------------
+# Add a teacher
+# --------------------------------------------------------------------------
+st.markdown("#### Add a teacher")
+st.caption(
+    "Creates a teacher account straight away. Send the teacher their email and "
+    "password privately; they sign in on the Sign In page."
+)
+with st.form("admin_create_teacher", clear_on_submit=True):
+    teacher_name = st.text_input(
+        "Teacher's name",
+        placeholder="e.g. Ms Rao",
+        max_chars=admin_service.MAX_NAME_CHARS,
+    )
+    teacher_email = st.text_input("Teacher's email", placeholder="name@school.org")
+    teacher_password = st.text_input(
+        "Password",
+        type="password",
+        autocomplete="new-password",
+        help="At least 8 characters, with a letter and a number.",
+    )
+    if st.form_submit_button("Create teacher account", type="primary"):
+        _done(admin_service.create_teacher(teacher_name, teacher_email, teacher_password))
+
+st.divider()
+
+# --------------------------------------------------------------------------
 # Create an invite code
 # --------------------------------------------------------------------------
-st.markdown("#### Create a teacher invite code")
+st.markdown("#### Or create a teacher invite code")
+st.caption("For someone who already has an account: they enter the code on their Profile page.")
 
 new_code = st.session_state.pop(NEW_CODE, None)
 if new_code:
@@ -181,7 +216,7 @@ teachers, teacher_error = admin_service.list_teachers()
 if teacher_error:
     st.error(teacher_error, icon=":material/error:")
 elif not teachers:
-    st.info("No teachers yet. They appear here once they redeem a code.", icon=":material/info:")
+    st.info("No teachers yet. Add one above, or they appear here once they redeem a code.", icon=":material/info:")
 else:
     st.dataframe(
         pd.DataFrame(

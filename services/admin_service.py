@@ -1,4 +1,4 @@
-"""Admin actions: teacher invite codes and teachers.
+"""Admin actions: teacher accounts, teacher invite codes and teachers.
 
 HOW THE ADMIN PAGE IS OPENED
   With a passkey, not an account: whoever types the ADMIN_PASSKEY secret
@@ -9,8 +9,8 @@ HOW THE ADMIN PAGE IS OPENED
   every admin function executable by `service_role` only.
 
 WHAT KEEPS THAT SAFE ENOUGH
-  * The passkey is compared in constant time, must be at least
-    MIN_PASSKEY_CHARS long or admin stays switched off, and wrong guesses are
+  * The passkey is compared in constant time (any length; admin stays off
+    only while it is empty), and wrong guesses are
     counted across every session: MAX_FAILURES within LOCKOUT_SECONDS locks the
     form for everybody until the window passes.
   * The service-role client is built per call, only after `is_unlocked()`,
@@ -20,13 +20,14 @@ WHAT KEEPS THAT SAFE ENOUGH
     the migration raises on purpose; anything else becomes one plain sentence.
 
 The trade-off, chosen deliberately: anybody holding ADMIN_PASSKEY has full
-admin. Keep it long and random, and rotate it if it might have leaked.
+admin. A long, random one is still safer, and rotate it if it might have leaked.
 """
 
 from __future__ import annotations
 
 import hmac
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -38,7 +39,6 @@ import streamlit as st
 PASSKEY_ENV = "ADMIN_PASSKEY"
 SERVICE_KEY_ENV = "SUPABASE_SERVICE_ROLE_KEY"
 
-MIN_PASSKEY_CHARS = 16
 MAX_PASSKEY_INPUT_CHARS = 256
 UNLOCK_SECONDS = 30 * 60
 MAX_FAILURES = 5
@@ -47,6 +47,13 @@ LOCKOUT_SECONDS = 5 * 60
 MAX_USES = 20
 MAX_VALID_DAYS = 30
 MAX_NOTE_CHARS = 120
+MAX_NAME_CHARS = 60
+
+EMAIL_TAKEN_MESSAGE = (
+    "An account with that email already exists. To make it a teacher, send "
+    "them an invite code instead."
+)
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 UNLOCKED_AT = "_admin_unlocked_at"
 
@@ -66,6 +73,7 @@ _KNOWN_MESSAGES = (
     "Keep the note under 120 characters.",
     "No such invite code.",
     "That account is not a teacher.",
+    "No profile for that account.",
 )
 
 # Wrong passkeys across every session in this server process.
@@ -123,11 +131,6 @@ def setup_problem() -> Optional[str]:
     passkey = _configured_passkey()
     if not passkey:
         return f"Admin is switched off: the {PASSKEY_ENV} secret is not set."
-    if len(passkey) < MIN_PASSKEY_CHARS:
-        return (
-            f"Admin is switched off: {PASSKEY_ENV} is shorter than "
-            f"{MIN_PASSKEY_CHARS} characters. Set a longer, random one."
-        )
     if not os.getenv("SUPABASE_URL", "").strip():
         return "Admin needs Supabase: SUPABASE_URL is not set."
     if not os.getenv(SERVICE_KEY_ENV, "").strip():
@@ -335,3 +338,91 @@ def demote_teacher(profile_id: str, release_students: bool) -> AdminOutcome:
     except Exception as exc:  # noqa: BLE001 - mapped to a safe message
         return AdminOutcome(False, _message_for(exc))
     return AdminOutcome(True, "Teacher access removed. They now have a student account.")
+
+
+# --------------------------------------------------------------------------
+# Creating a teacher account
+# --------------------------------------------------------------------------
+def teacher_form_problem(full_name: str, email: str, password: str) -> Optional[str]:
+    """Why the new-teacher form cannot be sent as it is, or None."""
+    from services.auth_service import MAX_EMAIL_CHARS, password_problem
+
+    name = (full_name or "").strip()
+    if not name:
+        return "Add the teacher's name."
+    if len(name) > MAX_NAME_CHARS:
+        return f"Keep the name under {MAX_NAME_CHARS} characters."
+    address = (email or "").strip()
+    if len(address) > MAX_EMAIL_CHARS or not _EMAIL_PATTERN.match(address):
+        return "That email address does not look right."
+    problem = password_problem(password or "")
+    if problem:
+        return problem.replace("Your password", "The temporary password")
+    return None
+
+
+def _created_user_id(response: Any) -> Optional[str]:
+    user = getattr(response, "user", None)
+    if user is None and isinstance(response, dict):
+        user = response.get("user")
+    user_id = getattr(user, "id", None) if user is not None else None
+    if user_id is None and isinstance(user, dict):
+        user_id = user.get("id")
+    return str(user_id) if user_id else None
+
+
+def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
+    """Create a sign-in that is a teacher from the start.
+
+    All or nothing: if the account is made but cannot be turned into a teacher,
+    it is deleted again, so a failure never leaves a stray student account
+    behind under the teacher's email.
+    """
+    problem = teacher_form_problem(full_name, email, password)
+    if problem:
+        return AdminOutcome(False, problem)
+
+    client, problem = _admin_client()
+    if client is None:
+        return AdminOutcome(False, problem or NOT_ADMIN_MESSAGE)
+
+    name = full_name.strip()
+    try:
+        response = client.auth.admin.create_user(
+            {
+                "email": email.strip().lower(),
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"full_name": name},
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - mapped to a safe message
+        text = str(exc).lower()
+        if "already" in text and ("registered" in text or "exists" in text):
+            return AdminOutcome(False, EMAIL_TAKEN_MESSAGE)
+        return AdminOutcome(False, GENERIC_MESSAGE)
+
+    user_id = _created_user_id(response)
+    if not user_id:
+        return AdminOutcome(False, GENERIC_MESSAGE)
+
+    try:
+        client.rpc("admin_make_teacher", {"p_auth_user_id": user_id}).execute()
+    except Exception as exc:  # noqa: BLE001 - mapped to a safe message
+        try:
+            client.auth.admin.delete_user(user_id)
+        except Exception:  # noqa: BLE001 - best effort; the first error is what matters
+            pass
+        message = _message_for(exc)
+        if message == NOT_SET_UP_MESSAGE:
+            message = (
+                "Creating teachers is not set up on this instance. Apply "
+                "db/migrations/012_admin_create_teacher.sql."
+            )
+        return AdminOutcome(False, message)
+
+    return AdminOutcome(
+        True,
+        f"Teacher account created for {name}. They sign in on the Sign In page "
+        "with that email and the password you set - send it to them privately.",
+    )

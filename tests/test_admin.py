@@ -1,7 +1,7 @@
 """Tests for the Admin page (db/migrations/011_admin_passkey.sql).
 
 WHAT THESE COVER
-  * The passkey: admin stays off without a long-enough ADMIN_PASSKEY and the
+  * The passkey: admin stays off without an ADMIN_PASSKEY and the
     service-role key, a wrong passkey is refused and counted, repeated wrong
     guesses lock the form for everybody, and an unlock expires.
   * The service-role client is only built for an unlocked session, and only
@@ -104,13 +104,13 @@ def test_admin_is_off_without_a_passkey(monkeypatch: pytest.MonkeyPatch, session
     assert not admin_service.unlock("anything").ok
 
 
-def test_a_short_passkey_switches_admin_off(monkeypatch: pytest.MonkeyPatch, session) -> None:
+def test_a_short_passkey_is_allowed(monkeypatch: pytest.MonkeyPatch, session) -> None:
+    # No minimum length: any non-empty passkey switches admin on.
     monkeypatch.setenv("ADMIN_PASSKEY", "short")
-    problem = admin_service.setup_problem()
-    assert problem and "16" in problem
-    # Even typing the short passkey exactly does not unlock.
-    assert not admin_service.unlock("short").ok
-    assert not admin_service.is_unlocked()
+    assert admin_service.setup_problem() is None
+    assert not admin_service.unlock("shor").ok
+    assert admin_service.unlock("short").ok
+    assert admin_service.is_unlocked()
 
 
 def test_admin_needs_the_service_key(monkeypatch: pytest.MonkeyPatch, session) -> None:
@@ -391,7 +391,10 @@ def test_the_page_shows_a_setup_problem_instead_of_the_form(
 def test_an_unlocked_page_renders_the_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     at = _admin_page(monkeypatch, unlocked=True)
     labels = [b.label for b in at.button]
-    for wanted in ("Lock admin", "Create code", "Cancel code", "Remove teacher access"):
+    for wanted in (
+        "Lock admin", "Create teacher account", "Create code", "Cancel code",
+        "Remove teacher access",
+    ):
         assert wanted in labels
     [teacher] = [s for s in at.selectbox if s.label == "Teacher"]
     assert teacher.options == ["Ms Rao (usr_t02)"]

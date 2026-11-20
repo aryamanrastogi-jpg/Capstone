@@ -1,6 +1,6 @@
 -- Camp Prep AI: all-in-one Supabase setup and repair.
 -- Run the ENTIRE file in the Supabase SQL Editor for this app's project.
--- Includes schema, migrations 001-011, final policies and API cache reload.
+-- Includes schema, migrations 001-012, final policies and API cache reload.
 -- Generated from the current repository SQL files on 2026-10-09.
 -- Existing app rows and account roles are preserved; repeat runs are supported.
 -- One transaction: any failing statement prevents the setup from committing.
@@ -1498,6 +1498,36 @@ $fn$;
 
 revoke all on function public.admin_demote_teacher(text, boolean) from public, anon, authenticated;
 grant execute on function public.admin_demote_teacher(text, boolean) to service_role;
+
+-- Source: db/migrations/012_admin_create_teacher.sql
+
+create or replace function public.admin_make_teacher(p_auth_user_id uuid)
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $fn$
+declare
+    v_profile_id text;
+begin
+    perform public.app_require_admin();
+
+    update public.profiles p
+       set role = 'teacher', teacher_id = null
+     where p.auth_user_id = p_auth_user_id
+     returning p.id into v_profile_id;
+
+    if v_profile_id is null then
+        raise exception 'No profile for that account.';
+    end if;
+
+    return v_profile_id;
+end;
+$fn$;
+
+revoke all on function public.admin_make_teacher(uuid) from public, anon, authenticated;
+grant execute on function public.admin_make_teacher(uuid) to service_role;
 
 -- Source: db/policies.sql
 create or replace function public.app_profile_id()

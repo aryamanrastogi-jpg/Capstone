@@ -5,7 +5,8 @@ WHAT A PERSON CAN AND CANNOT CHOOSE HERE
 
   The role is written by a database trigger at sign-up and is always `student`.
   There is no "teacher" choice on the sign-up form. A teacher signs up as a
-  student and redeems an invite code on Profile; an admin makes those codes on
+  student and redeems an invite code on Profile, or an admin creates the
+  teacher account directly (012_admin_create_teacher.sql); an admin makes codes on
   the Admin page (db/migrations/010_admin.sql, on top of 005_teacher_invites.sql)
   and the database decides whether one is good. A form whose answer became the
   role would hand the class register to anybody who asked for it, and every
@@ -64,8 +65,8 @@ if signed_in_user is not None:
     )
     st.caption(
         "Your role comes from your profile in the database. It is not something "
-        "this app can change - teacher access comes only from an invite code, "
-        "redeemed on your Profile page."
+        "this app can change - teacher access comes from an admin, who either "
+        "creates your teacher account or sends you an invite code for Profile."
     )
     if st.button("Sign out", type="primary"):
         auth_service.sign_out()

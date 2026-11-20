@@ -70,8 +70,9 @@ def auth_forms() -> None:
 
     with sign_up_tab:
         st.caption(
-            "Teacher? Create your account here, then enter the invite code from "
-            "your admin on your Profile page."
+            "Teacher? Your admin can create your teacher account for you - then "
+            "just sign in. Or create an account here and enter the invite code "
+            "from your admin on your Profile page."
         )
         st.caption(
             "We store your name and email to run your account. Your teacher can "

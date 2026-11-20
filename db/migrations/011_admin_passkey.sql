@@ -244,8 +244,8 @@ commit;
 --
 -- The Admin page needs two Streamlit secrets (root level, see
 -- .streamlit/secrets.toml.example):
---   ADMIN_PASSKEY              - at least 16 characters; the page refuses a
---                                shorter one. Generate it, do not invent it.
+--   ADMIN_PASSKEY              - any length (no minimum); a long random one
+--                                is safer.
 --   SUPABASE_SERVICE_ROLE_KEY  - Supabase > Project Settings > API keys.
 --                                It bypasses RLS: keep it in secrets only.
 --

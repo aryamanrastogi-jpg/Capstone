@@ -161,7 +161,7 @@ SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
 LLM_API_KEY = "<Gemini key from aistudio.google.com/apikey>"
 LLM_MODEL = "gemini:gemini-3.8-flash"
 # Optional: the Admin page at /admin
-ADMIN_PASSKEY = "<at least 16 random characters>"
+ADMIN_PASSKEY = "<your admin passkey>"
 SUPABASE_SERVICE_ROLE_KEY = "<service_role / secret key>"
 ```
 

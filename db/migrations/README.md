@@ -23,6 +23,8 @@ else re-run. It is also in `db/setup_all.sql`.
 own. Both are in `db/setup_all.sql` too. Since `011` the Admin page opens with
 the `ADMIN_PASSKEY` secret and calls the database with
 `SUPABASE_SERVICE_ROLE_KEY`; see the operator notes at the bottom of `011`.
+`012` (the Admin page creates teacher accounts) runs after `011`, on its own;
+it is in `db/setup_all.sql` too.
 
 After running `008`, before deploying, check on a test project that a
 student's self-study submission still gets an AI estimate saved, and that a
@@ -42,6 +44,7 @@ with an upsert.
 | `009_app_feedback.sql` | `app_feedback` for the sidebar survey (a 1-5 rating, what to include, any feedback). Signed-in users can only add their own rows; nobody can read them through the app, so they are read in the Supabase dashboard |
 | `010_admin.sql` | `app_admins` (added by hand only) and admin-only functions behind the Admin page: create, list and cancel teacher invite codes, list teachers, demote a teacher. Every function refuses anyone not in `app_admins` |
 | `011_admin_passkey.sql` | The Admin page opens with a passkey instead of an account: drops `app_admins` and `is_app_admin()`, and makes every admin function executable by `service_role` only, with a guard that also checks the service-role claim |
+| `012_admin_create_teacher.sql` | `admin_make_teacher(auth user id)`, service-role only: the Admin page creates the sign-in with Supabase Auth's admin API, then this turns the new profile into a teacher |
 
 ## Checking what you have applied
 
