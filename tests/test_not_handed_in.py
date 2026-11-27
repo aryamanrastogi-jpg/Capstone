@@ -266,11 +266,15 @@ def test_the_class_overview_shows_who_has_not_handed_in():
     assert picker.value == homework.id
     assert f"**1 of {len(roster)}** handed in" in [m.value for m in at.markdown]
 
-    # Display name and year group only - never an email or anything else.
+    # Name, class (migration 013) and year group only - never an email or
+    # anything else. The demo students all sit in the demo teacher's class.
     missing = next(
-        d.value for d in at.dataframe if list(d.value.columns) == ["Student", "Year"]
+        d.value
+        for d in at.dataframe
+        if list(d.value.columns) == ["Student", "Class", "Year"]
     )
     assert missing["Student"].tolist() == [u.display_name for u in roster[1:]]
+    assert set(missing["Class"]) == {"Year 10 Maths"}
     assert missing["Year"].tolist() == [
         str(u.year_group) if u.year_group else "—" for u in roster[1:]
     ]

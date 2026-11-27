@@ -662,6 +662,21 @@ def test_the_teacher_page_shows_each_class_its_code_and_the_class_column() -> No
     assert dict(zip(table["Student"], table["Class"])) == {"Ana": "Year 10 Maths", "Sam": "Year 9 Maths"}
 
 
+def test_before_013_the_teacher_page_says_so_instead_of_crashing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """What a live teacher sees if the code is deployed before the migration."""
+
+    def not_set_up(_teacher_id: str) -> None:
+        raise roster_service.ClassesNotSetUp(roster_service.NOT_SET_UP_MESSAGE)
+
+    monkeypatch.setattr(roster_service, "list_classes", not_set_up)
+    at = _run("my_class.py", _people(), [], "usr_t")
+
+    assert [e.value for e in at.error] == [roster_service.NOT_SET_UP_MESSAGE]
+    assert "Issue a class code" not in [b.label for b in at.button]
+
+
 def test_the_teacher_can_show_one_class(monkeypatch: pytest.MonkeyPatch) -> None:
     at = _run("my_class.py", _people(), _two_classes(), "usr_t")
     next(s for s in at.selectbox if s.label == "Show").select("cls_10").run()

@@ -27,11 +27,12 @@ Open **supabase.com -> your project -> SQL Editor -> New query**. For each file 
 
 ### A3. Migrations, in this order
 
-Run every migration up to 013 in the Supabase SQL editor before deploying the
-code in this repository: the app now reads tables and functions from 012 and
-013 (teacher accounts made on the Admin page, named classes, schools).
-Existing deployments apply whichever of these they have not had yet, in order.
-Each file is one transaction, so a failure applies nothing.
+Run migration 008 in the Supabase SQL editor before deploying the code in this
+repository, and the same for every later one up to 013: the app now reads
+tables and functions from 012 and 013 (teacher accounts made on the Admin page,
+named classes, schools). Existing deployments apply whichever of these they
+have not had yet, in order. Each file is one transaction, so a failure applies
+nothing.
 
 | Step | File | What it adds |
 |---|---|---|
