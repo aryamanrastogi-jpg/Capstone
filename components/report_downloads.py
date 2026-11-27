@@ -21,7 +21,7 @@ def report_downloads(
     key_prefix: str,
 ) -> None:
     """CSV and PDF buttons for the teacher-settled results the caller can see."""
-    st.subheader("Download results")
+    st.header("Download results")
     report = reports.build_report(results, assessments, submissions)
     st.caption(
         f"{reports.OFFICIAL_NOTE} Currently excluded: {report.awaiting_excluded} "

@@ -85,7 +85,7 @@ st.divider()
 dist_col, error_col = st.columns(2)
 
 with dist_col:
-    st.subheader("Score distribution")
+    st.header("Score distribution")
     st.caption("Approved question-level results, grouped into percentage bands.")
     distribution = analytics.score_distribution(frame)
     figure = px.bar(
@@ -100,7 +100,7 @@ with dist_col:
     charts.render(figure, height=330, legend=False)
 
 with error_col:
-    st.subheader("Most frequent error categories")
+    st.header("Most frequent error categories")
     st.caption("Counted across approved results only.")
     errors = analytics.error_frequency(results, approved_only=True)
     if errors.empty:
@@ -122,20 +122,26 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Hardest questions
 # ---------------------------------------------------------------------------
-st.subheader("Most difficult questions")
+st.header("Most difficult questions")
 st.caption("Average percentage awarded per question, lowest first.")
 
 difficulty = analytics.question_difficulty(frame)
 if difficulty.empty:
     empty_state("Not enough approved results to rank questions yet.")
 else:
+    # The whole question beside every bar ran off the edge of a phone (BUG-015):
+    # a short label on the axis, the full text in the hover card.
+    hardest = difficulty.head(8).copy()
+    hardest["label"] = charts.short_labels(hardest["question_text"].tolist())
+    hardest["full_text"] = hardest["question_text"].map(charts.wrap_for_hover)
     figure = px.bar(
-        difficulty.head(8),
+        hardest,
         x="avg_percentage",
-        y="question_text",
+        y="label",
         orientation="h",
-        labels={"avg_percentage": "Average score (%)", "question_text": ""},
-        hover_data={"responses": True},
+        labels={"avg_percentage": "Average score (%)", "label": ""},
+        hover_name="full_text",
+        hover_data={"responses": True, "label": False, "full_text": False},
         color_discrete_sequence=[TEAL],
     )
     figure.update_layout(
@@ -152,7 +158,7 @@ st.divider()
 topic_col, student_col = st.columns(2)
 
 with topic_col:
-    st.subheader("Topics requiring revision")
+    st.header("Topics requiring revision")
     topics = analytics.topic_performance(frame)
     if topics.empty:
         empty_state("No topic data yet.")
@@ -184,7 +190,7 @@ with topic_col:
         )
 
 with student_col:
-    st.subheader("Per-student totals")
+    st.header("Per-student totals")
     st.caption("Anonymous identifiers only.")
     students = analytics.submission_scores(frame)
     if students.empty:

@@ -94,7 +94,9 @@ with cta_a:
         st.success("Everything submitted has been reviewed.", icon=":material/task_alt:")
     if metrics["flagged"]:
         st.warning(
-            f"{metrics['flagged']} flagged result(s) still need a decision.",
+            f"{metrics['flagged']} flagged "
+            f"{'result still needs' if metrics['flagged'] == 1 else 'results still need'}"
+            " a decision.",
             icon=":material/flag:",
         )
 with cta_b:
@@ -109,7 +111,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Possible marking mismatches
 # ---------------------------------------------------------------------------
-st.subheader("Possible marking mismatches")
+st.header("Possible marking mismatches")
 st.caption(
     "Shown when a student recorded the mark you gave and the AI reads the work "
     "more than 15 percentage points differently. A prompt to look again, nothing more."
@@ -137,7 +139,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Roster
 # ---------------------------------------------------------------------------
-st.subheader("Your students")
+st.header("Your students")
 
 if not roster:
     empty_state("No students are linked to you yet.")
@@ -187,7 +189,7 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    st.subheader("Recent submissions")
+    st.header("Recent submissions")
     if not submissions:
         empty_state("No submissions yet.")
     else:
@@ -211,7 +213,7 @@ with left:
         )
 
 with right:
-    st.subheader("Common error categories")
+    st.header("Common error categories")
     st.caption("Across all grading results, including those awaiting review.")
     errors = analytics.error_frequency(results)
     if errors.empty:

@@ -293,7 +293,7 @@ def test_a_teacher_with_no_code_has_no_code(store: _Store) -> None:
 def _page() -> str:
     from pathlib import Path
 
-    return str(Path(__file__).resolve().parent.parent / "pages" / "my_class.py")
+    return str(Path(__file__).resolve().parent.parent / "views" / "my_class.py")
 
 
 def _seeded_users() -> List[User]:

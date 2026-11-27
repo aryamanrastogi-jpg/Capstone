@@ -126,6 +126,16 @@ def get_current_user() -> Optional[User]:
     return next((u for u in get_users() if u.id == user_id), None)
 
 
+def identity_line(user: User) -> str:
+    """Who the page is for: "Signed in as ..." for a real account, "Viewing as ..."
+    in the demo, where nobody is signed in and the sidebar picks a sample person
+    (BUG-019)."""
+    from services.auth_service import current_user as authenticated_user
+
+    verb = "Signed in as" if authenticated_user() is not None else "Viewing as"
+    return f"{verb} {user.display_name}"
+
+
 # Session keys that hold one person's in-progress work: uploads, drafts, mock
 # exam answers, flash messages. Cleared whenever the person using the app
 # changes, so nothing one user typed or uploaded is shown to the next.

@@ -19,7 +19,7 @@ from streamlit.testing.v1 import AppTest
 pymupdf = pytest.importorskip("pymupdf")
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
-UPLOAD_PAGE = "pages/upload_responses.py"
+UPLOAD_PAGE = "views/upload_responses.py"
 
 ANSWER_TEXT = "Q1: Subtract 7 from both sides so 3x = 15. Divide by 3, so x = 5."
 
@@ -382,7 +382,7 @@ def test_a_student_upload_is_split_across_the_questions_still_outstanding():
     at.session_state["current_user_id"] = student.id
     at.session_state["entered_demo"] = True
     at.run()
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
     assert not at.exception, at.exception
 

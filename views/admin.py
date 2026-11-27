@@ -7,10 +7,12 @@ key are handled, and db/migrations/011_admin_passkey.sql for the functions it
 calls, which only the service role can run.
 
 ADDING A TEACHER
-  The admin types the teacher's name, email and a password; the account is
-  created through Supabase Auth's admin API and made a teacher in the same
-  step (db/migrations/012_admin_create_teacher.sql). The teacher then signs in
-  on the normal Sign In page. The email is sent to Supabase and never shown
+  The admin types the teacher's name, email and a temporary password; the
+  account is created through Supabase Auth's admin API and made a teacher in the
+  same step (db/migrations/012_admin_create_teacher.sql). The teacher then signs
+  in on the normal Sign In page and is asked to choose their own password
+  before anything else (services/auth_service.must_change_password), so the
+  admin's password stops working. The email is sent to Supabase and never shown
   back on this page.
 
 WHAT IS SHOWN
@@ -21,6 +23,7 @@ WHAT IS SHOWN
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -41,7 +44,11 @@ NEW_CODE = "_admin_new_code"
 
 problem = admin_service.setup_problem()
 if problem:
-    st.error(problem, icon=":material/lock:")
+    # Whoever deploys the app needs to know what is missing; every visitor does
+    # not (BUG-016). The detail names a secret, so it goes to the server log and
+    # the page says only that admin is not available.
+    logging.getLogger(__name__).warning("Admin page is off: %s", problem)
+    st.error("Admin is not available.", icon=":material/lock:")
     st.stop()
 
 if not admin_service.is_unlocked():
@@ -84,6 +91,24 @@ def _done(outcome: admin_service.AdminOutcome) -> None:
     st.rerun()
 
 
+TEACHER_KEYS = ("admin_teacher_name", "admin_teacher_email", "admin_teacher_password")
+
+
+def _create_teacher() -> None:
+    """Form callback: runs before the page redraws, so it can clear the boxes.
+
+    A mistake (a short password, a taken email) must not cost the admin the name
+    and email they typed, so the boxes are emptied only once the account exists
+    (BUG-011). The message waits in FLASH, which the top of the page shows.
+    """
+    name, email, password = (st.session_state.get(key, "") for key in TEACHER_KEYS)
+    outcome = admin_service.create_teacher(name, email, password)
+    st.session_state[FLASH] = (outcome.ok, outcome.message)
+    if outcome.ok:
+        for key in TEACHER_KEYS:
+            st.session_state[key] = ""
+
+
 def _when(value: Optional[datetime]) -> str:
     if value is None:
         return ""
@@ -93,33 +118,39 @@ def _when(value: Optional[datetime]) -> str:
 # --------------------------------------------------------------------------
 # Add a teacher
 # --------------------------------------------------------------------------
-st.markdown("#### Add a teacher")
+st.markdown("## Add a teacher")
 st.caption(
     "Creates a teacher account straight away. Send the teacher their email and "
-    "password privately; they sign in on the Sign In page."
+    "a temporary password privately; they sign in on the Sign In page and "
+    "choose their own password."
 )
-with st.form("admin_create_teacher", clear_on_submit=True):
-    teacher_name = st.text_input(
+with st.form("admin_create_teacher"):
+    st.text_input(
         "Teacher's name",
+        key=TEACHER_KEYS[0],
         placeholder="e.g. Ms Rao",
         max_chars=admin_service.MAX_NAME_CHARS,
     )
-    teacher_email = st.text_input("Teacher's email", placeholder="name@school.org")
-    teacher_password = st.text_input(
-        "Password",
+    st.text_input(
+        "Teacher's email", key=TEACHER_KEYS[1], placeholder="name@school.org"
+    )
+    st.text_input(
+        "Temporary password",
+        key=TEACHER_KEYS[2],
         type="password",
         autocomplete="new-password",
         help="At least 8 characters, with a letter and a number.",
     )
-    if st.form_submit_button("Create teacher account", type="primary"):
-        _done(admin_service.create_teacher(teacher_name, teacher_email, teacher_password))
+    st.form_submit_button(
+        "Create teacher account", type="primary", on_click=_create_teacher
+    )
 
 st.divider()
 
 # --------------------------------------------------------------------------
 # Create an invite code
 # --------------------------------------------------------------------------
-st.markdown("#### Or create a teacher invite code")
+st.markdown("## Or create a teacher invite code")
 st.caption("For someone who already has an account: they enter the code on their Profile page.")
 
 new_code = st.session_state.pop(NEW_CODE, None)
@@ -168,7 +199,7 @@ with st.form("admin_create_invite", clear_on_submit=True):
 # Existing codes
 # --------------------------------------------------------------------------
 st.divider()
-st.markdown("#### Invite codes")
+st.markdown("## Invite codes")
 
 invites, invite_error = admin_service.list_teacher_invites()
 if invite_error:
@@ -210,7 +241,7 @@ else:
 # Teachers
 # --------------------------------------------------------------------------
 st.divider()
-st.markdown("#### Teachers")
+st.markdown("## Teachers")
 
 teachers, teacher_error = admin_service.list_teachers()
 if teacher_error:

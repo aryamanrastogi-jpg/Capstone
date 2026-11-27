@@ -112,7 +112,7 @@ def _teacher_app() -> AppTest:
 
 
 def _analytics_awaiting(at: AppTest) -> int:
-    at.switch_page("pages/analytics.py")
+    at.switch_page("views/analytics.py")
     at.run()
     assert not at.exception, at.exception
     return int(next(m for m in at.metric if m.label == "Results awaiting review").value)

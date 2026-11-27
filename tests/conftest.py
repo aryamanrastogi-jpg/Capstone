@@ -46,3 +46,13 @@ def _fresh_sign_in_lockouts():
     auth_service._reset_process_lockouts()
     yield
     auth_service._reset_process_lockouts()
+
+
+@pytest.fixture(autouse=True)
+def _no_wrong_passkey_pause(monkeypatch):
+    # BUG-008: a wrong admin passkey now costs about a second. Tests that make
+    # several wrong guesses should not sit through that; the one test of the
+    # pause sets it back (tests/test_admin.py).
+    from services import admin_service
+
+    monkeypatch.setattr(admin_service, "WRONG_PASSKEY_DELAY_SECONDS", 0.0)

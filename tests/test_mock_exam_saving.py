@@ -159,7 +159,7 @@ def test_the_mock_exam_page_saves_the_result():
     at = _app_as("student")
     me = at.session_state["current_user_id"]
     before = [s.id for s in at.session_state["submissions"] if s.student_id == me]
-    at.switch_page("pages/mock_exam.py")
+    at.switch_page("views/mock_exam.py")
     at.run()
     assert not at.exception, at.exception
 

@@ -49,7 +49,7 @@ def test_teacher_empty_draft_still_explains_that_model_answers_are_required():
 
 
 def test_landing_heading_levels_follow_the_page_title():
-    source = (Path(__file__).resolve().parent.parent / "pages" / "landing.py").read_text(
+    source = (Path(__file__).resolve().parent.parent / "views" / "landing.py").read_text(
         encoding="utf-8"
     )
     assert "<h1 class=\"campprep-hero-title\"" in source
@@ -77,7 +77,7 @@ def test_sidebar_theme_copy_meets_contrast_and_size_requirements():
 
 
 def test_privacy_page_is_registered_for_signed_out_and_signed_in_visitors():
-    path = "pages/privacy.py"
+    path = "views/privacy.py"
     assert any(spec["path"] == path for spec in PAGE_SPECS)
     for signed_in in (False, True):
         assert path in {spec["path"] for spec in pages_for(Role.STUDENT, signed_in)}
@@ -86,7 +86,7 @@ def test_privacy_page_is_registered_for_signed_out_and_signed_in_visitors():
 
 def test_privacy_page_renders_the_read_only_configured_details():
     at = _app_as("student")
-    at.switch_page("pages/privacy.py").run()
+    at.switch_page("views/privacy.py").run()
     assert not at.exception, at.exception
     rendered = " ".join(item.value for item in at.markdown)
     for line in PRIVACY_DETAILS:
@@ -109,7 +109,7 @@ def test_study_camp_copy_matches_how_practice_questions_are_written(monkeypatch)
     assert calls, "Study Camp's generator should try the AI writer first"
 
     at = _app_as("student")
-    at.switch_page("pages/study_camp.py").run()
+    at.switch_page("views/study_camp.py").run()
     assert not at.exception, at.exception
     notes = " ".join(block.value for block in at.markdown)
     assert "written by Gemini" in notes
@@ -120,7 +120,7 @@ def test_study_camp_copy_matches_how_practice_questions_are_written(monkeypatch)
 
 def test_review_grading_explains_its_engine_in_plain_words():
     at = _app_as("teacher")
-    at.switch_page("pages/review_grading.py").run()
+    at.switch_page("views/review_grading.py").run()
     assert not at.exception, at.exception
     notice = " ".join(item.value for item in at.info)
     assert "built-in checker, not AI" in notice
@@ -161,7 +161,7 @@ def test_demo_reset_clears_exam_and_teacher_class_codes(monkeypatch: pytest.Monk
 )
 def test_review_draft_is_cleared_on_accept_and_kept_on_flag(action, draft_survives):
     at = _app_as("teacher")
-    at.switch_page("pages/review_grading.py").run()
+    at.switch_page("views/review_grading.py").run()
     assert not at.exception, at.exception
 
     score_widget = next(w for w in at.number_input if w.label == "Score to award")
@@ -199,7 +199,7 @@ def test_orphaned_review_result_is_visible_as_read_only():
         assessment.model_copy(update={"questions": []}) for assessment in assessments
     ]
 
-    at.switch_page("pages/review_grading.py").run()
+    at.switch_page("views/review_grading.py").run()
     assert not at.exception, at.exception
     assert any("saved result is shown below read-only" in w.value for w in at.warning)
     assert any("Removed question · read-only result" in m.value for m in at.markdown)
@@ -227,7 +227,7 @@ def test_retry_result_keeps_its_original_question_number():
     at.session_state["submissions"] = [submission]
     at.session_state["grading_results"] = [result]
 
-    at.switch_page("pages/review_grading.py").run()
+    at.switch_page("views/review_grading.py").run()
     assert not at.exception, at.exception
     assert any("Question 2 ·" in item.value for item in at.markdown)
 
@@ -258,13 +258,13 @@ def test_mock_exam_navigation_remains_hidden_when_registered():
     finally:
         navigation.st.Page, navigation.st.navigation = old_page, old_navigation
 
-    assert [page.path for page in registered] == ["pages/mock_exam.py"]
+    assert [page.path for page in registered] == ["views/mock_exam.py"]
     assert options == {"position": "hidden"}
 
 
 def test_active_mock_exam_keeps_hidden_navigation_error_free():
     at = _app_as("student")
-    at.switch_page("pages/mock_exam.py").run()
+    at.switch_page("views/mock_exam.py").run()
     start = next(b for b in at.button if b.label == "Start the mock exam")
     start.click().run()
     assert not at.exception, at.exception

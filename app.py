@@ -25,13 +25,14 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from components.layout import inject_styles, sidebar_status  # noqa: E402
+from components.layout import inject_styles, scroll_to_top, sidebar_status  # noqa: E402
 from components.navigation import (  # noqa: E402
     PAGE_SPECS,
     REQUESTED_PAGE,
     build_exam_navigation,
     build_navigation,
     pages_for,
+    run_page,
 )
 from services.state import (  # noqa: E402
     get_current_role,
@@ -41,7 +42,8 @@ from services.state import (  # noqa: E402
 from utils.config import APP_NAME, APP_SLOGAN, APP_TAGLINE  # noqa: E402
 
 st.set_page_config(
-    # No page_title: each st.Page's own title names the browser tab (BUG-031).
+    # No page_title here: run_page() sets it for the page being shown, so each
+    # tab reads "<page> · Camp Prep AI" (BUG-031, BUG-021).
     page_icon=os.path.join(PROJECT_ROOT, "assets", "icon.svg"),
     layout="wide",
     # "auto", not "expanded": on a phone an expanded sidebar covers the page,
@@ -52,6 +54,21 @@ st.set_page_config(
 
 # One style block per rerun, before anything draws.
 inject_styles()
+
+# Which screen the last run drew: the welcome page, or the app.
+SCREEN = "_screen"
+
+
+def _arrive_on(screen: str) -> None:
+    """Scroll to the top when the visitor moves between the welcome page and the
+    app (demo, sign in, sign out, the Welcome page button). Streamlit keeps the
+    scroll position across that swap, so somebody who scrolled down to a button
+    opened the next screen mid-page (BUG-023). Not on the first load, not on
+    every run: only when the screen changes."""
+    if st.session_state.get(SCREEN) not in (None, screen):
+        scroll_to_top()
+    st.session_state[SCREEN] = screen
+
 
 # Seed assessments, submissions, grading results, users and demo-mode flag.
 init_session_state()
@@ -73,8 +90,9 @@ init_session_state()
 # A path that matches no page at all still gets Streamlit's own modal; there
 # is no catch-all route to hook.
 if should_show_landing():
+    _arrive_on("welcome")
     welcome = st.Page(
-        os.path.join(PROJECT_ROOT, "pages", "landing.py"), title="Welcome", default=True
+        os.path.join(PROJECT_ROOT, "views", "landing.py"), title="Welcome", default=True
     )
 
     def _remember_and_welcome(path: str):
@@ -96,7 +114,20 @@ if should_show_landing():
         )
         for spec in PAGE_SPECS
     ]
-    st.navigation([welcome, *deep_links], position="hidden").run()
+    run_page(st.navigation([welcome, *deep_links], position="hidden"))
+    st.stop()
+
+_arrive_on("app")
+
+# An account an admin created still has the admin's temporary password. Until its
+# owner has chosen their own, that is the only page they can reach: no menu, no
+# other page (ARY-002). Saving a password clears the flag and the next run opens
+# the app.
+from components.navigation import build_password_navigation  # noqa: E402
+from services import auth_service  # noqa: E402
+
+if auth_service.must_change_password():
+    run_page(build_password_navigation())
     st.stop()
 
 # A Streamlit text area only commits its latest draft to session state on blur.
@@ -113,7 +144,7 @@ if (
     and _active_user.is_student
     and _active_exam.student_id == _active_user.id
 ):
-    build_exam_navigation().run()
+    run_page(build_exam_navigation())
     st.stop()
 
 # No st.logo: the sidebar starts straight at the menu (the emblem took a
@@ -140,4 +171,4 @@ _requested = st.session_state.pop(REQUESTED_PAGE, None)
 if _requested and _requested in {spec["path"] for spec in pages_for(_role, _signed_in)}:
     st.switch_page(_requested)
 
-navigation.run()
+run_page(navigation)

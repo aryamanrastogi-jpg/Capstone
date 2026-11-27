@@ -274,7 +274,7 @@ if st.session_state.get(JUST_SAVED_KEY):
 # Existing submissions for this assessment
 # ---------------------------------------------------------------------------
 st.divider()
-st.subheader(f"Responses recorded for '{assessment.title}'")
+st.header(f"Responses recorded for '{assessment.title}'")
 
 existing = service.list_submissions(assessment.id)
 if not existing:

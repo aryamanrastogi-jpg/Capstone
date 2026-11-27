@@ -100,7 +100,7 @@ def test_the_study_camp_page_says_no_baseline_yet():
     camp = camps.build_camp(student_id, _frame([]), topics=[available_topics()[0]], duration_days=3)
     camps.record_session_result(camp, 1, 1)
     at.session_state["study_camps"] = [camp]
-    at.switch_page("pages/study_camp.py")
+    at.switch_page("views/study_camp.py")
     at.run()
 
     assert not at.exception, at.exception
@@ -119,13 +119,13 @@ def test_leaving_a_class_hides_the_teachers_sets_and_the_students_work():
     teacher_titles = {a.title for a in at.session_state["assessments"] if not a.student_created}
     assert student.teacher_id
 
-    at.switch_page("pages/my_class.py")
+    at.switch_page("views/my_class.py")
     at.run()
     next(b for b in at.button if b.label == "Leave class").click().run()
     student = next(u for u in at.session_state["users"] if u.id == student_id)
     assert student.teacher_id is None
 
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
     assert not at.exception, at.exception
     offered = [
@@ -139,7 +139,7 @@ def test_leaving_a_class_hides_the_teachers_sets_and_the_students_work():
     teacher = next(u for u in at.session_state["users"] if u.role.value == "teacher")
     at.session_state["current_user_id"] = teacher.id
     at.run()
-    at.switch_page("pages/review_grading.py")
+    at.switch_page("views/review_grading.py")
     at.run()
     assert not at.exception, at.exception
     at.toggle[0].set_value(False).run()
@@ -163,7 +163,7 @@ def test_one_students_upload_text_is_not_shown_to_the_next():
     )
     at.session_state["current_user_id"] = other.id
     at.run()
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
     assert not at.exception, at.exception
     for index, _ in enumerate(

@@ -30,8 +30,11 @@ font = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+
 headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap"
 codeFont = "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace"
 baseFontSize = 15
-headingFontSizes = ["2.1rem", "1.5rem", "1.2rem", "1.02rem", "0.95rem", "0.9rem"]
-headingFontWeights = [800, 800, 700, 700, 650, 650]
+# Heading levels follow the page outline (BUG-020): h1 is the page title (drawn by
+# components/layout.py), h2 a section of the page, h3 a part of a section, and no
+# level is skipped. So h2 and h3 carry the sizes the section titles always had.
+headingFontSizes = ["2.1rem", "1.2rem", "1.02rem", "0.95rem", "0.9rem", "0.9rem"]
+headingFontWeights = [800, 700, 700, 650, 650, 650]
 metricValueFontSize = "1.8rem"
 metricValueFontWeight = 800
 

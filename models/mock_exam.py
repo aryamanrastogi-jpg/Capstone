@@ -51,6 +51,10 @@ class MockExam(BaseModel):
     results: List[GradingResult] = Field(default_factory=list)
     # True when the AI could not mark and the rule-based grader stood in.
     ai_unavailable: bool = False
+    # True when the AI marked at least one question. False means the built-in
+    # checker made every score (no AI configured, a blank paper, or the AI down),
+    # which the result page must say rather than call them "AI estimates".
+    ai_marked: bool = False
     # The self-study records the result was saved as; empty until saved.
     saved_submission_ids: List[str] = Field(default_factory=list)
     save_failed: bool = False

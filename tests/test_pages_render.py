@@ -15,20 +15,20 @@ from streamlit.testing.v1 import AppTest
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
 STUDENT_PAGES = [
-    "pages/student_home.py",
-    "pages/my_questions.py",
-    "pages/study_camp.py",
-    "pages/practice_generator.py",
-    "pages/mock_exam.py",
+    "views/student_home.py",
+    "views/my_questions.py",
+    "views/study_camp.py",
+    "views/practice_generator.py",
+    "views/mock_exam.py",
 ]
 
 TEACHER_PAGES = [
-    "pages/dashboard.py",
-    "pages/create_assessment.py",
-    "pages/upload_responses.py",
-    "pages/review_grading.py",
-    "pages/analytics.py",
-    "pages/practice_generator.py",
+    "views/dashboard.py",
+    "views/create_assessment.py",
+    "views/upload_responses.py",
+    "views/review_grading.py",
+    "views/analytics.py",
+    "views/practice_generator.py",
 ]
 
 
@@ -104,26 +104,39 @@ def test_navigation_does_not_route_a_role_to_the_other_role_s_pages():
     student_paths = {spec["path"] for spec in pages_for(Role.STUDENT)}
     teacher_paths = {spec["path"] for spec in pages_for(Role.TEACHER)}
 
-    assert "pages/dashboard.py" not in student_paths
-    assert "pages/review_grading.py" not in student_paths
-    assert "pages/create_assessment.py" not in student_paths
-    assert "pages/study_camp.py" not in teacher_paths
-    assert "pages/student_home.py" not in teacher_paths
+    assert "views/dashboard.py" not in student_paths
+    assert "views/review_grading.py" not in student_paths
+    assert "views/create_assessment.py" not in student_paths
+    assert "views/study_camp.py" not in teacher_paths
+    assert "views/student_home.py" not in teacher_paths
     # The practice generator is deliberately shared.
-    assert "pages/practice_generator.py" in student_paths & teacher_paths
+    assert "views/practice_generator.py" in student_paths & teacher_paths
 
 
-@pytest.mark.parametrize("page", ["pages/dashboard.py", "pages/create_assessment.py"])
+def _page_as(page: str, role: str) -> AppTest:
+    """One page script run on its own, as the sample person of the given role.
+
+    This is a direct hit on the page, which is how the in-page guard is reached.
+    These tests used to get there through `at.switch_page(page)` and a change of
+    identity, which only worked because a `pages/` folder made Streamlit run page
+    scripts directly (BUG-009, since closed by renaming it to `views/`). The page
+    is now run by itself, with the sample people seeded, to the same effect.
+    """
+    from data.sample_data import build_sample_data
+
+    users = build_sample_data()[3]
+    who = next(u for u in users if u.role.value == role)
+    at = AppTest.from_file(str(Path(APP).parent / page), default_timeout=90)
+    at.session_state["users"] = users
+    at.session_state["current_user_id"] = who.id
+    at.run()
+    return at
+
+
+@pytest.mark.parametrize("page", ["views/dashboard.py", "views/create_assessment.py"])
 def test_teacher_pages_refuse_a_student_who_reaches_them_directly(page):
     """Defence in depth: the in-page guard shows a message, not a traceback."""
-    at = _app_as("teacher")
-    at.switch_page(page)
-    at.run()
-
-    # Now switch identity to a student without changing page.
-    student = next(u for u in at.session_state["users"] if u.role.value == "student")
-    at.session_state["current_user_id"] = student.id
-    at.run()
+    at = _page_as(page, "student")
 
     assert not at.exception
     assert any("teacher" in e.value.lower() for e in at.error)
@@ -131,13 +144,7 @@ def test_teacher_pages_refuse_a_student_who_reaches_them_directly(page):
 
 @pytest.mark.parametrize("page", STUDENT_PAGES[:3])
 def test_student_pages_refuse_a_teacher_who_reaches_them_directly(page):
-    at = _app_as("student")
-    at.switch_page(page)
-    at.run()
-
-    teacher = next(u for u in at.session_state["users"] if u.role.value == "teacher")
-    at.session_state["current_user_id"] = teacher.id
-    at.run()
+    at = _page_as(page, "teacher")
 
     assert not at.exception
     assert any("student" in e.value.lower() for e in at.error)
@@ -147,7 +154,7 @@ def test_student_pages_refuse_a_teacher_who_reaches_them_directly(page):
 
 def test_a_student_can_build_a_study_camp_from_seeded_data():
     at = _app_as("student")
-    at.switch_page("pages/study_camp.py")
+    at.switch_page("views/study_camp.py")
     at.run()
     assert not at.exception
 
@@ -200,7 +207,7 @@ def test_my_work_gives_guidance_instead_of_a_score_when_there_are_no_answers():
     at.session_state["assessments"] = []
     _add_student_set(at, student_id, with_answers=False)
 
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
 
     assert not at.exception, at.exception
@@ -221,7 +228,7 @@ def test_my_work_accepts_a_student_set_that_has_answers():
     at.session_state["assessments"] = []
     _add_student_set(at, student_id, with_answers=True)
 
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
 
     assert not at.exception, at.exception
@@ -233,7 +240,7 @@ def test_my_work_points_a_student_with_nothing_at_my_questions():
     at = _app_as("student")
     at.session_state["assessments"] = []
 
-    at.switch_page("pages/student_home.py")
+    at.switch_page("views/student_home.py")
     at.run()
 
     assert not at.exception, at.exception

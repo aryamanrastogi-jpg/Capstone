@@ -251,7 +251,7 @@ if mode == FROM_RESULTS:
             )
         else:
             topics = list(dict.fromkeys(t.topic for t in plan.targets))
-            st.subheader(f"{len(plan.items)} practice question{'s' if len(plan.items) != 1 else ''} · {', '.join(topics)}")
+            st.header(f"{len(plan.items)} practice question{'s' if len(plan.items) != 1 else ''} · {', '.join(topics)}")
             st.caption(
                 "Written from the questions that lost the most marks. New graded "
                 "work changes the mix."
@@ -318,7 +318,7 @@ else:
         except ValueError as exc:
             st.error(str(exc), icon=":material/error:")
         else:
-            st.subheader(
+            st.header(
                 f"{len(questions)} practice question{'s' if len(questions) != 1 else ''} · {request['topic']} · "
                 f"{request['difficulty']}"
             )

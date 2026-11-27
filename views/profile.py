@@ -12,6 +12,12 @@ THE TEACHER INVITE BOX
   every bad code with the same sentence. The box is offered to students only; a
   teacher has nothing to redeem.
 
+CHANGING YOUR PASSWORD
+  Asks for the current password first (`auth_service.change_password` checks it
+  on a throwaway session) and signs your other devices out. There is no emailed
+  "forgot password" route yet: it needs an email provider and Auth settings
+  that are not set up.
+
 WHAT IS SHOWN
   Your own email, read from the signed-in session, is the only email anywhere in
   the app. It is rendered read-only and never logged.
@@ -51,10 +57,40 @@ def _done(outcome: auth_service.AuthOutcome) -> None:
     st.rerun()
 
 
+PASSWORD_KEYS = (
+    "change_password_current",
+    "change_password_new",
+    "change_password_confirm",
+)
+# The answer to the last change attempt, shown under the form it belongs to.
+PASSWORD_FLASH = "_password_flash"
+
+
+def _change_password() -> None:
+    """Form callback: runs before the page redraws, so it can clear the boxes.
+
+    What was typed stays when the change fails (a typo in one box should not
+    cost three), and goes when it works, so a password never sits in a box.
+    """
+    current, new, confirm = (st.session_state.get(key, "") for key in PASSWORD_KEYS)
+    if not current or not new or not confirm:
+        outcome = auth_service.AuthOutcome(
+            False, "Enter your current password, then your new one twice."
+        )
+    elif new != confirm:
+        outcome = auth_service.AuthOutcome(False, "The two passwords do not match.")
+    else:
+        outcome = auth_service.change_password(current, new)
+    st.session_state[PASSWORD_FLASH] = (outcome.ok, outcome.message)
+    if outcome.ok:
+        for key in PASSWORD_KEYS:
+            st.session_state[key] = ""
+
+
 photo_col, details_col = st.columns([1, 2], gap="large")
 
 with photo_col:
-    st.markdown("#### Photo")
+    st.markdown("## Photo")
     if user.avatar_url:
         st.image(user.avatar_url, width=160)
     else:
@@ -77,14 +113,15 @@ with photo_col:
         _done(auth_service.remove_avatar())
 
 with details_col:
-    st.markdown("#### Details")
+    st.markdown("## Details")
     st.text_input("Email", value=auth_service.current_email() or "", disabled=True)
     st.text_input(
         "Role",
         value=user.role.label,
         disabled=True,
         help="Set by the database, not from this page. Teacher access comes "
-        "from an invite code.",
+        "from an admin, who creates your teacher account or sends you an invite "
+        "code.",
     )
     with st.form("profile_form"):
         name = st.text_input(
@@ -103,6 +140,49 @@ with details_col:
         )
         if st.form_submit_button("Save changes", type="primary"):
             _done(auth_service.update_profile(name, year))
+
+st.divider()
+# Open again after an attempt, with the answer under the button that was pressed:
+# a message at the top of the page would be out of sight from down here.
+password_flash = st.session_state.pop(PASSWORD_FLASH, None)
+with st.expander(
+    "Change password", icon=":material/lock_reset:", expanded=password_flash is not None
+):
+    with st.form("change_password_form"):
+        st.text_input(
+            "Current password",
+            type="password",
+            autocomplete="current-password",
+            key=PASSWORD_KEYS[0],
+            max_chars=auth_service.MAX_PASSWORD_CHARS,
+        )
+        st.text_input(
+            "New password",
+            type="password",
+            autocomplete="new-password",
+            key=PASSWORD_KEYS[1],
+            max_chars=auth_service.MAX_PASSWORD_CHARS,
+            help=(
+                f"At least {auth_service.MIN_PASSWORD_CHARS} characters, "
+                "with at least one letter and one number."
+            ),
+        )
+        st.text_input(
+            "Confirm new password",
+            type="password",
+            autocomplete="new-password",
+            key=PASSWORD_KEYS[2],
+            max_chars=auth_service.MAX_PASSWORD_CHARS,
+        )
+        st.form_submit_button(
+            "Change password", type="primary", on_click=_change_password
+        )
+    if password_flash:
+        ok, message = password_flash
+        if ok:
+            st.success(message, icon=":material/check_circle:")
+        else:
+            st.error(message, icon=":material/error:")
 
 if user.role is not Role.TEACHER:
     st.divider()

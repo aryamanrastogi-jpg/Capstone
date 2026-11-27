@@ -108,7 +108,7 @@ with st.expander("Start from a file instead of typing"):
 # ---------------------------------------------------------------------------
 # Assessment details
 # ---------------------------------------------------------------------------
-st.subheader("Assessment details")
+st.header("Assessment details")
 
 col_a, col_b = st.columns(2)
 with col_a:
@@ -146,7 +146,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Questions
 # ---------------------------------------------------------------------------
-st.subheader("Questions")
+st.header("Questions")
 st.caption(
     "Add one row per question. Use the + row at the bottom of the table to add more, "
     "and leave unused rows blank - they are ignored."
@@ -264,7 +264,7 @@ if st.session_state.get(JUST_SAVED_KEY):
 # Existing assessments
 # ---------------------------------------------------------------------------
 st.divider()
-st.subheader("Your assessments")
+st.header("Your assessments")
 
 _flash = st.session_state.pop(FLASH_KEY, None)
 if _flash:

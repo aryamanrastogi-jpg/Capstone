@@ -73,7 +73,7 @@ if camp is None:
     suggested = camps.suggest_topics(frame, limit=3)
     strength = analytics.topic_strength(frame)
 
-    st.subheader("Build your camp")
+    st.header("Build your camp")
 
     weak_without_practice = [
         topic
@@ -181,7 +181,7 @@ summary = camps.progress_summary(camp)
 
 head_a, head_b = st.columns([3, 1])
 with head_a:
-    st.subheader("Your current camp")
+    st.header("Your current camp")
     st.caption(
         f"{camp.duration_days} days · {', '.join(camp.topics)} · "
         f"started {camp.started_on.strftime('%d %b %Y')}"
@@ -261,7 +261,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------------------------
-st.subheader("Your sessions")
+st.header("Your sessions")
 
 for session in camp.sessions:
     status = "✓" if session.completed else "○"

@@ -45,7 +45,7 @@ def _teacher_view() -> None:
     left, right = st.columns([2, 1])
 
     with right:
-        st.markdown("#### Class code")
+        st.markdown("## Class code")
         if code:
             st.code(code, language=None)
             st.caption(
@@ -68,7 +68,7 @@ def _teacher_view() -> None:
             )
 
     with left:
-        st.markdown(f"#### Students ({len(roster)})")
+        st.markdown(f"## Students ({len(roster)})")
 
         if not roster:
             empty_state(

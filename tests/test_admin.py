@@ -2,12 +2,13 @@
 
 WHAT THESE COVER
   * The passkey: admin stays off without an ADMIN_PASSKEY and the
-    service-role key, a wrong passkey is refused and counted, repeated wrong
-    guesses lock the form for everybody, and an unlock expires.
+    service-role key, a wrong passkey is refused, counted and slowed down,
+    repeated wrong guesses lock the form for that visitor only (BUG-008), and
+    an unlock expires.
   * The service-role client is only built for an unlocked session, and only
     the agreed parameters are sent. Database errors become safe messages.
   * Routing: /admin is registered for everybody, hidden from the menu, and
-    opens from the welcome screen; the sign-in form links to it.
+    opens from the welcome screen; nothing links to it (BUG-016).
   * The migration keeps its promises: only `service_role` can run the admin
     functions, the guard checks the service-role claim, `app_admins` is gone.
 
@@ -25,13 +26,14 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
+from streamlit.proto.TextInput_pb2 import TextInput as TextInputProto
 
 from models import Role
 from services import admin_service
 
 ROOT = Path(__file__).resolve().parent.parent
 MIGRATION = ROOT / "db" / "migrations" / "011_admin_passkey.sql"
-ADMIN_PAGE = str(ROOT / "pages" / "admin.py")
+ADMIN_PAGE = str(ROOT / "views" / "admin.py")
 APP = str(ROOT / "app.py")
 
 PASSKEY = "correct-horse-battery-staple-42"
@@ -151,6 +153,98 @@ def test_repeated_wrong_guesses_lock_the_form_even_for_the_right_passkey(session
 
     assert not outcome.ok and "Too many" in outcome.message
     assert not admin_service.is_unlocked()
+
+
+class _Visitor:
+    """Who `_client_key` says is asking; change `key` between calls to switch visitor."""
+
+    key = "ip:203.0.113.5"
+
+
+@pytest.fixture
+def visitor(monkeypatch: pytest.MonkeyPatch) -> type:
+    _Visitor.key = "ip:203.0.113.5"
+    monkeypatch.setattr(admin_service, "_client_key", lambda: _Visitor.key)
+    return _Visitor
+
+
+def test_one_visitors_wrong_guesses_do_not_lock_the_owner_out(session, visitor) -> None:
+    """BUG-008: five wrong passkeys from anyone used to block everybody."""
+    visitor.key = "ip:198.51.100.7"  # somebody guessing
+    for _ in range(admin_service.MAX_FAILURES):
+        admin_service.unlock("wrong")
+    assert admin_service.locked_for() > 0
+
+    visitor.key = "ip:203.0.113.5"  # the owner, somewhere else
+    assert admin_service.locked_for() == 0
+    assert admin_service.unlock(PASSKEY).ok
+    assert admin_service.is_unlocked()
+
+
+def test_the_guesser_stays_locked_out_after_the_owner_unlocks(session, visitor) -> None:
+    visitor.key = "ip:198.51.100.7"
+    for _ in range(admin_service.MAX_FAILURES):
+        admin_service.unlock("wrong")
+    visitor.key = "ip:203.0.113.5"
+    assert admin_service.unlock(PASSKEY).ok  # a right passkey must not clear anyone else's count
+    visitor.key = "ip:198.51.100.7"
+    assert admin_service.locked_for() > 0
+
+
+class _Context:
+    def __init__(self, headers: Dict[str, str], ip: Optional[str]) -> None:
+        self.headers = headers
+        self.ip_address = ip
+
+
+def _with_context(
+    monkeypatch: pytest.MonkeyPatch, headers: Dict[str, str], ip: Optional[str]
+) -> None:
+    fake = SimpleNamespace(context=_Context(headers, ip), session_state={})
+    monkeypatch.setattr(admin_service, "st", fake)
+
+
+def test_the_client_is_the_right_most_forwarded_hop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first hop is whatever the visitor typed, so it must never be the key."""
+    _with_context(monkeypatch, {"X-Forwarded-For": "6.6.6.6, 203.0.113.9"}, "10.0.0.1")
+    first = admin_service._client_key()
+    _with_context(monkeypatch, {"X-Forwarded-For": "7.7.7.7, 203.0.113.9"}, "10.0.0.1")
+    assert admin_service._client_key() == first == "ip:203.0.113.9"
+
+
+def test_without_a_forwarded_header_the_connection_address_is_the_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _with_context(monkeypatch, {}, "203.0.113.9")
+    assert admin_service._client_key() == "ip:203.0.113.9"
+
+
+def test_without_any_address_the_client_is_the_browser_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _with_context(monkeypatch, {}, None)
+    assert admin_service._client_key().startswith("session:")
+
+
+def test_the_failure_table_cannot_grow_without_limit(session, visitor, monkeypatch) -> None:
+    monkeypatch.setattr(admin_service, "_MAX_TRACKED_CLIENTS", 50)
+    for n in range(200):
+        visitor.key = f"ip:10.0.{n // 250}.{n % 250}"
+        admin_service.unlock("wrong")
+    assert len(admin_service._failures) <= 50
+
+
+def test_a_wrong_passkey_costs_a_pause_and_a_right_one_does_not(
+    monkeypatch: pytest.MonkeyPatch, session
+) -> None:
+    pauses: List[float] = []
+    monkeypatch.setattr(admin_service, "WRONG_PASSKEY_DELAY_SECONDS", 1.0)
+    monkeypatch.setattr(admin_service.time, "sleep", pauses.append)
+
+    assert admin_service.unlock(PASSKEY).ok
+    assert pauses == []
+    assert not admin_service.unlock("wrong").ok
+    assert pauses == [1.0]
 
 
 def test_the_lockout_ends_after_its_window(monkeypatch: pytest.MonkeyPatch, session) -> None:
@@ -290,7 +384,7 @@ def test_demote_sends_the_profile_and_the_release_choice(session, service) -> No
 def test_nothing_outside_admin_imports_the_service_client() -> None:
     """The service-role key must only be reachable from the Admin page."""
     offenders = []
-    for path in list((ROOT / "services").glob("*.py")) + list((ROOT / "pages").glob("*.py")) + [
+    for path in list((ROOT / "services").glob("*.py")) + list((ROOT / "views").glob("*.py")) + [
         ROOT / "app.py"
     ] + list((ROOT / "components").glob("*.py")):
         if path.name in {"admin_service.py", "admin.py"}:
@@ -314,13 +408,19 @@ def test_nothing_outside_admin_imports_the_service_client() -> None:
 def test_admin_is_registered_for_everybody_but_hidden(role: Role, signed_in) -> None:
     from components.navigation import pages_for
 
-    [spec] = [s for s in pages_for(role, signed_in) if s["path"] == "pages/admin.py"]
+    [spec] = [s for s in pages_for(role, signed_in) if s["path"] == "views/admin.py"]
     assert spec["hidden"] is True and spec["without_account"] is True
 
 
-def test_the_sign_in_form_links_to_admin() -> None:
+def test_the_sign_in_form_does_not_link_to_admin() -> None:
+    """BUG-016: /admin is shared privately, not advertised under the public form.
+
+    This replaces `test_the_sign_in_form_links_to_admin` (20 Nov), which asserted
+    the opposite; house rules: /admin is unlinked.
+    """
     source = (ROOT / "components" / "auth_forms.py").read_text(encoding="utf-8")
-    assert re.search(r'st\.page_link\(\s*"pages/admin\.py"', source)
+    assert "page_link" not in source
+    assert "views/admin" not in source and "Admin access" not in source
 
 
 def test_admin_opens_from_the_welcome_screen(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -330,7 +430,7 @@ def test_admin_opens_from_the_welcome_screen(monkeypatch: pytest.MonkeyPatch) ->
     at = AppTest.from_file(APP, default_timeout=90)
     at.run()
     assert "Explore the demo" in [b.label for b in at.button]
-    at.switch_page("pages/admin.py")
+    at.switch_page("views/admin.py")
     at.run()
     assert not at.exception, at.exception
     assert "Unlock" in [b.label for b in at.button]
@@ -379,12 +479,18 @@ def test_a_locked_page_asks_for_the_passkey_and_shows_nothing_else(
     assert len(at.dataframe) == 0
 
 
+@pytest.mark.parametrize("missing", ["ADMIN_PASSKEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"])
 def test_the_page_shows_a_setup_problem_instead_of_the_form(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, missing: str
 ) -> None:
-    monkeypatch.delenv("ADMIN_PASSKEY")
+    """BUG-016: every visitor sees the same neutral sentence; the detail is logged."""
+    monkeypatch.delenv(missing)
     at = _admin_page(monkeypatch, unlocked=False)
-    assert any("ADMIN_PASSKEY" in e.value for e in at.error)
+    assert [e.value for e in at.error] == ["Admin is not available."]
+    page_text = " ".join(
+        [e.value for e in at.error] + [m.value for m in at.markdown] + [c.value for c in at.caption]
+    )
+    assert "ADMIN_PASSKEY" not in page_text and "SUPABASE" not in page_text
     assert "Unlock" not in [b.label for b in at.button]
 
 
@@ -398,6 +504,64 @@ def test_an_unlocked_page_renders_the_tools(monkeypatch: pytest.MonkeyPatch) -> 
         assert wanted in labels
     [teacher] = [s for s in at.selectbox if s.label == "Teacher"]
     assert teacher.options == ["Ms Rao (usr_t02)"]
+
+
+TEACHER_BOXES = {
+    "admin_teacher_name": "Ms Rao",
+    "admin_teacher_email": "rao@school.org",
+    "admin_teacher_password": "secret123",
+}
+
+
+def _fill_teacher_form(at) -> None:
+    for key, value in TEACHER_BOXES.items():
+        at.text_input(key=key).input(value)
+
+
+def test_a_failed_add_a_teacher_keeps_what_was_typed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BUG-011: an error must not wipe the name, email and password."""
+    at = _admin_page(monkeypatch, unlocked=True)
+    seen: List[tuple] = []
+
+    def refuse(name: str, email: str, password: str) -> admin_service.AdminOutcome:
+        seen.append((name, email, password))
+        return admin_service.AdminOutcome(
+            False, "The temporary password must be at least 8 characters."
+        )
+
+    monkeypatch.setattr(admin_service, "create_teacher", refuse)
+    _fill_teacher_form(at)
+    next(b for b in at.button if b.label == "Create teacher account").click().run()
+
+    assert not at.exception, at.exception
+    assert seen == [("Ms Rao", "rao@school.org", "secret123")]
+    assert any("at least 8 characters" in e.value for e in at.error)
+    for key, value in TEACHER_BOXES.items():
+        assert at.text_input(key=key).value == value
+
+
+def test_a_successful_add_a_teacher_empties_the_form(monkeypatch: pytest.MonkeyPatch) -> None:
+    at = _admin_page(monkeypatch, unlocked=True)
+    monkeypatch.setattr(
+        admin_service,
+        "create_teacher",
+        lambda name, email, password: admin_service.AdminOutcome(
+            True, "Teacher account created for Ms Rao."
+        ),
+    )
+    _fill_teacher_form(at)
+    next(b for b in at.button if b.label == "Create teacher account").click().run()
+
+    assert not at.exception, at.exception
+    assert any("Teacher account created" in s.value for s in at.success)
+    for key in TEACHER_BOXES:
+        assert at.text_input(key=key).value == ""
+
+
+def test_the_password_box_is_labelled_temporary(monkeypatch: pytest.MonkeyPatch) -> None:
+    at = _admin_page(monkeypatch, unlocked=True)
+    assert at.text_input(key="admin_teacher_password").label == "Temporary password"
+    assert at.text_input(key="admin_teacher_password").proto.type == TextInputProto.PASSWORD
 
 
 def test_a_new_code_is_shown_once(monkeypatch: pytest.MonkeyPatch) -> None:

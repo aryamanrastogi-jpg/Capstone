@@ -77,6 +77,18 @@ _MAX_TRACKED_EMAILS = 10_000
 
 INVALID_INVITE_MESSAGE = "That invite code is not valid."
 
+# The flag in `user_metadata` that services/admin_service.create_teacher sets on
+# an account whose first password an admin chose. While it is true, app.py shows
+# nothing but the choose-a-password page. It is cleared in the same request that
+# saves the person's own password. `user_metadata` is editable by the person
+# themselves, which is fine: the flag only exists to make *them* pick a password
+# the admin never saw, so there is nobody to hide it from.
+FORCE_PASSWORD_CHANGE_KEY = "must_change_password"
+
+WRONG_CURRENT_PASSWORD_MESSAGE = "Your current password is not right."
+SAME_PASSWORD_MESSAGE = "Choose a password that is different from your current one."
+PASSWORD_CHANGED_MESSAGE = "Password changed."
+
 
 @dataclass(frozen=True)
 class AuthOutcome:
@@ -512,6 +524,127 @@ def delete_account() -> AuthOutcome:
         )
     sign_out()
     return AuthOutcome(True, "Your account has been deleted.")
+
+
+# --------------------------------------------------------------------------
+# Your password: choose one at first sign-in, or change it later (ARY-002)
+# --------------------------------------------------------------------------
+def must_change_password() -> bool:
+    """True while this signed-in account still has a password an admin chose.
+
+    Read from the session's own user record, so asking costs no request.
+    """
+    client = session_client()
+    if client is None:
+        return False
+    try:
+        session = client.auth.get_session()
+        metadata = getattr(getattr(session, "user", None), "user_metadata", None)
+    except Exception:  # noqa: BLE001 - "no session" is a normal state
+        return False
+    return isinstance(metadata, dict) and metadata.get(FORCE_PASSWORD_CHANGE_KEY) is True
+
+
+def choose_password(new_password: str) -> AuthOutcome:
+    """Set your own password on an account an admin created.
+
+    Asks no current password: the person signed in with the temporary one a
+    moment ago, and the page is the only thing they can reach until this works.
+    The new password and the cleared flag travel in one request, so there is no
+    half-done state to get stuck in.
+    """
+    problem = password_problem(new_password)
+    if problem:
+        return AuthOutcome(False, problem)
+    client, _ = _signed_in_client_and_id()
+    if client is None:
+        return AuthOutcome(False, "Sign in first.")
+    return _save_password(client, new_password, clear_flag=True)
+
+
+def change_password(current_password: str, new_password: str) -> AuthOutcome:
+    """Change the password of the signed-in account, after re-checking the old one.
+
+    Re-checking means a borrowed or unattended browser cannot lock the owner
+    out. A wrong current password counts as a failed sign-in, so it hits the
+    same lockout as guessing on the sign-in form.
+    """
+    problem = password_problem(new_password)
+    if problem:
+        return AuthOutcome(False, problem)
+    client, _ = _signed_in_client_and_id()
+    if client is None:
+        return AuthOutcome(False, "Sign in first.")
+    if new_password == current_password:
+        return AuthOutcome(False, SAME_PASSWORD_MESSAGE)
+
+    email = current_email() or ""
+    locked = sign_in_locked_for(email)
+    if locked:
+        return AuthOutcome(False, f"Too many failed attempts. Try again in {locked} seconds.")
+    if (
+        not email
+        or len(current_password) > MAX_PASSWORD_CHARS
+        or not _password_matches(email, current_password)
+    ):
+        _record_failed_sign_in(email)
+        return AuthOutcome(False, WRONG_CURRENT_PASSWORD_MESSAGE)
+    _reset_failed_sign_ins(email)
+    return _save_password(client, new_password, clear_flag=must_change_password())
+
+
+def _password_matches(email: str, password: str) -> bool:
+    """Check a password the way a sign-in would, on a throwaway client.
+
+    The person's own session is never touched, and the throwaway one is ended
+    again ("local" scope: only that one) so it does not pile up in Auth.
+    """
+    probe = _new_client()
+    if probe is None:
+        return False
+    try:
+        probe.auth.sign_in_with_password({"email": email, "password": password})
+    except Exception:  # noqa: BLE001 - a wrong password is the normal failure
+        return False
+    try:
+        probe.auth.sign_out({"scope": "local"})
+    except Exception:  # noqa: BLE001 - best effort
+        pass
+    return True
+
+
+def _save_password(client: Any, new_password: str, clear_flag: bool) -> AuthOutcome:
+    attributes: Dict[str, Any] = {"password": new_password}
+    if clear_flag:
+        attributes["data"] = {FORCE_PASSWORD_CHANGE_KEY: False}
+    try:
+        client.auth.update_user(attributes)
+    except Exception as exc:  # noqa: BLE001 - summarised, never echoed
+        return AuthOutcome(False, _password_error(exc))
+    # Anyone else signed in as this account - an admin who tried the temporary
+    # password, a school computer left open - is signed out. This session stays.
+    # Best effort: the new password is already saved either way.
+    try:
+        client.auth.sign_out({"scope": "others"})
+    except Exception:  # noqa: BLE001 - best effort
+        pass
+    return AuthOutcome(True, PASSWORD_CHANGED_MESSAGE)
+
+
+def _password_error(exc: Exception) -> str:
+    """A sentence for a failed password update. The raw text is never shown: it
+    can carry the email, the address of the service, or the password itself."""
+    code = str(getattr(exc, "code", "") or "").lower()
+    text = str(exc).lower()
+    if code == "same_password" or "different from the old" in text or "same as the old" in text:
+        return SAME_PASSWORD_MESSAGE
+    if "reauthentication" in code or "reauthentication" in text:
+        return "For your security, sign out and sign in again, then change your password."
+    if code == "weak_password" or "weak" in text or ("password" in text and "least" in text):
+        return "That password is too weak. Try a longer one, or a different one."
+    if "rate limit" in text or "too many" in text:
+        return "Too many attempts. Wait a minute and try again."
+    return "Your password could not be changed. Try again in a moment."
 
 
 def redeem_teacher_invite(code: str) -> AuthOutcome:

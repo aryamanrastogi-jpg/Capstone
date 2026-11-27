@@ -39,7 +39,7 @@ def _labels(at: AppTest):
 # --------------------------------------------------------------- BUG-004
 def test_clear_form_on_my_questions_resets_without_error():
     at = _app_as("student")
-    at.switch_page("pages/my_questions.py")
+    at.switch_page("views/my_questions.py")
     at.run()
     at.text_input(key="mq_title").input("Algebra worksheet")
     at.text_input(key="mq_topic").input("Algebra")
@@ -54,7 +54,7 @@ def test_clear_form_on_my_questions_resets_without_error():
 
 def test_saving_my_questions_clears_the_question_editor_draft():
     at = _app_as("student")
-    at.switch_page("pages/my_questions.py")
+    at.switch_page("views/my_questions.py")
     at.run()
     at.session_state["my_questions_rows"] = pd.DataFrame(
         [{"question_text": "What is 2+2?", "model_answer": "", "max_marks": 1.0}]
@@ -76,7 +76,7 @@ def test_saving_my_questions_clears_the_question_editor_draft():
 
 def test_clear_form_on_create_assessment_resets_without_error():
     at = _app_as("teacher")
-    at.switch_page("pages/create_assessment.py")
+    at.switch_page("views/create_assessment.py")
     at.run()
     at.text_input(key="ca_title").input("Class test")
     at.text_input(key="ca_topic").input("Algebra")
@@ -92,7 +92,7 @@ def test_clear_form_on_create_assessment_resets_without_error():
 # --------------------------------------------------------------- BUG-025
 def test_go_to_upload_responses_survives_the_rerun_after_saving():
     at = _app_as("teacher")
-    at.switch_page("pages/create_assessment.py")
+    at.switch_page("views/create_assessment.py")
     at.run()
     at.session_state["create_assessment_rows"] = pd.DataFrame(
         [{"question_text": "What is 2+2?", "model_answer": "4",
@@ -153,7 +153,7 @@ def test_a_copy_does_not_carry_the_owners_answers(monkeypatch):
 # --------------------------------------------------------------- BUG-021
 def _student_with_a_saved_set() -> AppTest:
     at = _app_as("student")
-    at.switch_page("pages/my_questions.py")
+    at.switch_page("views/my_questions.py")
     at.run()
     at.session_state["my_questions_rows"] = pd.DataFrame(
         [{"question_text": "Solve 2x = 8.", "model_answer": "", "max_marks": 2.0}]
@@ -196,7 +196,7 @@ def test_delete_requires_confirmation():
 # --------------------------------------------------------------- BUG-019
 def test_teacher_uploads_take_the_next_attempt_number():
     at = _app_as("teacher")
-    at.switch_page("pages/upload_responses.py")
+    at.switch_page("views/upload_responses.py")
     at.run()
     assert not at.exception, at.exception
 
@@ -239,8 +239,8 @@ def test_students_with_the_same_name_are_both_selectable():
     at.session_state["users"] = users
 
     for page, label in (
-        ("pages/upload_responses.py", "Student *"),
-        ("pages/practice_generator.py", "Whose results should the practice target?"),
+        ("views/upload_responses.py", "Student *"),
+        ("views/practice_generator.py", "Whose results should the practice target?"),
     ):
         at.switch_page(page)
         at.run()

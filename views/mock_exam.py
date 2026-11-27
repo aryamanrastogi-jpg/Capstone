@@ -100,7 +100,7 @@ if exam is None:
         )
         defaults = [t for t in suggested if t in options]
 
-    st.subheader("Set up your paper")
+    st.header("Set up your paper")
     chosen = st.multiselect(
         "Topics",
         options=options,
@@ -136,7 +136,7 @@ if exam is None:
 # Exam in progress
 # ---------------------------------------------------------------------------
 if not exam.is_submitted:
-    st.subheader("Your paper")
+    st.header("Your paper")
     st.caption(
         f"{len(exam.items)} questions · {exam.total_marks:g} marks · "
         f"{exam.time_limit_minutes} minutes · {', '.join(exam.topics)}"
@@ -203,7 +203,8 @@ if not exam.is_submitted:
     # handing in with gaps takes a second, deliberate click.
     if st.session_state.get(confirm_key) and blank_count:
         st.warning(
-            f"{blank_count} of {len(exam.items)} question(s) are blank and will "
+            f"{blank_count} of {len(exam.items)} "
+            f"{'question is' if blank_count == 1 else 'questions are'} blank and will "
             "score 0. Submit anyway?",
             icon=":material/warning:",
         )
@@ -237,12 +238,22 @@ summary = exams.score_summary(exam, frame)
 baseline = summary["baseline"]
 change = summary["change"]
 
-st.subheader("Your result")
-st.info(
-    "These scores are AI estimates from an automated grader, not a teacher's "
-    "mark. Use them to see where to focus next.",
-    icon=":material/gavel:",
-)
+st.header("Your result")
+# Say which marker made the scores (BUG-018): the demo, a blank paper and an AI
+# outage are all marked by the built-in checker, and "AI estimates" would be false.
+if exam.ai_marked:
+    st.info(
+        "These scores are AI estimates from an automated grader, not a teacher's "
+        "mark. Use them to see where to focus next.",
+        icon=":material/gavel:",
+    )
+else:
+    st.info(
+        "These scores come from the built-in checker, not AI, and are not a "
+        "teacher's mark. Use them to see where to focus next.",
+        icon=":material/gavel:",
+    )
+_estimate = "AI estimate" if exam.ai_marked else "Built-in checker estimate"
 if exam.saved_submission_ids:
     st.caption(
         ":material/check_circle: Saved to your work as a mock exam. It now counts "
@@ -273,8 +284,8 @@ if summary["late"]:
 
 metric_row(
     [
-        ("Estimated score", f"{summary['score']:g}/{summary['max_score']:g}", "AI estimate."),
-        ("Percentage", f"{summary['percentage']}%", "AI estimate across the paper."),
+        ("Estimated score", f"{summary['score']:g}/{summary['max_score']:g}", f"{_estimate}."),
+        ("Percentage", f"{summary['percentage']}%", f"{_estimate} across the paper."),
         (
             "Starting point",
             f"{baseline}%" if baseline is not None else "—",
@@ -306,7 +317,7 @@ if rows:
     figure.update_layout(barmode="group", yaxis=dict(range=[0, 105], title="Score (%)"))
     charts.render(figure, height=300)
 
-st.markdown("#### Feedback by question")
+st.markdown("### Feedback by question")
 st.caption("Pointers on where to look again - not worked answers.")
 by_id = {r.question_id: r for r in exam.results}
 for number, item in enumerate(exam.items, start=1):

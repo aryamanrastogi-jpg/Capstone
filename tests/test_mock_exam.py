@@ -136,7 +136,7 @@ def _student_app():
     at.session_state["current_user_id"] = student.id
     at.session_state["entered_demo"] = True
     at.run()
-    at.switch_page("pages/mock_exam.py")
+    at.switch_page("views/mock_exam.py")
     at.run()
     assert not at.exception, at.exception
     return at
@@ -172,4 +172,7 @@ def test_a_student_can_sit_and_submit_a_mock_exam():
     assert exam.is_submitted and exam.results
     text = " ".join(str(m.value) for m in at.markdown)
     assert all(i.question.model_answer not in text for i in exam.items)
-    assert any("AI estimate" in i.value for i in at.info)
+    # BUG-018: the demo has no AI, so the built-in checker marked the paper and
+    # the result says so (it used to call the scores "AI estimates").
+    assert any("built-in checker" in i.value for i in at.info)
+    assert not any("AI estimate" in i.value for i in at.info)

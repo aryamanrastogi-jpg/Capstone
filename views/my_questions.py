@@ -72,7 +72,7 @@ if student is None or not student.is_student:
 
 page_header(
     "My Questions",
-    f"Signed in as {student.display_name}",
+    store.identity_line(student),
     "Type up the questions you have been set - a worksheet, a past paper, the "
     "problems at the end of a chapter - and they become something you can work "
     "through and track.",
@@ -131,7 +131,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Set details
 # ---------------------------------------------------------------------------
-st.subheader("About this set")
+st.header("About this set")
 
 col_a, col_b = st.columns(2)
 with col_a:
@@ -157,7 +157,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Questions
 # ---------------------------------------------------------------------------
-st.subheader("The questions")
+st.header("The questions")
 st.caption(
     "One row per question. Use the + at the bottom of the table to add more, and "
     "leave unused rows blank - they are ignored."
@@ -266,7 +266,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Sets this student has already saved
 # ---------------------------------------------------------------------------
-st.subheader("Your saved sets")
+st.header("Your saved sets")
 
 mine = service.list_assessments_owned_by(student.id)
 if not mine:
@@ -327,7 +327,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # The shared library
 # ---------------------------------------------------------------------------
-st.subheader("Shared library")
+st.header("Shared library")
 st.caption(
     "Question sets other students have shared. Take a copy and it becomes yours "
     "— your own attempts, your own progress, and nothing you do touches theirs."

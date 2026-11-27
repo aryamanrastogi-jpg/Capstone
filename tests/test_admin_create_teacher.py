@@ -123,14 +123,27 @@ def test_a_teacher_is_created_and_promoted(monkeypatch: pytest.MonkeyPatch) -> N
     assert outcome.ok and "Ms Rao" in outcome.message
     assert "secret123" not in outcome.message and "rao@school.org" not in outcome.message
     [created] = client.auth.admin.created
+    # ARY-002: the password is only a temporary one - the flag makes the
+    # teacher choose their own at first sign-in (services/auth_service.py).
     assert created == {
         "email": "rao@school.org",
         "password": "secret123",
         "email_confirm": True,
-        "user_metadata": {"full_name": "Ms Rao"},
+        "user_metadata": {"full_name": "Ms Rao", "must_change_password": True},
     }
     assert client.calls == [("admin_make_teacher", {"p_auth_user_id": USER_ID})]
     assert client.auth.admin.deleted == []
+
+
+def test_the_admin_is_told_the_teacher_will_choose_their_own_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _use(monkeypatch, _Client())
+    _unlock()
+    outcome = admin_service.create_teacher("Ms Rao", "rao@school.org", "secret123")
+    assert outcome.ok
+    assert "temporary password" in outcome.message
+    assert "own password" in outcome.message
 
 
 def test_a_failed_promotion_deletes_the_new_account(monkeypatch: pytest.MonkeyPatch) -> None:

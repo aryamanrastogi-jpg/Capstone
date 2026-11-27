@@ -107,7 +107,7 @@ backend or API server.
 
 **A note on Streamlit:** it is an excellent choice for getting this MVP working
 quickly, and a limiting one for a production deployment. The architecture accounts
-for that — all logic lives in `services/`, and `pages/` only draws. If this ever
+for that — all logic lives in `services/`, and `views/` only draws. If this ever
 moves to a different framework, the services come across unchanged.
 
 ---
@@ -117,7 +117,7 @@ moves to a different framework, the services come across unchanged.
 ```text
 .
 ├── app.py                      # entry point: page config, state init, navigation
-├── pages/
+├── views/
 │   ├── student_home.py         # My Work        (student)
 │   ├── my_questions.py         # My Questions   (student)
 │   ├── my_progress.py          # My Progress    (student)
@@ -185,10 +185,12 @@ moves to a different framework, the services come across unchanged.
 └── README.md
 ```
 
-`pages/` holds the page scripts, but the menu is defined entirely in
-`components/navigation.py`. Because `app.py` calls `st.navigation`, Streamlit's
-automatic `pages/` discovery is bypassed — so there is exactly one source of truth
-for routing, and each role is only ever given its own pages.
+`views/` holds the page scripts, but the menu is defined entirely in
+`components/navigation.py`. Because `app.py` calls `st.navigation`, there is
+exactly one source of truth for routing, and each role is only ever given its own
+pages. The folder is called `views/` on purpose: a folder named `pages/` beside
+`app.py` makes Streamlit run those files directly after every server start, until
+somebody opens `/`, and lists them all in a raw menu.
 
 ---
 
@@ -369,6 +371,14 @@ A prototype. A privacy notice on every page says what is stored and who can see 
   and photo
 - Passwords need 8+ characters with a letter and a number; sign-in locks for 60
   seconds after 5 failures in a session
+- Anyone signed in can change their password on Profile (the current one is asked
+  for first). A teacher account made on the Admin page starts with a temporary
+  password and cannot use the app until its owner has chosen their own. There is
+  no emailed "forgot password" route yet: it needs an email provider and Supabase
+  Auth settings (see the handover notes for this round)
+- The Admin page (`/admin`) is not linked from anywhere, and a wrong passkey is
+  counted per visitor, never for the whole server, so one person guessing cannot
+  lock the owner out
 - Users can delete their own account from Profile
 - Data is scoped by student ID in the **service layer**, not in the pages
 - Environment variables are never rendered in the UI or written to logs

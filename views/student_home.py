@@ -56,7 +56,7 @@ EXTRACTED_KEY = f"{EXTRACTED_KEY}:{student.id}"
 
 page_header(
     "My Work",
-    f"Signed in as {student.display_name}",
+    store.identity_line(student),
     "Add work you have already done and get an instant estimate of how it would "
     "score, plus what to work on. Your teacher's mark is always the real one.",
 )
@@ -133,7 +133,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Add a piece of work
 # ---------------------------------------------------------------------------
-st.subheader("Add a piece of work")
+st.header("Add a piece of work")
 
 if not assessments:
     empty_state(
@@ -472,7 +472,7 @@ st.divider()
 attempts = attempt_service.attempts_for(student.id, assessment.id, my_submissions)
 
 if len(attempts) > 1:
-    st.subheader("How your attempts compare")
+    st.header("How your attempts compare")
     st.caption(
         f"Your goes at **{assessment.title}**, oldest first. Only questions you "
         "have tried more than once are shown."
@@ -497,7 +497,7 @@ if len(attempts) > 1:
 # ---------------------------------------------------------------------------
 # Recent work and its estimates
 # ---------------------------------------------------------------------------
-st.subheader("Your recent work")
+st.header("Your recent work")
 
 if not my_submissions:
     empty_state(

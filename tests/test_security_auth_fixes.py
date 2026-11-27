@@ -236,7 +236,7 @@ def _app_as(role: str) -> AppTest:
 def test_the_demo_menu_has_no_sign_in_page() -> None:
     at = _app_as("student")
     with pytest.raises(ValueError):
-        at.switch_page("pages/sign_in.py")
+        at.switch_page("views/sign_in.py")
 
 
 def test_a_deep_link_is_honoured_once_the_visitor_is_in() -> None:
@@ -245,7 +245,7 @@ def test_a_deep_link_is_honoured_once_the_visitor_is_in() -> None:
     at = AppTest.from_file(APP, default_timeout=90)
     at.run()
     # Set by the hidden deep-link page on the welcome screen.
-    at.session_state[REQUESTED_PAGE] = "pages/study_camp.py"
+    at.session_state[REQUESTED_PAGE] = "views/study_camp.py"
     next(b for b in at.button if b.label == "Explore the demo").click().run()
 
     assert not at.exception, at.exception
@@ -258,7 +258,7 @@ def test_a_deep_link_to_the_other_role_s_page_is_ignored() -> None:
 
     at = AppTest.from_file(APP, default_timeout=90)
     at.run()
-    at.session_state[REQUESTED_PAGE] = "pages/dashboard.py"
+    at.session_state[REQUESTED_PAGE] = "views/dashboard.py"
     next(b for b in at.button if b.label == "Explore the demo").click().run()
 
     assert not at.exception, at.exception
@@ -270,7 +270,7 @@ def _fill_create_assessment(at: AppTest) -> None:
         [{"question_text": "Solve 2x = 8", "model_answer": "x = 4",
           "marking_criteria": "", "max_marks": 2.0}]
     )
-    at.switch_page("pages/create_assessment.py").run()
+    at.switch_page("views/create_assessment.py").run()
     at.text_input(key="ca_title").input("Owner test")
     at.text_input(key="ca_topic").input("Algebra")
     next(b for b in at.button if b.label == "Save assessment").click().run()

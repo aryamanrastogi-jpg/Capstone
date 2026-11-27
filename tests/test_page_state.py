@@ -35,8 +35,8 @@ def _button(at: AppTest, label: str):
 @pytest.mark.parametrize(
     "role, page, title_key",
     [
-        ("teacher", "pages/create_assessment.py", "ca_title"),
-        ("student", "pages/my_questions.py", "mq_title"),
+        ("teacher", "views/create_assessment.py", "ca_title"),
+        ("student", "views/my_questions.py", "mq_title"),
     ],
 )
 def test_clear_form_resets_the_draft_without_an_exception(role, page, title_key):
@@ -54,16 +54,19 @@ def test_clear_form_resets_the_draft_without_an_exception(role, page, title_key)
 
 def test_mock_exam_answers_survive_leaving_the_page():
     at = _app_as("student")
-    at.switch_page("pages/mock_exam.py")
+    at.switch_page("views/mock_exam.py")
     at.run()
     _button(at, "Start the mock exam").click().run()
     assert not at.exception, at.exception
 
     at.text_area[0].input("2 + 3 = 5 parts, so 18 and 27").run()
 
-    at.switch_page("pages/study_camp.py")
-    at.run()
-    at.switch_page("pages/mock_exam.py")
+    # There is nowhere to leave to: while a paper is open app.py registers only
+    # the exam page, so no click can race the answer's commit and drop it. (This
+    # test used to visit Study Camp and come back, which only worked because a
+    # `pages/` folder let Streamlit run page scripts directly: BUG-009.)
+    with pytest.raises(ValueError):
+        at.switch_page("views/study_camp.py")
     at.run()
     assert not at.exception, at.exception
     assert at.text_area[0].value == "2 + 3 = 5 parts, so 18 and 27"
@@ -99,7 +102,7 @@ def test_active_exam_navigation_registers_only_the_hidden_exam_page(monkeypatch)
 
     navigation.build_exam_navigation()
 
-    assert [page.path for page in pages] == ["pages/mock_exam.py"]
+    assert [page.path for page in pages] == ["views/mock_exam.py"]
     assert options == {"position": "hidden"}
 
 
@@ -108,7 +111,7 @@ def _awaiting_review(at: AppTest) -> int:
 
 
 def _queue_size(at: AppTest) -> int:
-    at.switch_page("pages/review_grading.py")
+    at.switch_page("views/review_grading.py")
     at.run()
     assert not at.exception, at.exception
     return len(next(s for s in at.selectbox if s.label == "Submission").options)
@@ -118,7 +121,7 @@ def test_self_study_work_stays_out_of_the_teacher_review_queue():
     at = _app_as("teacher")
     before = _awaiting_review(at)
     queue_before = _queue_size(at)
-    at.switch_page("pages/dashboard.py")
+    at.switch_page("views/dashboard.py")
     at.run()
 
     # Turn one pending, teacher-collected submission into a student's self-study.

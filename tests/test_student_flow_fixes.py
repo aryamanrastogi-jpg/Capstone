@@ -166,7 +166,7 @@ def test_the_camp_prompt_is_not_shown_for_a_strong_topic():
 
 def test_saving_a_set_clears_the_form_at_once():
     at = _app_as("student")
-    at.switch_page("pages/my_questions.py")
+    at.switch_page("views/my_questions.py")
     at.run()
     at.session_state["my_questions_rows"] = pd.DataFrame(
         [{"question_text": "What is 2+2?", "model_answer": "4", "max_marks": 1.0}]

@@ -33,7 +33,7 @@ Every file, in the order it's worth reading:
 |---|---|---|
 | `models/` | The shapes of the data: `Assessment`, `Question`, `Submission`, `GradingResult`, `User`, `StudyCamp` | "What *is* a thing?" |
 | `services/` | All the logic: grading, analytics, study camps, file reading, storage | "What *happens* to a thing?" |
-| `pages/` | One file per screen | "What does the user *see*?" |
+| `views/` | One file per screen | "What does the user *see*?" |
 | `components/` | Reusable UI bits: page headers, badges, the sidebar, navigation | Anything used on 2+ pages |
 | `utils/` | Config and validation helpers | Small, boring, used everywhere |
 | `data/` | The fake demo data seeded at startup | No real students, ever |
@@ -41,12 +41,12 @@ Every file, in the order it's worth reading:
 
 **The most important rule of the layout:** pages contain *no logic*. A page
 gathers input, calls a service, and draws the result. If you find yourself
-writing an `if` statement about marks or scores inside `pages/`, it belongs in
+writing an `if` statement about marks or scores inside `views/`, it belongs in
 `services/` instead.
 
 Why that matters: Streamlit is great for getting an MVP working but limiting
 beyond that. Keeping the logic in `services/` means if this ever moves off
-Streamlit, only `pages/` gets rewritten.
+Streamlit, only `views/` gets rewritten.
 
 ---
 
@@ -56,7 +56,7 @@ Follow a single action all the way through: **a student uploads a PDF of their
 homework and gets an estimate.**
 
 ### Step 1 — The page collects input
-`pages/student_home.py`
+`views/student_home.py`
 
 ```python
 uploaded = st.file_uploader("Your work", type=["txt", "pdf"])
@@ -115,7 +115,7 @@ becomes a Supabase call. Because every page goes through this function, swapping
 the storage means changing *one file*.
 
 ### Step 6 — The page draws the result
-Back in `pages/student_home.py`:
+Back in `views/student_home.py`:
 
 ```python
 view = student_safe_view(result, question)
@@ -127,7 +127,7 @@ praise that would quote the expected numbers back. The student gets their score,
 what went well, which *categories* of mistake they made, and pointers — never the
 answer.
 
-The teacher, on `pages/review_grading.py`, sees the full `GradingResult`.
+The teacher, on `views/review_grading.py`, sees the full `GradingResult`.
 
 ---
 
@@ -243,12 +243,12 @@ point rather than a moving one.
 Small changes, in rough order of difficulty. Run `python -m pytest` after each.
 
 1. **Change some wording.** Find the "pointers, not answers" message in
-   `pages/student_home.py` and reword it. Re-run the app to see it change.
+   `views/student_home.py` and reword it. Re-run the app to see it change.
 
 2. **Change how long a camp is.** `QUESTIONS_PER_SESSION` in
    `services/study_camp_service.py` — set it to 6. Which tests still pass?
 
-3. **Change the trend grouping.** In `pages/my_progress.py`, change `freq="W"` to
+3. **Change the trend grouping.** In `views/my_progress.py`, change `freq="W"` to
    `freq="M"` in the trend calls. Weekly becomes monthly.
 
 4. **Add a new error type.** Add `SIGN_ERROR = "sign_error"` to `ErrorType` in

@@ -10,9 +10,12 @@ HOW THE ADMIN PAGE IS OPENED
 
 WHAT KEEPS THAT SAFE ENOUGH
   * The passkey is compared in constant time (any length; admin stays off
-    only while it is empty), and wrong guesses are
-    counted across every session: MAX_FAILURES within LOCKOUT_SECONDS locks the
-    form for everybody until the window passes.
+    only while it is empty). A wrong guess costs about a second, and wrong
+    guesses are counted per visitor, never for the whole server (a shared
+    counter would let anyone lock the owner out): MAX_FAILURES within
+    LOCKOUT_SECONDS locks the form for that visitor until the window passes.
+    A visitor is the right-most X-Forwarded-For hop, else the connection's own
+    address, else the browser session (see `_client_key`).
   * The service-role client is built per call, only after `is_unlocked()`,
     and never stored in session state, a cache or a log. Nothing else in the
     app can reach it: the repository and auth_service never import this module.
@@ -32,7 +35,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
 
@@ -43,11 +46,19 @@ MAX_PASSKEY_INPUT_CHARS = 256
 UNLOCK_SECONDS = 30 * 60
 MAX_FAILURES = 5
 LOCKOUT_SECONDS = 5 * 60
+# A wrong passkey is answered after this pause, so guessing is slow even before
+# the lockout starts.
+WRONG_PASSKEY_DELAY_SECONDS = 1.0
 
 MAX_USES = 20
 MAX_VALID_DAYS = 30
 MAX_NOTE_CHARS = 120
 MAX_NAME_CHARS = 60
+
+# Set in the new account's user_metadata so the teacher must choose their own
+# password at first sign-in (services/auth_service.must_change_password reads it;
+# the two names are kept equal by a test). The admin's password is only temporary.
+FORCE_PASSWORD_CHANGE_KEY = "must_change_password"
 
 EMAIL_TAKEN_MESSAGE = (
     "An account with that email already exists. To make it a teacher, send "
@@ -76,9 +87,12 @@ _KNOWN_MESSAGES = (
     "No profile for that account.",
 )
 
-# Wrong passkeys across every session in this server process.
-_failures: List[float] = []
+# Wrong passkeys by visitor (see `_client_key`) in this server process. Never one
+# list for everybody: five wrong guesses from anyone would then lock the owner
+# out too (BUG-008). The table is bounded so made-up visitors cannot grow it.
+_failures: Dict[str, List[float]] = {}
 _failures_lock = threading.Lock()
+_MAX_TRACKED_CLIENTS = 10_000
 
 
 @dataclass(frozen=True)
@@ -138,19 +152,64 @@ def setup_problem() -> Optional[str]:
     return None
 
 
+def _client_key() -> str:
+    """Who is asking, for the lockout: one visitor, never everybody.
+
+    The right-most X-Forwarded-For hop is what the proxy nearest the app saw;
+    the first hop is whatever the visitor typed, so it is never used. Without
+    that header the connection's own address is used (Streamlit reports none
+    for localhost), and without either the browser session, which a visitor can
+    only reset by opening a new one.
+    """
+    try:
+        hops = [h.strip() for h in st.context.headers.get("X-Forwarded-For", "").split(",")]
+        hops = [h for h in hops if h]
+        if hops:
+            return f"ip:{hops[-1][:64]}"
+        address = st.context.ip_address
+        if address:
+            return f"ip:{str(address)[:64]}"
+    except Exception:  # noqa: BLE001 - no request context (a test, a script)
+        pass
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+        ctx = get_script_run_ctx()
+        return f"session:{ctx.session_id if ctx else 'none'}"
+    except Exception:  # noqa: BLE001 - no Streamlit runtime at all
+        return "session:none"
+
+
 def locked_for() -> int:
-    """Seconds until the passkey form accepts guesses again (0 = open)."""
+    """Seconds until this visitor's passkey form accepts guesses again (0 = open)."""
+    key = _client_key()
     now = time.monotonic()
     with _failures_lock:
-        _failures[:] = [t for t in _failures if now - t < LOCKOUT_SECONDS]
-        if len(_failures) < MAX_FAILURES:
+        recent = [t for t in _failures.get(key, []) if now - t < LOCKOUT_SECONDS]
+        if recent:
+            _failures[key] = recent
+        else:
+            _failures.pop(key, None)
+        if len(recent) < MAX_FAILURES:
             return 0
-        return max(1, int(LOCKOUT_SECONDS - (now - _failures[0])))
+        return max(1, int(LOCKOUT_SECONDS - (now - recent[0])))
 
 
 def _record_failure() -> None:
+    key = _client_key()
+    now = time.monotonic()
     with _failures_lock:
-        _failures.append(time.monotonic())
+        if key not in _failures and len(_failures) >= _MAX_TRACKED_CLIENTS:
+            # Drop visitors whose window has passed; if the table is still
+            # full, drop the oldest.
+            for stale in [
+                k for k, times in _failures.items()
+                if not times or now - times[-1] >= LOCKOUT_SECONDS
+            ]:
+                del _failures[stale]
+            while len(_failures) >= _MAX_TRACKED_CLIENTS:
+                _failures.pop(next(iter(_failures)))
+        _failures.setdefault(key, []).append(now)
 
 
 def _reset_failures() -> None:
@@ -171,6 +230,7 @@ def unlock(passkey: str) -> AdminOutcome:
         typed.encode("utf-8"), _configured_passkey().encode("utf-8")
     ):
         _record_failure()
+        time.sleep(WRONG_PASSKEY_DELAY_SECONDS)
         return AdminOutcome(False, WRONG_PASSKEY_MESSAGE)
 
     st.session_state[UNLOCKED_AT] = time.monotonic()
@@ -377,6 +437,10 @@ def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
     All or nothing: if the account is made but cannot be turned into a teacher,
     it is deleted again, so a failure never leaves a stray student account
     behind under the teacher's email.
+
+    The password is temporary. The account is flagged (FORCE_PASSWORD_CHANGE_KEY)
+    so the teacher has to choose their own at first sign-in, which means the
+    password the admin typed, and anyone who saw it on its way, stops working.
     """
     problem = teacher_form_problem(full_name, email, password)
     if problem:
@@ -393,7 +457,7 @@ def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
                 "email": email.strip().lower(),
                 "password": password,
                 "email_confirm": True,
-                "user_metadata": {"full_name": name},
+                "user_metadata": {"full_name": name, FORCE_PASSWORD_CHANGE_KEY: True},
             }
         )
     except Exception as exc:  # noqa: BLE001 - mapped to a safe message
@@ -424,5 +488,6 @@ def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
     return AdminOutcome(
         True,
         f"Teacher account created for {name}. They sign in on the Sign In page "
-        "with that email and the password you set - send it to them privately.",
+        "with that email and the temporary password you set - send it to them "
+        "privately. They choose their own password at first sign-in.",
     )

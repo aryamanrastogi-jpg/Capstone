@@ -29,7 +29,7 @@ from tests.test_auth import STUDENT_PROFILE, FakeAuthClient, _FakeAuth, _install
 from utils import config
 
 ROOT = Path(__file__).resolve().parent.parent
-SIGN_IN_PAGE = str(ROOT / "pages" / "sign_in.py")
+SIGN_IN_PAGE = str(ROOT / "views" / "sign_in.py")
 
 
 class _Clock:
@@ -291,9 +291,9 @@ def test_no_auth_module_prints_or_logs() -> None:
     for relative in (
         "services/auth_service.py",
         "components/auth_forms.py",
-        "pages/sign_in.py",
-        "pages/landing.py",
-        "pages/profile.py",
+        "views/sign_in.py",
+        "views/landing.py",
+        "views/profile.py",
     ):
         source = (ROOT / relative).read_text(encoding="utf-8")
         for call in ("print(", "logging.", "logger.", "st.write(password"):

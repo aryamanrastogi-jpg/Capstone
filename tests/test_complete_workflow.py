@@ -88,7 +88,7 @@ def test_teacher_workflow_from_assessment_to_report(
     at = teacher_app
 
     # 1. Create the assessment.
-    at.switch_page("pages/create_assessment.py").run()
+    at.switch_page("views/create_assessment.py").run()
     at.session_state["create_assessment_rows"] = pd.DataFrame(
         [{"question_text": QUESTION, "model_answer": "4x = 16, so x = 4",
           "marking_criteria": "1 mark for 4x = 16, 1 mark for x = 4", "max_marks": 2.0}]
@@ -102,7 +102,7 @@ def test_teacher_workflow_from_assessment_to_report(
     assert [q.question_text for q in assessment.questions] == [QUESTION]
 
     # 2. Upload a response for a student on the roster.
-    at.switch_page("pages/upload_responses.py").run()
+    at.switch_page("views/upload_responses.py").run()
     _choose(at, "Assessment *", TITLE)
     student = next(s for s in at.selectbox if s.label == "Student *")
     code = student.options[0]
@@ -125,7 +125,7 @@ def test_teacher_workflow_from_assessment_to_report(
     suggested = results[0].suggested_score
 
     # 4. The teacher approves it on Review Grading.
-    at.switch_page("pages/review_grading.py").run()
+    at.switch_page("views/review_grading.py").run()
     _choose(at, "Submission", f"{code} · {TITLE}")
     assert not at.exception, at.exception
     _button(at, "Accept as-is").click().run()
@@ -138,7 +138,7 @@ def test_teacher_workflow_from_assessment_to_report(
     assert submission.status.value == "reviewed"
 
     # 5. Class Analytics counts it.
-    at.switch_page("pages/analytics.py").run()
+    at.switch_page("views/analytics.py").run()
     assert not at.exception, at.exception
     counted = next(m for m in at.metric if m.label == "Approved results")
     all_results = at.session_state["grading_results"]

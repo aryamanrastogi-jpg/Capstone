@@ -97,8 +97,9 @@ an eye on the class and sign off every mark.</p>
 <ul><li>Set an assessment and upload the class's responses</li>
 <li>Review every AI-suggested mark before it counts</li>
 <li>See where the class is slipping</li></ul>
-<small>Create an account, then enter the invite code from your admin on your
-Profile page. Share your class code with your students.</small>
+<small>Your admin can create your teacher account for you - then just sign in.
+Or create an account, then enter the invite code from your admin on your Profile
+page. Share your class code with your students.</small>
 <a href="#account">Set up teacher access →</a>
 </article>
 </div>
@@ -201,7 +202,9 @@ with auth:
             else:
                 st.html(panel + no_account)
 
+# The privacy page opens without an account (BUG-017): a relative link, so it
+# works wherever the app is served from.
 st.html(
     f'''<footer class="cp-footer">{_brand}
-<p>{html.escape(PRIVACY_NOTICE)}</p></footer>'''
+<p>{html.escape(PRIVACY_NOTICE)} <a href="privacy">Read the full privacy details</a></p></footer>'''
 )

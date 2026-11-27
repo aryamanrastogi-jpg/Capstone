@@ -32,7 +32,7 @@ from services.practice_service import (
 )
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
-PRACTICE_PAGE = "pages/practice_generator.py"
+PRACTICE_PAGE = "views/practice_generator.py"
 
 ARITH = ErrorType.ARITHMETIC_ERROR.value
 UNIT = ErrorType.UNIT_ERROR.value

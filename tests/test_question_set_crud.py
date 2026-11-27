@@ -363,7 +363,7 @@ def _teacher_with_an_assessment(with_work: bool = False) -> AppTest:
         at.session_state["submissions"].append(
             seeded.model_copy(update={"id": "sub_on_mine", "assessment_id": "as_mine"})
         )
-    at.switch_page("pages/create_assessment.py")
+    at.switch_page("views/create_assessment.py")
     at.run()
     assert not at.exception, at.exception
     return at

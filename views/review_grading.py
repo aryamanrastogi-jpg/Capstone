@@ -214,7 +214,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 head_left, head_right = st.columns([3, 1])
 with head_left:
-    st.subheader(f"{submission.student_identifier} · {assessment.title}")
+    st.header(f"{submission.student_identifier} · {assessment.title}")
     st.caption(
         f"Submitted {submission.submitted_at.strftime('%d %b %Y, %H:%M')} · "
         f"Source: {submission.uploaded_filename or 'typed / pasted'}"
@@ -245,7 +245,7 @@ for result in results:
             icon=":material/warning:",
         )
         with st.container(border=True):
-            st.markdown("#### Removed question · read-only result")
+            st.markdown("### Removed question · read-only result")
             review_status_badge(result.review_status)
             st.metric(
                 "Suggested score",
@@ -264,7 +264,7 @@ for result in results:
         title_col, badge_col = st.columns([3, 1])
         with title_col:
             question_number = attempt_service.question_number(assessment, question)
-            st.markdown(f"#### Question {question_number} · {question.max_marks:g} marks")
+            st.markdown(f"### Question {question_number} · {question.max_marks:g} marks")
         with badge_col:
             review_status_badge(result.review_status)
 

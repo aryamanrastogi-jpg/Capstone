@@ -183,6 +183,7 @@ def submit_exam(
     ]
     exam.results = [outcome.result for outcome in outcomes]
     exam.ai_unavailable = any(outcome.ai_was_unavailable for outcome in outcomes)
+    exam.ai_marked = any(outcome.used_ai for outcome in outcomes)
     exam.submitted_at = now
     return exam
 

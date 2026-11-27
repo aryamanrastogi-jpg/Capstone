@@ -116,6 +116,15 @@ _STYLES = f"""
                         0 18px 40px -20px rgba(27, 44, 193, 0.38);
       --cp-stripe: {_STRIPE};
       --cp-stripe-dark: {_STRIPE_ON_DARK};
+      /* The welcome page's type scale: these six sizes and no others (it used
+         seventeen ad hoc ones - BUG-006). md is the theme's 15px base size,
+         xs the app's 12px label floor. Phones get a smaller card title (below). */
+      --cp-fs-xs: 0.8rem;
+      --cp-fs-sm: 0.9rem;
+      --cp-fs-md: 1rem;
+      --cp-fs-lg: 1.5rem;
+      --cp-fs-display: clamp(2rem, 1.1rem + 2.8vw, 3.3rem);
+      --cp-fs-hero: clamp(2.5rem, 0.9rem + 5vw, 5.2rem);
   }}
 
   /* --- Page canvas ----------------------------------------------------- */
@@ -690,7 +699,7 @@ _STYLES = f"""
       align-items: center;
       gap: 0.65rem;
       color: #FFFFFF;
-      font-size: 1.05rem;
+      font-size: var(--cp-fs-md);
       font-weight: 800;
       letter-spacing: -0.01em;
   }}
@@ -701,8 +710,11 @@ _STYLES = f"""
       gap: 1.7rem;
   }}
   {_IN} .cp-nav-links a {{
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
       color: {palette.ON_DARK_MUTED};
-      font-size: 0.9rem;
+      font-size: var(--cp-fs-sm);
       font-weight: 600;
       text-decoration: none;
       transition: color 150ms ease, border-color 150ms ease;
@@ -759,7 +771,7 @@ _STYLES = f"""
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 999px;
       padding: 0.3rem 0.95rem 0.3rem 0.35rem;
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       font-weight: 650;
   }}
   {_IN} .campprep-hero-eyebrow b {{
@@ -767,13 +779,13 @@ _STYLES = f"""
       color: {palette.GREEN};
       border-radius: 999px;
       padding: 0.08rem 0.6rem;
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       letter-spacing: 0.08em;
       text-transform: uppercase;
   }}
   /* Grey fading up into white, the way the reference's headline does. */
   {_IN} .campprep-hero-title {{
-      font-size: clamp(2.5rem, 0.9rem + 5vw, 5.2rem);
+      font-size: var(--cp-fs-hero);
       font-weight: 600;
       line-height: 1.02;
       letter-spacing: -0.055em;
@@ -817,7 +829,7 @@ _STYLES = f"""
       transform: rotate(45deg);
   }}
   {_IN} .campprep-hero-lede {{
-      font-size: 1.12rem;
+      font-size: var(--cp-fs-md);
       line-height: 1.65;
       color: {palette.ON_DARK_MUTED};
       max-width: 40rem;
@@ -850,6 +862,15 @@ _STYLES = f"""
       transform: translateY(1px) !important;
       box-shadow: 0 0 22px -4px rgba(118, 196, 87, 0.55) !important;
   }}
+  /* The glow above is also the resting look, so the keyboard needs a ring of
+     its own (BUG-012). White on the night canvas is 19:1. */
+  .stMainBlockContainer .st-key-landing_demo button[kind]:focus-visible {{
+      outline: 3px solid #FFFFFF;
+      outline-offset: 3px;
+  }}
+  .stMainBlockContainer .st-key-landing_demo button[kind] p {{
+      font-size: var(--cp-fs-sm);
+  }}
   {_IN} .cp-ghost {{
       display: inline-flex;
       align-items: center;
@@ -858,7 +879,7 @@ _STYLES = f"""
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.16);
       color: {palette.ON_DARK};
-      font-size: 0.95rem;
+      font-size: var(--cp-fs-sm);
       font-weight: 700;
       text-decoration: none;
       transition: border-color 150ms ease, color 150ms ease;
@@ -871,7 +892,7 @@ _STYLES = f"""
       gap: 0.5rem 1.6rem;
       margin: 1.6rem 0 0 0;
       color: {palette.ON_DARK_MUTED};
-      font-size: 0.86rem;
+      font-size: var(--cp-fs-sm);
       font-weight: 600;
   }}
   {_IN} .cp-proof span {{ display: inline-flex; align-items: center; gap: 0.45rem; }}
@@ -880,7 +901,7 @@ _STYLES = f"""
   /* Shared section headings. */
   {_IN} .cp-kicker {{
       display: block;
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -888,7 +909,7 @@ _STYLES = f"""
       margin: 0 0 0.9rem 0;
   }}
   {_IN} .cp-section-title {{
-      font-size: clamp(2rem, 1.1rem + 2.8vw, 3.3rem);
+      font-size: var(--cp-fs-display);
       font-weight: 600;
       line-height: 1.05;
       letter-spacing: -0.045em;
@@ -898,7 +919,7 @@ _STYLES = f"""
   }}
   {_IN} .cp-section-title em {{ font-style: normal; color: {palette.GREEN}; }}
   {_IN} .cp-section-lede {{
-      font-size: 1rem;
+      font-size: var(--cp-fs-md);
       line-height: 1.65;
       color: {palette.ON_DARK_MUTED};
       max-width: 34rem;
@@ -917,6 +938,9 @@ _STYLES = f"""
   }}
   {_IN} .cp-panel .cp-section-title {{ color: {palette.INK}; }}
   {_IN} .cp-panel .cp-section-title em {{ color: {palette.GREEN_ON_LIGHT}; }}
+  /* The bright green is 2.14:1 on white (BUG-004): the small label there takes
+     the dark green text tint instead. The bright one stays for the dark canvas. */
+  {_IN} .cp-panel .cp-kicker {{ color: {palette.TINT_CORRECT[1]}; }}
   {_IN} .cp-panel .cp-section-lede {{ color: {palette.MUTED}; margin: 0 auto 2.6rem auto; }}
   {_IN} .cp-paths {{
       display: grid;
@@ -941,7 +965,7 @@ _STYLES = f"""
   }}
   {_IN} .cp-path h3 {{
       color: #FFFFFF;
-      font-size: 1.65rem;
+      font-size: var(--cp-fs-lg);
       font-weight: 650;
       letter-spacing: -0.03em;
       margin: 0 0 0.5rem 0;
@@ -949,7 +973,7 @@ _STYLES = f"""
   }}
   {_IN} .cp-path p {{
       color: {palette.ON_DARK_MUTED};
-      font-size: 0.95rem;
+      font-size: var(--cp-fs-md);
       line-height: 1.6;
       margin: 0 0 1.2rem 0;
   }}
@@ -964,7 +988,7 @@ _STYLES = f"""
       display: flex;
       gap: 0.6rem;
       margin: 0;
-      font-size: 0.93rem;
+      font-size: var(--cp-fs-sm);
       line-height: 1.5;
       color: {palette.ON_DARK};
   }}
@@ -973,7 +997,7 @@ _STYLES = f"""
   {_IN} .cp-path small {{
       display: block;
       color: {palette.ON_DARK_MUTED};
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       line-height: 1.5;
       margin: -0.6rem 0 1.4rem 0;
   }}
@@ -985,7 +1009,7 @@ _STYLES = f"""
       gap: 0.4rem;
       border-radius: 11px;
       padding: 0.72rem 1.25rem;
-      font-size: 0.93rem;
+      font-size: var(--cp-fs-sm);
       font-weight: 700;
       text-decoration: none;
       background: {palette.GREEN};
@@ -1017,7 +1041,7 @@ _STYLES = f"""
   }}
   {_IN} .campprep-step b {{
       display: block;
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       font-weight: 800;
       letter-spacing: 0.1em;
       color: {palette.GREEN};
@@ -1026,14 +1050,14 @@ _STYLES = f"""
   {_IN} .campprep-step h2 {{
       margin: 0 0 0.3rem 0;
       padding: 0;
-      font-size: 1.55rem;
+      font-size: var(--cp-fs-lg);
       font-weight: 600;
       letter-spacing: -0.03em;
       color: #FFFFFF;
   }}
   {_IN} .campprep-step p {{
       margin: 0;
-      font-size: 0.95rem;
+      font-size: var(--cp-fs-md);
       line-height: 1.6;
       color: {palette.ON_DARK_MUTED};
   }}
@@ -1066,9 +1090,9 @@ _STYLES = f"""
       align-items: baseline;
       margin: 0 0 1.2rem 0;
   }}
-  {_IN} .campprep-preview-head strong {{ font-size: 1rem; color: #FFFFFF; }}
+  {_IN} .campprep-preview-head strong {{ font-size: var(--cp-fs-md); color: #FFFFFF; }}
   {_IN} .campprep-preview-head span {{
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -1078,7 +1102,7 @@ _STYLES = f"""
   {_IN} .campprep-bar-label {{
       display: flex;
       justify-content: space-between;
-      font-size: 0.85rem;
+      font-size: var(--cp-fs-sm);
       font-weight: 650;
       color: {palette.ON_DARK};
       margin-bottom: 0.4rem;
@@ -1101,7 +1125,7 @@ _STYLES = f"""
   {_IN} .campprep-preview-foot span {{
       border-radius: 999px;
       padding: 0.3rem 0.75rem;
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       font-weight: 700;
   }}
 
@@ -1124,6 +1148,11 @@ _STYLES = f"""
       box-shadow: none;
       margin-top: 6rem;
   }}
+  /* With accounts on, the card also holds Streamlit's own tabs, labels, captions
+     and button text, which it sets at 0.875rem: one more size than the scale. */
+  .stMainBlockContainer .st-key-landing_account :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) p {{
+      font-size: var(--cp-fs-sm);
+  }}
   {_IN} .campprep-panel-head {{
       position: relative;
       overflow: hidden;
@@ -1137,20 +1166,20 @@ _STYLES = f"""
       color: #FFFFFF;
       margin: 0 0 0.15rem 0;
       padding: 0;
-      font-size: 1.3rem;
+      font-size: var(--cp-fs-lg);
       font-weight: 800;
   }}
   {_IN} .campprep-panel-head p {{
       margin: 0;
       color: rgba(233, 236, 255, 0.85);
-      font-size: 0.88rem;
+      font-size: var(--cp-fs-sm);
   }}
   /* Welcome-page stand-ins for st.info / st.divider / st.caption, drawn
      with st.html so the whole page paints in one go (BUG-023). */
   {_IN} .campprep-notice {{
       border-radius: 1rem;
       padding: 1rem;
-      font-size: 0.95rem;
+      font-size: var(--cp-fs-md);
       line-height: 1.5;
       margin: 0 0 0.5rem 0;
   }}
@@ -1161,7 +1190,7 @@ _STYLES = f"""
   }}
   {_IN} .campprep-small {{
       color: {palette.MUTED};
-      font-size: 0.82rem;
+      font-size: var(--cp-fs-xs);
       line-height: 1.5;
       margin: 0 0 0.6rem 0;
   }}
@@ -1181,9 +1210,15 @@ _STYLES = f"""
       max-width: 40rem;
       margin: 0;
       color: {palette.ON_DARK_MUTED};
-      font-size: 0.8rem;
+      font-size: var(--cp-fs-xs);
       line-height: 1.6;
   }}
+  {_IN} .cp-footer p a {{
+      color: {palette.ON_DARK};
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+  }}
+  {_IN} .cp-footer p a:hover {{ color: #FFFFFF; }}
 
   @media (max-width: {_WRAP_BREAKPOINT}) {{
       {_IN} .cp-how {{ grid-template-columns: 1fr; padding-top: 5rem; }}
@@ -1191,12 +1226,15 @@ _STYLES = f"""
   @media (max-width: {_STACK_BREAKPOINT}) {{
       {_IN} .cp-nav-links a:not(.cp-nav-pill) {{ display: none; }}
       {_IN} .cp-hero {{ padding-top: 3.2rem; }}
-      {_IN} .campprep-hero-lede {{ font-size: 1rem; }}
       {_IN} .cp-panel {{ border-radius: 28px; margin-top: 5rem; padding-top: 3rem; }}
       {_IN} .cp-paths {{ grid-template-columns: 1fr; }}
       {_IN} .cp-path {{ padding: 1.6rem 1.3rem; }}
-      {_IN} .campprep-step h2 {{ font-size: 1.3rem; }}
+      /* Card, step and panel titles are one size smaller on a phone. */
+      :root {{ --cp-fs-lg: 1.3rem; }}
       .st-key-landing_cta {{ flex-direction: column; align-items: stretch; }}
+      /* Streamlit sizes each child of the row to its content, which beats
+         `stretch`: without this the button hugged the left edge (BUG-014). */
+      .st-key-landing_cta > [data-testid="stElementContainer"] {{ width: 100%; }}
       {_IN} .cp-ghost {{ justify-content: center; width: 100%; }}
       .stMainBlockContainer .st-key-landing_account_row[data-testid] {{ margin-top: 4rem; }}
       .stMainBlockContainer .st-key-landing_account[data-testid] {{ padding: 1rem; }}
@@ -1258,6 +1296,26 @@ _STYLES = f"""
   [data-testid="stSidebar"] a {{ color: #E9ECFF !important; }}
   [data-testid="stSidebar"] a[aria-current="page"] {{ color: #1DCED8 !important; }}
 
+  /* --- Hit areas (WCAG 2.5.8: at least 24x24px) ---------------------------- */
+  /* Streamlit's own small controls. The chip's remove button was 14x7px, and
+     the help and heading-link icons 15x15px. The icons keep their size; padding
+     and an equal negative margin give them a 24px target without moving
+     anything. Not reachable from CSS: the data editor's toolbar and the
+     canvas-drawn table checkboxes (a Streamlit limit). */
+  [data-testid="stMultiSelect"] button[aria-label^="Remove"] {{
+      min-width: 24px;
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+  }}
+  .stTooltipIcon button,
+  [data-testid="stHeaderActionElements"] a {{
+      box-sizing: content-box;
+      padding: 4.5px;
+      margin: -4.5px;
+  }}
+
   @media (prefers-reduced-motion: reduce) {{
       * {{
           animation-duration: 0.01ms !important;
@@ -1310,6 +1368,21 @@ def page_header(
     st.markdown("".join(parts), unsafe_allow_html=True)
     if help_text:
         st.caption(help_text)
+
+
+def scroll_to_top() -> None:
+    """Scroll the page to its top. Call it once, on the run that changes screen.
+
+    Streamlit keeps the scroll position when one screen replaces another, so a
+    visitor who scrolled down the welcome page to a button landed in the middle
+    of the next screen with its title above the fold (BUG-023). It is a fixed
+    one-line script with no input from anybody.
+    """
+    st.html(
+        "<script>document.querySelector('[data-testid=\"stMain\"]')"
+        "?.scrollTo(0, 0);</script>",
+        unsafe_allow_javascript=True,
+    )
 
 
 def how_it_works(*lines: str) -> None:
@@ -1467,7 +1540,7 @@ def _privacy_page_link(label: str, icon: str | None = None) -> None:
     from streamlit.errors import StreamlitPageNotFoundError
 
     try:
-        st.page_link("pages/privacy.py", label=label, icon=icon)
+        st.page_link("views/privacy.py", label=label, icon=icon)
     except StreamlitPageNotFoundError:
         st.markdown(f"[{escape(label)}](/privacy)")
 

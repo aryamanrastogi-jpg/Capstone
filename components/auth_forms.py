@@ -5,7 +5,7 @@ student account. Teacher access is not chosen here: a teacher signs up like
 anyone else, then enters the invite code an admin made for them on Profile,
 where `auth_service.redeem_teacher_invite` sends it to the database. The
 database decides whether the code is good, for the reasons set out at the top
-of pages/sign_in.py.
+of views/sign_in.py.
 
 WHAT THIS MODULE NEVER DOES
   It never echoes an email, a password or a token back onto the page, and never
@@ -17,7 +17,6 @@ WHAT THIS MODULE NEVER DOES
 from __future__ import annotations
 
 import streamlit as st
-from streamlit.errors import StreamlitPageNotFoundError
 
 from services import auth_service
 from utils.config import PRIVACY_DETAILS
@@ -129,15 +128,6 @@ def auth_forms() -> None:
                 else:
                     st.error(outcome.message, icon=":material/error:")
 
-    # The Admin page opens with a passkey rather than an account
-    # (services/admin_service.py), so its door sits beside the forms. app.py
-    # registers it in every navigation; a page rendered on its own (a test)
-    # has no navigation, so the link is simply left out there.
-    try:
-        st.page_link(
-            "pages/admin.py",
-            label="Admin access (passkey)",
-            icon=":material/admin_panel_settings:",
-        )
-    except StreamlitPageNotFoundError:
-        pass
+    # No link to the Admin page here (BUG-016): it opens with a passkey rather
+    # than an account (services/admin_service.py), and its address is shared
+    # privately, not advertised under a public form.

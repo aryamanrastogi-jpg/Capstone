@@ -29,7 +29,7 @@ from tests.test_auth import STUDENT_PROFILE, FakeAuthClient, _install
 
 ROOT = Path(__file__).resolve().parent.parent
 MIGRATION = ROOT / "db" / "migrations" / "005_teacher_invites.sql"
-PROFILE_PAGE = str(ROOT / "pages" / "profile.py")
+PROFILE_PAGE = str(ROOT / "views" / "profile.py")
 
 
 class _Rpc:

@@ -293,7 +293,7 @@ PAPER = "1. Solve 2x + 3 = 11. [2]\n2. Solve 5 - x = 2.\nAnswers\n1. x = 4\n2. x
 
 def test_my_questions_imports_a_paper_into_the_table():
     at = _app_as("student")
-    at.switch_page("pages/my_questions.py")
+    at.switch_page("views/my_questions.py")
     at.session_state["mq_import_text"] = PAPER
     at.session_state["mq_import_filename"] = "Linear_equations_sheet.pdf"
     at.run()
@@ -313,7 +313,7 @@ def test_my_questions_imports_a_paper_into_the_table():
 
 def test_create_assessment_imports_a_paper_into_the_table():
     at = _app_as("teacher")
-    at.switch_page("pages/create_assessment.py")
+    at.switch_page("views/create_assessment.py")
     at.session_state["ca_import_text"] = PAPER
     at.run()
     assert not at.exception, at.exception

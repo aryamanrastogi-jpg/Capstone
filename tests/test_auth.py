@@ -388,7 +388,7 @@ def test_signing_out_returns_the_app_to_sample_data(
 def _sign_in_page() -> str:
     from pathlib import Path
 
-    return str(Path(__file__).resolve().parent.parent / "pages" / "sign_in.py")
+    return str(Path(__file__).resolve().parent.parent / "views" / "sign_in.py")
 
 
 def test_the_sign_in_page_renders_and_offers_no_role_field(

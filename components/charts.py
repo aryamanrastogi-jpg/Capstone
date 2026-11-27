@@ -13,7 +13,8 @@ chart gives it exactly the space it needs at whatever width it ends up.
 
 from __future__ import annotations
 
-from typing import Optional
+import textwrap
+from typing import List, Optional, Sequence
 
 import streamlit as st
 
@@ -28,6 +29,34 @@ _GRID = palette.BORDER
 # The modebar is a desktop affordance that overlaps the plot on a narrow
 # screen, and nothing in this app asks a student to export a PNG of a chart.
 _CONFIG = {"displayModeBar": False, "responsive": True}
+
+
+def short_labels(texts: Sequence[str], limit: int = 26) -> List[str]:
+    """Axis labels that fit a phone: each text cut at a word to `limit` characters.
+
+    A bar chart of questions puts the whole question beside every bar, and on a
+    390px screen Plotly then slides the labels off the left edge (BUG-015). The
+    full text belongs in the hover card (see `wrap_for_hover`). Texts that would
+    end up with the same label get a number, because Plotly merges bars whose
+    category is the same.
+    """
+    labels: List[str] = []
+    seen: dict = {}
+    for text in texts:
+        clean = " ".join(str(text).split())
+        if len(clean) > limit:
+            cut = clean[: limit - 1]
+            if " " in cut and clean[limit - 1] != " ":
+                cut = cut.rsplit(" ", 1)[0]
+            clean = cut.rstrip(" ,;:-") + "…"
+        seen[clean] = seen.get(clean, 0) + 1
+        labels.append(clean if seen[clean] == 1 else f"{clean} ({seen[clean]})")
+    return labels
+
+
+def wrap_for_hover(text: str, width: int = 44) -> str:
+    """A long text as lines for a Plotly hover card, which never wraps by itself."""
+    return "<br>".join(textwrap.wrap(" ".join(str(text).split()), width)) or str(text)
 
 
 def style(figure, height: Optional[int] = None, legend: bool = True):
