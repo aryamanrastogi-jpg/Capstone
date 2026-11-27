@@ -37,6 +37,10 @@ create table if not exists public.profiles (
     year_group    integer check (year_group between 7 and 11),
     -- Public URL of a photo in the `avatars` storage bucket (migration 004).
     avatar_url    text,
+    -- Free text from sign-up or Profile (migration 013, which also adds
+    -- class_id once the classes table exists).
+    school        text constraint profiles_school_length
+                       check (school is null or length(trim(school)) between 1 and 80),
     created_at    timestamptz not null default now(),
 
     -- A teacher cannot sit on another teacher's roster.

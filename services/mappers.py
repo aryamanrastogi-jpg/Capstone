@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from models import (
     Assessment,
     AssessmentType,
+    Classroom,
     ErrorItem,
     ErrorType,
     GradingResult,
@@ -121,8 +122,17 @@ def user_from_row(row: Row) -> User:
         display_name=row["display_name"],
         role=Role(row.get("role") or Role.STUDENT.value),
         teacher_id=row.get("teacher_id"),
+        class_id=row.get("class_id"),
         year_group=row.get("year_group"),
+        school=row.get("school"),
         avatar_url=safe_avatar_url(row.get("avatar_url")),
+    )
+
+
+def classroom_from_row(row: Row, code: Optional[str] = None) -> Classroom:
+    """A `classes` row, with the live code from `class_invites` if it has one."""
+    return Classroom(
+        id=row["id"], teacher_id=row["teacher_id"], name=row["name"], code=code
     )
 
 

@@ -11,8 +11,16 @@ from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
-from data.sample_data import DEMO_STUDENT_ID, build_sample_data
-from models import Assessment, GradingResult, Role, StudyCamp, Submission, User
+from data.sample_data import DEMO_STUDENT_ID, build_sample_classes, build_sample_data
+from models import (
+    Assessment,
+    Classroom,
+    GradingResult,
+    Role,
+    StudyCamp,
+    Submission,
+    User,
+)
 from services.supabase_client import get_connection_status
 
 ASSESSMENTS = "assessments"
@@ -20,7 +28,7 @@ SUBMISSIONS = "submissions"
 GRADING_RESULTS = "grading_results"
 USERS = "users"
 STUDY_CAMPS = "study_camps"
-CLASS_CODES = "class_codes"
+CLASSES = "classes"
 CURRENT_USER_ID = "current_user_id"
 DEMO_MODE = "demo_mode"
 BACKEND_MESSAGE = "backend_message"
@@ -51,6 +59,7 @@ def init_session_state(load_samples: bool = True) -> None:
     st.session_state[SUBMISSIONS] = submissions
     st.session_state[GRADING_RESULTS] = results
     st.session_state[USERS] = users
+    st.session_state[CLASSES] = build_sample_classes() if load_samples else []
     st.session_state[STUDY_CAMPS] = []
     # Start as a student - they are the primary users of the app.
     student_ids = [u.id for u in users if u.is_student]
@@ -97,14 +106,14 @@ def set_mock_exam(exam: Optional[Any]) -> None:
     st.session_state[MOCK_EXAM] = exam
 
 
-def get_class_codes() -> Dict[str, str]:
-    """Live class codes in demo mode, keyed by teacher id.
+def get_classes() -> List[Classroom]:
+    """Every teacher's classes in demo mode, each with its live code, if any.
 
-    The Supabase backend keeps these in `class_invites`, where a code can be
-    revoked and the history is kept. Demo mode has no history to keep: one
-    teacher, one current code, gone when the session ends.
+    The Supabase backend keeps these in `classes` and `class_invites`, where a
+    code can be revoked and the history is kept. Demo mode has no history to
+    keep: one current code per class, gone when the session ends.
     """
-    return st.session_state.setdefault(CLASS_CODES, {})
+    return st.session_state.setdefault(CLASSES, [])
 
 
 def get_current_user() -> Optional[User]:
@@ -238,7 +247,7 @@ def reset_to_samples() -> None:
     """
     keep_user_id = st.session_state.get(CURRENT_USER_ID)
     clear_user_session_keys()
-    st.session_state.pop(CLASS_CODES, None)
+    st.session_state.pop(CLASSES, None)
     st.session_state[INITIALISED] = False
     init_session_state(load_samples=True)
     if keep_user_id and any(u.id == keep_user_id for u in get_users()):

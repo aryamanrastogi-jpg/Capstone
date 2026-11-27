@@ -34,7 +34,10 @@ from postgrest.exceptions import APIError
 from postgrest.types import ReturnMethod
 
 from models import (
+    DEFAULT_CLASS_NAME,
     Assessment,
+    ClassMembership,
+    Classroom,
     GradingResult,
     Role,
     StudyCamp,
@@ -130,6 +133,23 @@ class Repository(ABC):
     @abstractmethod
     def delete_study_camp(self, camp_id: str) -> bool: ...
 
+    # --- Classes (db/migrations/013_classes_and_schools.sql) ---
+    # A teacher's named classes, oldest first. Each has its own join code.
+    @abstractmethod
+    def list_classes(self, teacher_id: str) -> List[Classroom]: ...
+
+    @abstractmethod
+    def create_class(self, teacher_id: str, name: str) -> Classroom: ...
+
+    @abstractmethod
+    def rename_class(self, teacher_id: str, class_id: str, name: str) -> bool: ...
+
+    @abstractmethod
+    def delete_class(self, teacher_id: str, class_id: str) -> bool: ...
+
+    @abstractmethod
+    def my_class(self, student_id: str) -> Optional[ClassMembership]: ...
+
     # --- Rosters ---
     # Joining is consensual in both directions: a teacher issues a code, and a
     # student chooses to enter it. Neither writes the other's row. On the
@@ -140,7 +160,12 @@ class Repository(ABC):
     def get_class_code(self, teacher_id: str) -> Optional[str]: ...
 
     @abstractmethod
-    def rotate_class_code(self, teacher_id: str) -> str: ...
+    def rotate_class_code(self, teacher_id: str, class_id: Optional[str] = None) -> str:
+        """Issue a new code for one class, revoking its old one.
+
+        With no class: the teacher's first class, made ("My class") if they have
+        none - the same thing rotate_class_code() with no argument does in SQL.
+        """
 
     @abstractmethod
     def join_class(self, student_id: str, code: str) -> Optional[str]: ...
@@ -311,41 +336,98 @@ class SessionRepository(Repository):
                 return True
         return False
 
+    # --- Classes -------------------------------------------------------
+    def list_classes(self, teacher_id: str) -> List[Classroom]:
+        return [c for c in store.get_classes() if c.teacher_id == teacher_id]
+
+    def create_class(self, teacher_id: str, name: str) -> Classroom:
+        classroom = Classroom(teacher_id=teacher_id, name=name)
+        store.get_classes().append(classroom)
+        return classroom
+
+    def rename_class(self, teacher_id: str, class_id: str, name: str) -> bool:
+        for classroom in self.list_classes(teacher_id):
+            if classroom.id == class_id:
+                # Validated like a new class, so a blank or long name is refused.
+                classroom.name = Classroom(teacher_id=teacher_id, name=name).name
+                return True
+        return False
+
+    def delete_class(self, teacher_id: str, class_id: str) -> bool:
+        classes = store.get_classes()
+        for index, classroom in enumerate(classes):
+            if classroom.id == class_id and classroom.teacher_id == teacher_id:
+                classes.pop(index)
+                # What the foreign key does in Postgres: anyone left in the class
+                # stays on the teacher's roster, in no class.
+                for user in store.get_users():
+                    if user.class_id == class_id:
+                        user.class_id = None
+                return True
+        return False
+
+    def my_class(self, student_id: str) -> Optional[ClassMembership]:
+        users = store.get_users()
+        student = next((u for u in users if u.id == student_id), None)
+        if student is None or not student.teacher_id:
+            return None
+        teacher = next((u for u in users if u.id == student.teacher_id), None)
+        classroom = next(
+            (c for c in store.get_classes() if c.id == student.class_id), None
+        )
+        return ClassMembership(
+            teacher_name=teacher.display_name if teacher else "your teacher",
+            class_name=classroom.name if classroom else None,
+            teacher_school=teacher.school if teacher else None,
+        )
+
     # --- Rosters -------------------------------------------------------
     def get_class_code(self, teacher_id: str) -> Optional[str]:
-        return store.get_class_codes().get(teacher_id)
+        classes = self.list_classes(teacher_id)
+        return classes[0].code if classes else None
 
-    def rotate_class_code(self, teacher_id: str) -> str:
-        # One live code per teacher, so writing the new one revokes the old by
+    def rotate_class_code(self, teacher_id: str, class_id: Optional[str] = None) -> str:
+        classes = self.list_classes(teacher_id)
+        if class_id is None:
+            classroom = classes[0] if classes else self.create_class(
+                teacher_id, DEFAULT_CLASS_NAME
+            )
+        else:
+            classroom = next((c for c in classes if c.id == class_id), None)
+            if classroom is None:
+                raise ValueError("That class is not yours.")
+        # One live code per class, so writing the new one revokes the old by
         # replacing it - the same guarantee the Supabase function gives.
-        code = generate_class_code()
-        store.get_class_codes()[teacher_id] = code
-        return code
+        classroom.code = generate_class_code()
+        return classroom.code
 
     def join_class(self, student_id: str, code: str) -> Optional[str]:
         wanted = (code or "").strip().upper()
-        teacher_id = next(
-            (t for t, c in store.get_class_codes().items() if c == wanted), None
+        classroom = next(
+            (c for c in store.get_classes() if c.code and c.code == wanted), None
         )
-        if teacher_id is None:
+        if classroom is None:
             return None
 
         student = next((u for u in store.get_users() if u.id == student_id), None)
         if student is None or not student.is_student:
             return None
 
-        student.teacher_id = teacher_id
-        return teacher_id
+        student.teacher_id = classroom.teacher_id
+        student.class_id = classroom.id
+        return classroom.teacher_id
 
     def leave_class(self, student_id: str) -> None:
         for user in store.get_users():
             if user.id == student_id:
                 user.teacher_id = None
+                user.class_id = None
 
     def remove_from_roster(self, teacher_id: str, student_id: str) -> bool:
         for user in store.get_users():
             if user.id == student_id and user.teacher_id == teacher_id:
                 user.teacher_id = None
+                user.class_id = None
                 return True
         return False
 
@@ -711,20 +793,88 @@ class SupabaseRepository(Repository):
     # Note the `student_id` / `teacher_id` arguments are the caller's own id and
     # are NOT sent for join/leave: the function reads auth.uid() instead, so a
     # caller cannot ask it to act on somebody else's row.
-    def get_class_code(self, teacher_id: str) -> Optional[str]:
+    # Classes are plain table reads and writes: the `classes_own` policy in
+    # db/migrations/013_classes_and_schools.sql lets a teacher see and change
+    # their own classes and nothing else. Who sits in a class is still only
+    # changed by the functions, through join_class and friends.
+    def list_classes(self, teacher_id: str) -> List[Classroom]:
         rows = (
+            self._client.table("classes")
+            .select("id, teacher_id, name, created_at")
+            .eq("teacher_id", teacher_id)
+            .order("created_at")
+            .execute()
+            .data
+            or []
+        )
+        codes = (
             self._client.table("class_invites")
-            .select("code")
+            .select("code, class_id")
             .eq("teacher_id", teacher_id)
             .eq("revoked", False)
             .execute()
             .data
             or []
         )
-        return rows[0]["code"] if rows else None
+        live = {c["class_id"]: c["code"] for c in codes if c.get("class_id")}
+        return [mappers.classroom_from_row(r, live.get(r["id"])) for r in rows]
 
-    def rotate_class_code(self, _teacher_id: str) -> str:
-        return self._client.rpc("rotate_class_code", {}).execute().data
+    def create_class(self, teacher_id: str, name: str) -> Classroom:
+        rows = (
+            self._client.table("classes")
+            .insert({"teacher_id": teacher_id, "name": name})
+            .execute()
+            .data
+        )
+        return mappers.classroom_from_row(rows[0])
+
+    def rename_class(self, teacher_id: str, class_id: str, name: str) -> bool:
+        rows = (
+            self._client.table("classes")
+            .update({"name": name})
+            .eq("id", class_id)
+            .eq("teacher_id", teacher_id)
+            .execute()
+            .data
+        )
+        return bool(rows)
+
+    def delete_class(self, teacher_id: str, class_id: str) -> bool:
+        rows = (
+            self._client.table("classes")
+            .delete()
+            .eq("id", class_id)
+            .eq("teacher_id", teacher_id)
+            .execute()
+            .data
+        )
+        return bool(rows)
+
+    def my_class(self, _student_id: str) -> Optional[ClassMembership]:
+        # my_class() reads auth.uid(); a student cannot read their teacher's
+        # profile row, so this function is how the teacher's name gets here.
+        rows = self._client.rpc("my_class", {}).execute().data or []
+        if not rows:
+            return None
+        row = rows[0]
+        return ClassMembership(
+            teacher_name=row.get("teacher_name") or "your teacher",
+            class_name=row.get("class_name"),
+            teacher_school=row.get("teacher_school"),
+        )
+
+    def get_class_code(self, teacher_id: str) -> Optional[str]:
+        classes = self.list_classes(teacher_id)
+        return classes[0].code if classes else None
+
+    def rotate_class_code(self, _teacher_id: str, class_id: Optional[str] = None) -> str:
+        if class_id is None:
+            return self._client.rpc("rotate_class_code", {}).execute().data
+        return (
+            self._client.rpc("rotate_class_code", {"p_class_id": class_id})
+            .execute()
+            .data
+        )
 
     def join_class(self, _student_id: str, code: str) -> Optional[str]:
         try:

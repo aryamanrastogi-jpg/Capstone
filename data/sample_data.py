@@ -25,6 +25,7 @@ from typing import Dict, List, Tuple
 from models import (
     Assessment,
     AssessmentType,
+    Classroom,
     GradingResult,
     Question,
     ReviewStatus,
@@ -38,6 +39,10 @@ from services.grading_service import grade_submission
 
 _NOW = datetime(2026, 9, 1, 9, 0)
 TEACHER_ID = "usr_teacher01"
+# The demo teacher's one class. The four students sit in it, so My Class shows a
+# named class from the start; a second class can be added in the demo.
+DEMO_CLASS_ID = "cls_demo10maths"
+DEMO_SCHOOL = "Camp Prep Demo School"
 
 # Whose account the demo opens on. S-1102 starts weak and improves over the
 # term, so every student page has something substantive to show on launch.
@@ -52,18 +57,25 @@ def _build_users() -> List[User]:
         id=TEACHER_ID,
         display_name="Ms. R. Kapoor",
         role=Role.TEACHER,
+        school=DEMO_SCHOOL,
     )
     students = [
-        User(id="usr_s01", display_name="S-1101", role=Role.STUDENT,
-             teacher_id=TEACHER_ID, year_group=10),
-        User(id="usr_s02", display_name="S-1102", role=Role.STUDENT,
-             teacher_id=TEACHER_ID, year_group=10),
-        User(id="usr_s03", display_name="S-1103", role=Role.STUDENT,
-             teacher_id=TEACHER_ID, year_group=10),
-        User(id="usr_s04", display_name="S-1104", role=Role.STUDENT,
-             teacher_id=TEACHER_ID, year_group=10),
+        User(id=student_id, display_name=code, role=Role.STUDENT,
+             teacher_id=TEACHER_ID, class_id=DEMO_CLASS_ID, year_group=10,
+             school=DEMO_SCHOOL)
+        for student_id, code in (
+            ("usr_s01", "S-1101"),
+            ("usr_s02", "S-1102"),
+            ("usr_s03", "S-1103"),
+            ("usr_s04", "S-1104"),
+        )
     ]
     return [teacher, *students]
+
+
+def build_sample_classes() -> List[Classroom]:
+    """The demo teacher's class. No code yet: issuing one is part of the demo."""
+    return [Classroom(id=DEMO_CLASS_ID, teacher_id=TEACHER_ID, name="Year 10 Maths")]
 
 
 # --------------------------------------------------------------------------

@@ -27,14 +27,16 @@ for _name in _LIVE_SERVICE_VARS:
 
 @pytest.fixture(autouse=True)
 def _fresh_settings():
-    from services import llm_service
+    from services import llm_service, school_service
     from utils.config import get_settings
 
     get_settings.cache_clear()
     llm_service.clear_cache()
+    school_service.clear_cache()
     yield
     get_settings.cache_clear()
     llm_service.clear_cache()
+    school_service.clear_cache()
 
 
 @pytest.fixture(autouse=True)

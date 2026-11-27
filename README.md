@@ -64,13 +64,17 @@ their homework for them: a practice question's answer appears only after they tr
 | **Study Camp** | A 3–14 day programme built from your weakest topics. One session a day, difficulty matched to where you actually are, with a fixed baseline so improvement is measured honestly. |
 | **Mock Exam** | A timed paper on chosen topics (defaulting to the camp's weak ones), with time set by difficulty: 2 minutes for an easy question (up to 2 marks), 3 for medium, 4 for hard (4 marks or more). Marked on submit and compared topic by topic against where you started. Late papers are marked but labelled as over time. The result is saved to your work as a mock exam, so it counts in Study Camp and the teacher's Class Analytics without using any attempts on the sets its questions came from. |
 | **Practice Generator** | Practice picked from your own results: weakest topics first, the error types that keep recurring, at a matching difficulty — and each question says why it was chosen. Method pointers, never worked solutions; type an answer and check it to see the correct one. |
-| **Profile** | Name, year group and profile photo; redeem a teacher invite code; delete your account. |
+| **Profile** | Name, year group, school and profile photo; change your password; redeem a teacher invite code; delete your account. |
+| **My Class** | Join your teacher's class with the code they give you, see which class you are in and who teaches it, or leave it. |
+
+Signing up asks for a name, and optionally your school (pick it from the schools already on the app, or type it) and year group. The public **Schools** page lists the schools that have a teacher on the app.
 
 ### Teacher
 
 | Page | What it does |
 |---|---|
-| **Class Overview** | Roster of your students with averages, weakest topics and last activity — plus the **mark mismatch panel**. |
+| **Class Overview** | Roster of your students with averages, weakest topics and last activity, **who has not handed in** each of your assessments yet, and the **mark mismatch panel**. |
+| **My Class** | Run several named classes (Year 9 Maths, Year 10 Maths), each with its own join code; issue a new code to stop an old one working; see every student with their class, year group, school and amount of work; filter by class; remove a student. |
 | **Create Assessment** | Author questions, model answers, marking criteria and marks - typed, or imported from a question paper file (PDF, Word or text) instead of one cell at a time. Tag the work as homework, exercise, mock exam or exam. Your own assessments can be opened, edited or deleted afterwards; work already handed in stays attached to every question you keep. |
 | **Upload Responses** | Add a response on a student's behalf and link it to their account. Uploaded answers are split per question (`Q1`, `1.`, `Question 1`…) with an editable preview; when the split is not confident, the whole text is graded as before and the page says why. |
 | **Review Grading** | Accept, edit or flag every AI recommendation. Nothing counts until you act. |
@@ -362,13 +366,20 @@ python -m pytest -v
 
 A prototype. A privacy notice on every page says what is stored and who can see it.
 
-- Accounts store a name and email; only the user and their own teacher see them.
-  Demo students use anonymous codes (`S-1101`)
+- Accounts store a name and email, and a school and year group if given; only the
+  user and their own teacher see them (never the email). Demo students use
+  anonymous codes (`S-1101`)
+- Joining a class always takes the code the teacher issued, never a pick from a
+  list, so nobody can attach themselves to a class or a teacher. A student learns
+  their class and teacher's name through `my_class()` (migration 013); they still
+  cannot read their teacher's profile
+- The public Schools page lists only schools that have a teacher on the app,
+  names only, shown as plain text (a typed link never becomes a link)
 - Roles are never self-declared: sign-up always creates a student, and the teacher
   role comes only from a hashed, expiring invite code (migration 005), an account
   created on the passkey-locked Admin page (migration 012), or an operator
-- Row Level Security on every table; users can update only their name, year group
-  and photo
+- Row Level Security on every table; users can update only their name, year group,
+  school and photo
 - Passwords need 8+ characters with a letter and a number; sign-in locks for 60
   seconds after 5 failures in a session
 - Anyone signed in can change their password on Profile (the current one is asked
@@ -435,8 +446,9 @@ A prototype. A privacy notice on every page says what is stored and who can see 
    [docs/deployment.md](docs/deployment.md).
 3. **Teacher user testing** — plan in [docs/user-testing-plan.md](docs/user-testing-plan.md),
    results recorded in [docs/results-template.md](docs/results-template.md).
-4. **School and grade on sign-up**, with a page showing which schools are on the
-   platform.
+4. **Assessments per class** — today a teacher's assessments reach every student
+   on their roster, whichever class they are in. Setting work for one class is
+   the next step for named classes (migration 013 added the classes).
 5. **Community and peer tutoring** — post a question you are stuck on, and let
    strong students tutor in the app.
 

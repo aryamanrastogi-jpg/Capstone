@@ -7,9 +7,12 @@ key are handled, and db/migrations/011_admin_passkey.sql for the functions it
 calls, which only the service role can run.
 
 ADDING A TEACHER
-  The admin types the teacher's name, email and a temporary password; the
-  account is created through Supabase Auth's admin API and made a teacher in the
-  same step (db/migrations/012_admin_create_teacher.sql). The teacher then signs
+  The admin types the teacher's name, email, a temporary password and,
+  optionally, their school; the account is created through Supabase Auth's
+  admin API and made a teacher in the same step
+  (db/migrations/012_admin_create_teacher.sql). The school goes in the same
+  metadata as the name, lands on the profile (migration 013) and puts the
+  school on the public Schools page. The teacher then signs
   in on the normal Sign In page and is asked to choose their own password
   before anything else (services/auth_service.must_change_password), so the
   admin's password stops working. The email is sent to Supabase and never shown
@@ -90,7 +93,12 @@ def _done(outcome: admin_service.AdminOutcome) -> None:
     st.rerun()
 
 
-TEACHER_KEYS = ("admin_teacher_name", "admin_teacher_email", "admin_teacher_password")
+TEACHER_KEYS = (
+    "admin_teacher_name",
+    "admin_teacher_email",
+    "admin_teacher_password",
+    "admin_teacher_school",
+)
 
 
 def _create_teacher() -> None:
@@ -100,12 +108,16 @@ def _create_teacher() -> None:
     and email they typed, so the boxes are emptied only once the account exists
     (BUG-011). The message waits in FLASH, which the top of the page shows.
     """
-    name, email, password = (st.session_state.get(key, "") for key in TEACHER_KEYS)
-    outcome = admin_service.create_teacher(name, email, password)
+    name, email, password, school = (st.session_state.get(key, "") for key in TEACHER_KEYS)
+    outcome = admin_service.create_teacher(name, email, password, school)
     st.session_state[FLASH] = (outcome.ok, outcome.message)
     if outcome.ok:
         for key in TEACHER_KEYS:
             st.session_state[key] = ""
+        # The new teacher's school belongs on the Schools page straight away.
+        from services import school_service
+
+        school_service.clear_cache()
 
 
 def _when(value: Optional[datetime]) -> str:
@@ -132,6 +144,13 @@ with st.form("admin_create_teacher"):
     )
     st.text_input(
         "Teacher's email", key=TEACHER_KEYS[1], placeholder="name@school.org"
+    )
+    st.text_input(
+        "School",
+        key=TEACHER_KEYS[3],
+        placeholder="e.g. Greenfield School",
+        max_chars=admin_service.SCHOOL_MAX_CHARS,
+        help="Optional. Shown on the public Schools page, and to their students.",
     )
     st.text_input(
         "Temporary password",
@@ -253,6 +272,7 @@ else:
             [
                 {
                     "Name": teacher.display_name,
+                    "School": teacher.school or "",
                     "Profile id": teacher.profile_id,
                     "Students": teacher.student_count,
                 }

@@ -9,7 +9,7 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from components.navigation import PAGE_SPECS, pages_for
-from models import ReviewStatus, Role
+from models import Classroom, ReviewStatus, Role
 from services import analytics_service
 from services import state
 from utils.config import PRIVACY_DETAILS
@@ -148,11 +148,17 @@ def test_demo_reset_clears_exam_and_teacher_class_codes(monkeypatch: pytest.Monk
     teacher = next(u for u in state.get_users() if u.is_teacher)
     fake["current_user_id"] = teacher.id
     fake["mock_exam"] = object()
-    fake["class_codes"] = {teacher.id: "demo-code"}
+    # Since migration 013 codes live on the teacher's classes (state.CLASSES).
+    for classroom in state.get_classes():
+        classroom.code = "DEMO23"
+    state.get_classes().append(
+        Classroom(teacher_id=teacher.id, name="Added in the demo", code="ADDED2")
+    )
     state.reset_to_samples()
     assert fake["current_user_id"] == teacher.id
     assert "mock_exam" not in fake
-    assert "class_codes" not in fake
+    assert [c.code for c in state.get_classes()] == [None]
+    assert all(c.name != "Added in the demo" for c in state.get_classes())
 
 
 @pytest.mark.parametrize(

@@ -20,11 +20,11 @@ WHAT THEY DO NOT COVER
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 
 import pytest
 
-from models import Role, User
+from models import Classroom, Role, User
 from services import roster_service
 from services.repository import (
     CODE_ALPHABET,
@@ -38,11 +38,11 @@ TEACHER_B = "usr_t_b"
 
 
 class _Store:
-    """Stands in for services.state, holding users and codes in memory."""
+    """Stands in for services.state, holding users and classes in memory."""
 
     def __init__(self, users: List[User]) -> None:
         self.users = users
-        self.codes: Dict[str, str] = {}
+        self.classes: List[Classroom] = []
 
 
 @pytest.fixture()
@@ -62,7 +62,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
     import services.repository as repository_module
 
     monkeypatch.setattr(repository_module.store, "get_users", lambda: fake.users)
-    monkeypatch.setattr(repository_module.store, "get_class_codes", lambda: fake.codes)
+    monkeypatch.setattr(repository_module.store, "get_classes", lambda: fake.classes)
     repository_module.set_repository(SessionRepository())
     yield fake
     repository_module.set_repository(None)

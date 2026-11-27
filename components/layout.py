@@ -1519,6 +1519,19 @@ def ai_disclaimer(extra: str = "") -> None:
     st.info(f"{AI_DISCLAIMER} {extra}".strip(), icon=":material/gavel:")
 
 
+_MARKDOWN_SPECIALS = "\\`*_{}[]()#+-.!|<>~$"
+
+
+def plain(text: str) -> str:
+    """Typed text shown exactly as typed, not as Markdown.
+
+    Class and school names are typed by people, and Streamlit renders Markdown:
+    a school called "[Greenfield](https://example.com)" would otherwise become a
+    link on the public Schools page, and "$5 club" would turn into maths.
+    """
+    return "".join("\\" + ch if ch in _MARKDOWN_SPECIALS else ch for ch in text)
+
+
 def privacy_notice() -> None:
     st.caption(f":material/lock: {PRIVACY_NOTICE}")
     # The active timed paper deliberately registers only itself in Streamlit's

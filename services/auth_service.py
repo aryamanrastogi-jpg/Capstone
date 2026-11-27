@@ -36,7 +36,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import streamlit as st
 
-from models import Role, User
+from models import SCHOOL_MAX_CHARS, Role, User, clean_school
 from services import mappers
 from utils.config import get_settings
 
@@ -115,6 +115,13 @@ def _new_client() -> Optional[Any]:
         return create_client(settings.supabase_url, settings.supabase_publishable_key)
     except Exception:  # noqa: BLE001 - reported by services.supabase_client
         return None
+
+
+def anonymous_client() -> Optional[Any]:
+    """A fresh client with no session, for the little anyone may read (the list
+    of schools, services/school_service.py). Never this browser's own client,
+    so nothing read through it can depend on who is signed in."""
+    return _new_client()
 
 
 def session_client() -> Optional[Any]:
@@ -302,12 +309,19 @@ def sign_in(email: str, password: str) -> AuthOutcome:
     return AuthOutcome(True, "Signed in.")
 
 
-def sign_up(email: str, password: str, full_name: str = "") -> AuthOutcome:
+def sign_up(
+    email: str,
+    password: str,
+    full_name: str = "",
+    school: Optional[str] = None,
+    year_group: Optional[int] = None,
+) -> AuthOutcome:
     """Create an account. The profile is created by the database, not here.
 
-    Only the name travels, as sign-up metadata; the trigger in
-    db/migrations/004_profile_details.sql makes it the display name. The role is
-    never sent - the trigger writes role='student' whatever a client asks for.
+    The name, school and year group travel as sign-up metadata; the trigger in
+    db/migrations/013_classes_and_schools.sql copies them onto the new profile
+    (the name since 004). The role is never sent - the trigger writes
+    role='student' whatever a client asks for.
     """
     if len(email.strip()) > MAX_EMAIL_CHARS:
         return AuthOutcome(False, "That email address is too long.")
@@ -315,6 +329,11 @@ def sign_up(email: str, password: str, full_name: str = "") -> AuthOutcome:
         return AuthOutcome(
             False, f"Your name must be at most {MAX_NAME_CHARS} characters."
         )
+    tidy_school = clean_school(school)
+    if tidy_school and len(tidy_school) > SCHOOL_MAX_CHARS:
+        return AuthOutcome(False, f"Keep the school under {SCHOOL_MAX_CHARS} characters.")
+    if year_group is not None and not 7 <= year_group <= 11:
+        return AuthOutcome(False, "Year group must be between 7 and 11.")
     problem = password_problem(password)
     if problem:
         return AuthOutcome(False, problem)
@@ -325,8 +344,15 @@ def sign_up(email: str, password: str, full_name: str = "") -> AuthOutcome:
 
     try:
         credentials: Dict[str, Any] = {"email": email.strip(), "password": password}
+        metadata: Dict[str, Any] = {}
         if full_name.strip():
-            credentials["options"] = {"data": {"full_name": full_name.strip()}}
+            metadata["full_name"] = full_name.strip()
+        if tidy_school:
+            metadata["school"] = tidy_school
+        if year_group is not None:
+            metadata["year_group"] = year_group
+        if metadata:
+            credentials["options"] = {"data": metadata}
         response = client.auth.sign_up(credentials)
     except Exception as exc:  # noqa: BLE001 - shown to the user
         return AuthOutcome(False, _readable_auth_error(exc))
@@ -454,16 +480,33 @@ def current_email() -> Optional[str]:
         return None
 
 
-def update_profile(display_name: str, year_group: Optional[int]) -> AuthOutcome:
-    """Change your name and year group. The role is not writable (see 004)."""
+_UNCHANGED: Any = object()
+
+
+def update_profile(
+    display_name: str, year_group: Optional[int], school: Any = _UNCHANGED
+) -> AuthOutcome:
+    """Change your name, year group and school. The role is not writable (see 004).
+
+    The school is sent only when it actually changes, so saving a name keeps
+    working on a database that has not had migration 013 yet.
+    """
     name = display_name.strip()
     if not 1 <= len(name) <= 60:
         return AuthOutcome(False, "Your name must be between 1 and 60 characters.")
     if year_group is not None and not 7 <= year_group <= 11:
         return AuthOutcome(False, "Year group must be between 7 and 11.")
-    return _write_profile(
-        {"display_name": name, "year_group": year_group}, "Profile saved."
-    )
+    changes: Dict[str, Any] = {"display_name": name, "year_group": year_group}
+    if school is not _UNCHANGED:
+        tidy_school = clean_school(school)
+        if tidy_school and len(tidy_school) > SCHOOL_MAX_CHARS:
+            return AuthOutcome(
+                False, f"Keep the school under {SCHOOL_MAX_CHARS} characters."
+            )
+        current = current_user()
+        if current is None or tidy_school != current.school:
+            changes["school"] = tidy_school
+    return _write_profile(changes, "Profile saved.")
 
 
 def upload_avatar(data: bytes, filename: str) -> AuthOutcome:
@@ -713,10 +756,14 @@ def _write_profile(changes: Dict[str, Any], success: str) -> AuthOutcome:
     try:
         client.table("profiles").update(changes).eq("id", user.id).execute()
     except Exception as exc:  # noqa: BLE001 - shown to the user
+        migration = (
+            "013_classes_and_schools.sql" if "school" in changes
+            else "004_profile_details.sql"
+        )
         return AuthOutcome(
             False,
             "Your profile could not be saved. Check that "
-            f"db/migrations/004_profile_details.sql is applied ({_redacted(exc)}).",
+            f"db/migrations/{migration} is applied ({_redacted(exc)}).",
         )
     _clear_cached_profile()
     return AuthOutcome(True, success)

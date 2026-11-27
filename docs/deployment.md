@@ -27,9 +27,11 @@ Open **supabase.com -> your project -> SQL Editor -> New query**. For each file 
 
 ### A3. Migrations, in this order
 
-Run migration 008 in the Supabase SQL editor before deploying the code in this
-repository. Existing deployments should apply the earlier pending migrations in
-order first.
+Run every migration up to 013 in the Supabase SQL editor before deploying the
+code in this repository: the app now reads tables and functions from 012 and
+013 (teacher accounts made on the Admin page, named classes, schools).
+Existing deployments apply whichever of these they have not had yet, in order.
+Each file is one transaction, so a failure applies nothing.
 
 | Step | File | What it adds |
 |---|---|---|
@@ -41,6 +43,16 @@ order first.
 | 6 | `db/migrations/006_submission_attempts.sql` | `submissions.attempt_number`, so the attempt loop survives a reload |
 | 7 | `db/migrations/007_bug_fixes.sql` | Scopes question reads and freezes student submissions after review |
 | 8 | `db/migrations/008_qa_hardening.sql` | Student-safe grading views, guarded question grading writes, class-code rate limits, and archived teacher assessments that preserve student history |
+| 9 | `db/migrations/009_app_feedback.sql` | `app_feedback` for the sidebar survey |
+| 10 | `db/migrations/010_admin.sql` | The Admin page's functions (invite codes, teachers) |
+| 11 | `db/migrations/011_admin_passkey.sql` | The Admin page opens with `ADMIN_PASSKEY`; its functions run for `service_role` only |
+| 12 | `db/migrations/012_admin_create_teacher.sql` | `admin_make_teacher`: the Admin page creates teacher accounts directly |
+| 13 | `db/migrations/013_classes_and_schools.sql` | Named classes (several per teacher, each with its own code), `profiles.school`, school and year group at sign-up, `my_class()` and `list_schools()`. Existing codes and students move into a "My class" per teacher |
+
+Quick check of what a project has, with the publishable key only (no data is
+read): calling `/rest/v1/rpc/admin_make_teacher` or `/rest/v1/rpc/my_class`
+answers "permission denied" when the function exists and `PGRST202` when that
+migration has not been run.
 
 ### A4. (Re-)run the policies
 

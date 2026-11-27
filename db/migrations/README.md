@@ -26,6 +26,13 @@ the `ADMIN_PASSKEY` secret and calls the database with
 `012` (the Admin page creates teacher accounts) runs after `011`, on its own;
 it is in `db/setup_all.sql` too.
 
+`013` (several named classes per teacher, schools, and the student's view of
+their class) runs after `012`, on its own, and BEFORE the app code that uses it
+is deployed. It moves existing class codes and students into a "My class" per
+teacher, so codes already handed out keep working. It is in `db/setup_all.sql`
+too. Re-running `db/policies.sql` afterwards is safe: its profiles column grant
+now includes `school` wherever that column exists.
+
 After running `008`, before deploying, check on a test project that a
 student's self-study submission still gets an AI estimate saved, and that a
 teacher can approve, edit and flag a result. Both write to `grading_results`
@@ -45,6 +52,7 @@ with an upsert.
 | `010_admin.sql` | `app_admins` (added by hand only) and admin-only functions behind the Admin page: create, list and cancel teacher invite codes, list teachers, demote a teacher. Every function refuses anyone not in `app_admins` |
 | `011_admin_passkey.sql` | The Admin page opens with a passkey instead of an account: drops `app_admins` and `is_app_admin()`, and makes every admin function executable by `service_role` only, with a guard that also checks the service-role claim |
 | `012_admin_create_teacher.sql` | `admin_make_teacher(auth user id)`, service-role only: the Admin page creates the sign-in with Supabase Auth's admin API, then this turns the new profile into a teacher |
+| `013_classes_and_schools.sql` | `classes` (a teacher's named classes, each with its own code via `class_invites.class_id`), `profiles.class_id` and `profiles.school`, school and year group taken from the sign-up metadata, `my_class()` (a student's class and teacher by name), `list_schools()` (teachers' schools, callable signed out), `rotate_class_code(p_class_id)`; every function that moves or promotes a user now clears or sets `class_id` too, and `join_class` keeps 008's rate limit |
 
 ## Checking what you have applied
 

@@ -152,6 +152,18 @@ create policy profiles_update_self on public.profiles
 -- has no column-level RLS, so that is closed with a column grant instead:
 revoke update on public.profiles from authenticated;
 grant update (display_name, year_group, avatar_url) on public.profiles to authenticated;
+-- The school (migration 013) is writable too. Granted only where the column
+-- exists, so this file still runs on a database that has not had 013 yet. The
+-- revoke above removes column grants as well, which is why it is restated here.
+do $do$
+begin
+    if exists (select 1 from information_schema.columns
+                where table_schema = 'public' and table_name = 'profiles'
+                  and column_name = 'school') then
+        execute 'grant update (school) on public.profiles to authenticated';
+    end if;
+end
+$do$;
 
 -- The one application path to role='teacher' is
 -- public.redeem_teacher_invite(code) in db/migrations/005_teacher_invites.sql:

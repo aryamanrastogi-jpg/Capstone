@@ -206,5 +206,5 @@ with auth:
 # works wherever the app is served from.
 st.html(
     f'''<footer class="cp-footer">{_brand}
-<p>{html.escape(PRIVACY_NOTICE)} <a href="privacy">Read the full privacy details</a></p></footer>'''
+<p>{html.escape(PRIVACY_NOTICE)} <a href="privacy">Read the full privacy details</a> · <a href="schools">Schools on Camp Prep AI</a></p></footer>'''
 )

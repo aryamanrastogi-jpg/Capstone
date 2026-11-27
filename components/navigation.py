@@ -155,6 +155,17 @@ PAGE_SPECS: List[Dict[str, Any]] = [
         "without_account": True,
     },
     {
+        "path": "views/schools.py",
+        "title": "Schools",
+        "icon": ":material/school:",
+        "section": "Account",
+        "roles": [STUDENT, TEACHER],
+        "default": False,
+        # Public like Privacy: names of schools with a teacher on the app, at
+        # /schools, linked from the welcome footer.
+        "without_account": True,
+    },
+    {
         "path": "views/privacy.py",
         "title": "Privacy",
         "icon": ":material/lock:",

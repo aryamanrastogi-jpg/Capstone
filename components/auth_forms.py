@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components.school_picker import school_picker
 from services import auth_service
 from utils.config import PRIVACY_DETAILS
 
@@ -74,9 +75,10 @@ def auth_forms() -> None:
             "from your admin on your Profile page."
         )
         st.caption(
-            "We store your name and email to run your account. Your teacher can "
-            "see your name on their class list. You can delete your account at "
-            "any time from Profile."
+            "We store your name and email to run your account, and your school "
+            "and year group if you give them. Your teacher can see your name, "
+            "school and year group on their class list. You can delete your "
+            "account at any time from Profile."
         )
         with st.form("sign_up_form"):
             full_name = st.text_input(
@@ -86,6 +88,18 @@ def auth_forms() -> None:
                 "Email", key="sign_up_email", max_chars=auth_service.MAX_EMAIL_CHARS,
                 type="email", autocomplete="email",
             )
+            school_col, year_col = st.columns([2, 1])
+            with school_col:
+                new_school = school_picker("School", key="sign_up_school")
+            with year_col:
+                new_year = st.selectbox(
+                    "Year group",
+                    [7, 8, 9, 10, 11],
+                    index=None,
+                    key="sign_up_year",
+                    placeholder="Optional",
+                    format_func=lambda y: f"Year {y}",
+                )
             new_password = st.text_input(
                 "Password",
                 type="password",
@@ -120,7 +134,9 @@ def auth_forms() -> None:
             elif new_password != confirm:
                 st.error("The two passwords do not match.", icon=":material/error:")
             else:
-                outcome = auth_service.sign_up(new_email, new_password, full_name)
+                outcome = auth_service.sign_up(
+                    new_email, new_password, full_name, new_school, new_year
+                )
                 if outcome.ok and not outcome.needs_confirmation:
                     st.rerun()
                 elif outcome.ok:

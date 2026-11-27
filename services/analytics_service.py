@@ -11,11 +11,11 @@ excluded.
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import pandas as pd
 
-from models import Assessment, AssessmentType, GradingResult, ReviewStatus, Submission
+from models import Assessment, AssessmentType, GradingResult, ReviewStatus, Submission, User
 
 # Statuses that represent a teacher decision that a score is real.
 FINALISED_STATUSES = (ReviewStatus.APPROVED, ReviewStatus.EDITED)
@@ -479,3 +479,84 @@ def submission_scores(frame: pd.DataFrame) -> pd.DataFrame:
     grouped = grouped.drop(columns="_key")
     grouped["percentage"] = (100 * grouped["awarded"] / grouped["available"]).round(1)
     return grouped.sort_values("percentage", ascending=False, ignore_index=True)
+
+
+# --------------------------------------------------------------------------
+# Hand-ins - who has not done the work at all
+# --------------------------------------------------------------------------
+def not_handed_in(
+    assessments: Sequence[Assessment],
+    students: Sequence[User],
+    submissions: Sequence[Submission],
+    *,
+    teacher_id: str,
+) -> List[Dict[str, object]]:
+    """Per assessment, the students who have not handed in any work for it.
+
+    Every score in the app is about work that exists. A student who never
+    handed anything in has no score, so nothing else would ever point at them -
+    and "who has not done it yet" is half of what a teacher follows up on.
+
+    `students` is passed in rather than looked up, so the caller decides whose
+    hand-ins are counted: the whole roster today, a single class later.
+
+    The rules, and why:
+      * Only `teacher_id`'s own assessments count. Another teacher's sets, the
+        unowned sample sets, archived sets and students' own question sets are
+        left out: this teacher never asked anyone to do those.
+      * Only students are counted. A teacher in `students` is skipped.
+      * Any submission for the set counts as handed in, whatever its status or
+        attempt number, and several attempts count once. A self-study upload
+        counts too, because that is how a student hands work in from My Work.
+      * A mock exam paper does not count. It borrowed some of the set's
+        questions for timed practice; it is not the set itself (the same rule
+        as `attempt_service.attempts_for`).
+      * Work with no account on it (only a typed code) cannot be matched to
+        anyone in `students`, so it does not count either.
+
+    Returns one dictionary per assessment, newest first, so the first entry is
+    the sensible one to show by default:
+      assessment - the Assessment
+      missing    - students with nothing handed in, ordered by display name
+      handed_in  - how many of the counted students have handed in
+      total      - how many students were counted
+    """
+    if not teacher_id:
+        # An empty id would match every unowned sample set as "own".
+        return []
+
+    own = [
+        a
+        for a in assessments
+        if a.owner_id == teacher_id and not a.student_created and not a.is_archived
+    ]
+
+    # One entry per student, however many times they appear in the list.
+    counted: Dict[str, User] = {}
+    for user in students:
+        if user.is_student:
+            counted.setdefault(user.id, user)
+    ordered = sorted(counted.values(), key=lambda u: (u.display_name.casefold(), u.id))
+
+    handed_in_by: Dict[str, Set[str]] = {}
+    for submission in submissions:
+        if submission.student_id and not submission.is_mock_exam:
+            handed_in_by.setdefault(submission.assessment_id, set()).add(
+                submission.student_id
+            )
+
+    rows: List[Dict[str, object]] = []
+    # Sorted on timestamp() so naive demo times and timezone-aware database
+    # times can never meet in one comparison and raise TypeError.
+    for assessment in sorted(own, key=lambda a: (-a.created_at.timestamp(), a.title)):
+        done = handed_in_by.get(assessment.id, set())
+        missing = [student for student in ordered if student.id not in done]
+        rows.append(
+            {
+                "assessment": assessment,
+                "missing": missing,
+                "handed_in": len(ordered) - len(missing),
+                "total": len(ordered),
+            }
+        )
+    return rows

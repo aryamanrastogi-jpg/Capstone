@@ -457,7 +457,8 @@ def _sign_up_page(monkeypatch: pytest.MonkeyPatch, sign_up_result, redeem_ok=Tru
     monkeypatch.setattr(auth_service, "current_user", lambda: None)
     calls: Dict[str, Any] = {"sign_up": [], "redeem": []}
 
-    def fake_sign_up(email, password, full_name=""):
+    def fake_sign_up(email, password, full_name="", school=None, year_group=None):
+        # school and year group (migration 013) are optional and left empty here
         calls["sign_up"].append((email, full_name))
         return sign_up_result
 

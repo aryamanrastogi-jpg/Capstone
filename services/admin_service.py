@@ -55,6 +55,7 @@ MAX_USES = 20
 MAX_VALID_DAYS = 30
 MAX_NOTE_CHARS = 120
 MAX_NAME_CHARS = 60
+SCHOOL_MAX_CHARS = 80  # models.SCHOOL_MAX_CHARS; a test keeps the two equal
 
 # Set in the new account's user_metadata so the teacher must choose their own
 # password at first sign-in (services/auth_service.must_change_password reads it;
@@ -129,6 +130,8 @@ class TeacherRow:
     profile_id: str
     display_name: str
     student_count: int
+    # From migration 013; None on a database that predates it.
+    school: Optional[str] = None
 
 
 # --------------------------------------------------------------------------
@@ -381,6 +384,7 @@ def list_teachers() -> Tuple[List[TeacherRow], Optional[str]]:
             profile_id=r["profile_id"],
             display_name=r.get("display_name") or r["profile_id"],
             student_count=int(r.get("student_count") or 0),
+            school=r.get("school"),
         )
         for r in data
     ]
@@ -404,9 +408,12 @@ def demote_teacher(profile_id: str, release_students: bool) -> AdminOutcome:
 # --------------------------------------------------------------------------
 # Creating a teacher account
 # --------------------------------------------------------------------------
-def teacher_form_problem(full_name: str, email: str, password: str) -> Optional[str]:
+def teacher_form_problem(
+    full_name: str, email: str, password: str, school: Optional[str] = None
+) -> Optional[str]:
     """Why the new-teacher form cannot be sent as it is, or None."""
     from services.auth_service import MAX_EMAIL_CHARS, password_problem
+    from services.school_service import school_problem
 
     name = (full_name or "").strip()
     if not name:
@@ -416,6 +423,9 @@ def teacher_form_problem(full_name: str, email: str, password: str) -> Optional[
     address = (email or "").strip()
     if len(address) > MAX_EMAIL_CHARS or not _EMAIL_PATTERN.match(address):
         return "That email address does not look right."
+    problem = school_problem(school)
+    if problem:
+        return problem
     problem = password_problem(password or "")
     if problem:
         return problem.replace("Your password", "The temporary password")
@@ -432,7 +442,9 @@ def _created_user_id(response: Any) -> Optional[str]:
     return str(user_id) if user_id else None
 
 
-def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
+def create_teacher(
+    full_name: str, email: str, password: str, school: Optional[str] = None
+) -> AdminOutcome:
     """Create a sign-in that is a teacher from the start.
 
     All or nothing: if the account is made but cannot be turned into a teacher,
@@ -442,8 +454,14 @@ def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
     The password is temporary. The account is flagged (FORCE_PASSWORD_CHANGE_KEY)
     so the teacher has to choose their own at first sign-in, which means the
     password the admin typed, and anyone who saw it on its way, stops working.
+
+    The school, if given, travels in the same metadata as the name; the sign-up
+    trigger (migration 013) puts it on the profile, and it is what puts the
+    school on the public Schools page.
     """
-    problem = teacher_form_problem(full_name, email, password)
+    from models import clean_school
+
+    problem = teacher_form_problem(full_name, email, password, school)
     if problem:
         return AdminOutcome(False, problem)
 
@@ -452,13 +470,16 @@ def create_teacher(full_name: str, email: str, password: str) -> AdminOutcome:
         return AdminOutcome(False, problem or NOT_ADMIN_MESSAGE)
 
     name = full_name.strip()
+    metadata: Dict[str, Any] = {"full_name": name, FORCE_PASSWORD_CHANGE_KEY: True}
+    if clean_school(school):
+        metadata["school"] = clean_school(school)
     try:
         response = client.auth.admin.create_user(
             {
                 "email": email.strip().lower(),
                 "password": password,
                 "email_confirm": True,
-                "user_metadata": {"full_name": name, FORCE_PASSWORD_CHANGE_KEY: True},
+                "user_metadata": metadata,
             }
         )
     except Exception as exc:  # noqa: BLE001 - mapped to a safe message

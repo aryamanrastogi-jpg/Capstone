@@ -548,8 +548,10 @@ def test_a_failed_add_a_teacher_keeps_what_was_typed(monkeypatch: pytest.MonkeyP
     at = _admin_page(monkeypatch, unlocked=True)
     seen: List[tuple] = []
 
-    def refuse(name: str, email: str, password: str) -> admin_service.AdminOutcome:
-        seen.append((name, email, password))
+    def refuse(
+        name: str, email: str, password: str, school: str = ""
+    ) -> admin_service.AdminOutcome:
+        seen.append((name, email, password, school))
         return admin_service.AdminOutcome(
             False, "The temporary password must be at least 8 characters."
         )
@@ -559,7 +561,8 @@ def test_a_failed_add_a_teacher_keeps_what_was_typed(monkeypatch: pytest.MonkeyP
     next(b for b in at.button if b.label == "Create teacher account").click().run()
 
     assert not at.exception, at.exception
-    assert seen == [("Ms Rao", "rao@school.org", "secret123")]
+    # The school box (migration 013) is optional and was left empty.
+    assert seen == [("Ms Rao", "rao@school.org", "secret123", "")]
     assert any("at least 8 characters" in e.value for e in at.error)
     for key, value in TEACHER_BOXES.items():
         assert at.text_input(key=key).value == value
@@ -570,7 +573,7 @@ def test_a_successful_add_a_teacher_empties_the_form(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         admin_service,
         "create_teacher",
-        lambda name, email, password: admin_service.AdminOutcome(
+        lambda name, email, password, school="": admin_service.AdminOutcome(
             True, "Teacher account created for Ms Rao."
         ),
     )

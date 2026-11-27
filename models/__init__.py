@@ -14,7 +14,17 @@ from models.guidance import GENERIC_SHAPE, Guidance
 from models.grading import ErrorItem, ErrorType, GradingResult, ReviewStatus
 from models.study_plan import StudyCamp, StudySession
 from models.submission import Submission, SubmissionStatus
-from models.user import Role, User, students_of
+from models.user import (
+    CLASS_NAME_MAX_CHARS,
+    DEFAULT_CLASS_NAME,
+    SCHOOL_MAX_CHARS,
+    ClassMembership,
+    Classroom,
+    Role,
+    User,
+    clean_school,
+    students_of,
+)
 
 __all__ = [
     "Assessment",
@@ -39,4 +49,10 @@ __all__ = [
     "Role",
     "User",
     "students_of",
+    "Classroom",
+    "ClassMembership",
+    "clean_school",
+    "CLASS_NAME_MAX_CHARS",
+    "DEFAULT_CLASS_NAME",
+    "SCHOOL_MAX_CHARS",
 ]

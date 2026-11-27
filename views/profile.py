@@ -1,8 +1,8 @@
 """Profile - see, edit and delete your own account.
 
 Create happens at sign-up. Here you can read your details, update your name,
-year group and photo, remove the photo, and delete the account. Your role is
-shown but cannot be changed: it comes from the database, not from you.
+year group, school and photo, remove the photo, and delete the account. Your
+role is shown but cannot be changed: it comes from the database, not from you.
 
 THE TEACHER INVITE BOX
   The one way a role changes from this page is by redeeming an invite code, and
@@ -30,6 +30,7 @@ import html
 import streamlit as st
 
 from components.layout import page_header
+from components.school_picker import school_picker
 from models import Role
 from services import auth_service
 from services import state as store
@@ -138,8 +139,9 @@ with details_col:
             else 0,
             format_func=lambda y: "Not set" if y is None else f"Year {y}",
         )
+        school = school_picker("School", current=user.school, key="profile_school")
         if st.form_submit_button("Save changes", type="primary"):
-            _done(auth_service.update_profile(name, year))
+            _done(auth_service.update_profile(name, year, school))
 
 st.divider()
 # Open again after an attempt, with the answer under the button that was pressed:

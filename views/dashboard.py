@@ -1,14 +1,21 @@
 """Class Overview - the teacher's landing page.
 
 WHAT THIS FILE DOES
-  Shows the teacher their roster: who is uploading work, how each student is
-  tracking, what is waiting to be reviewed, and where the AI's read of a piece
-  of work disagrees with the mark that was actually given.
+  Shows the teacher their roster: who is uploading work, who has not handed an
+  assessment in yet, how each student is tracking, what is waiting to be
+  reviewed, and where the AI's read of a piece of work disagrees with the mark
+  that was actually given.
 
 THE MISMATCH PANEL
   When a student records the mark their teacher gave them, `mark_mismatches`
   compares it against the AI estimate. A large gap is a prompt to look again -
   never a claim that the teacher was wrong.
+
+NOT HANDED IN YET
+  Every other number on this page is about work that exists, so a student who
+  never handed anything in would not show up anywhere. `not_handed_in` lists
+  them for each of the teacher's own assessments. It is given the roster rather
+  than fetching it, so it can later be pointed at a single class.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ from components.navigation import goto
 from components.status_badges import submission_status_label
 from services import analytics_service as analytics
 from services import assessment_service as service
+from services import roster_service
 from services import state as store
 from utils import palette
 
@@ -180,6 +188,81 @@ else:
         "Averages include the students' own AI estimates, so treat them as a "
         "direction of travel rather than a report-card grade."
     )
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Not handed in yet
+# ---------------------------------------------------------------------------
+st.markdown("## Not handed in yet")
+st.caption(
+    "Students on your roster with nothing handed in for the assessment you pick. "
+    "Any attempt counts, marked or not. A practice mock exam that only borrowed "
+    "its questions does not."
+)
+
+hand_ins = analytics.not_handed_in(assessments, roster, submissions, teacher_id=teacher.id)
+
+if not hand_ins:
+    empty_state(
+        "You have no assessments of your own to check yet.",
+        "Only assessments you created count here. Create one, and this shows who "
+        "still needs to hand work in.",
+        icon=":material/assignment:",
+    )
+elif not roster:
+    empty_state(
+        "No students are linked to you yet.",
+        "Students join with your class code on My Class.",
+    )
+else:
+    by_assessment = {entry["assessment"].id: entry for entry in hand_ins}
+
+    def _assessment_label(assessment_id: str) -> str:
+        assessment = by_assessment[assessment_id]["assessment"]
+        return f"{assessment.title} · set {assessment.created_at:%d %b}"
+
+    # The list comes newest first, so the default is the latest assessment:
+    # the one most likely to need chasing.
+    chosen = by_assessment[
+        st.selectbox(
+            "Assessment",
+            options=list(by_assessment),
+            format_func=_assessment_label,
+        )
+    ]
+    st.markdown(f"**{chosen['handed_in']} of {chosen['total']}** handed in")
+
+    if not chosen["missing"]:
+        empty_state(
+            "Everyone on your roster has handed in work for this one.",
+            icon=":material/task_alt:",
+        )
+    else:
+        # Name, class and year group: enough to follow up, nothing more. The
+        # class column needs migration 013; without it the column is left out.
+        try:
+            class_names = {c.id: c.name for c in roster_service.list_classes(teacher.id)}
+        except roster_service.ClassesNotSetUp:
+            class_names = {}
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Student": student.display_name,
+                        **(
+                            {"Class": class_names.get(student.class_id or "", "No class")}
+                            if class_names
+                            else {}
+                        ),
+                        "Year": str(student.year_group) if student.year_group else "—",
+                    }
+                    for student in chosen["missing"]
+                ]
+            ),
+            hide_index=True,
+            width="stretch",
+        )
 
 st.divider()
 
