@@ -479,6 +479,31 @@ def test_a_locked_page_asks_for_the_passkey_and_shows_nothing_else(
     assert len(at.dataframe) == 0
 
 
+def test_the_passkey_box_has_no_length_limit_and_a_long_passkey_unlocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ARY-001, decided 27 Nov: the passkey has no length rules. The box has no
+    max_chars, so it shows no count (it said "10/256", telling an onlooker the
+    length), and nothing is cut off: a 300-character passkey typed in full
+    unlocks the page. AppTest ignores input longer than max_chars, as a browser
+    does, so this fails if either limit comes back."""
+    from streamlit.testing.v1 import AppTest
+
+    long_passkey = "passkey-10" * 30
+    monkeypatch.setenv("ADMIN_PASSKEY", long_passkey)
+    monkeypatch.setattr(admin_service, "list_teacher_invites", lambda: ([], None))
+    monkeypatch.setattr(admin_service, "list_teachers", lambda: ([], None))
+    at = AppTest.from_file(ADMIN_PAGE, default_timeout=60)
+    at.run()
+    [field] = at.text_input
+    assert not field.max_chars
+
+    field.input(long_passkey)
+    at.button[0].click().run()
+    assert not at.exception, at.exception
+    assert "Lock admin" in [b.label for b in at.button]
+
+
 @pytest.mark.parametrize("missing", ["ADMIN_PASSKEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"])
 def test_the_page_shows_a_setup_problem_instead_of_the_form(
     monkeypatch: pytest.MonkeyPatch, missing: str

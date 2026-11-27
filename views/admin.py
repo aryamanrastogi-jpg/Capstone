@@ -63,7 +63,6 @@ if not admin_service.is_unlocked():
             "Admin passkey",
             type="password",
             autocomplete="off",
-            max_chars=admin_service.MAX_PASSKEY_INPUT_CHARS,
             help="The ADMIN_PASSKEY secret set for this app.",
         )
         if st.form_submit_button("Unlock", type="primary"):

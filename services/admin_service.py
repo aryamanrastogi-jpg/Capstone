@@ -9,9 +9,11 @@ HOW THE ADMIN PAGE IS OPENED
   every admin function executable by `service_role` only.
 
 WHAT KEEPS THAT SAFE ENOUGH
-  * The passkey is compared in constant time (any length; admin stays off
-    only while it is empty). A wrong guess costs about a second, and wrong
-    guesses are counted per visitor, never for the whole server (a shared
+  * The passkey has no length rules, by choice: no minimum (admin stays off
+    only while it is empty) and no maximum, so the box shows no character
+    count that would tell an onlooker how long it is. Guessing is limited
+    instead. The passkey is compared in constant time, a wrong guess costs
+    about a second, and wrong guesses are counted per visitor, never for the whole server (a shared
     counter would let anyone lock the owner out): MAX_FAILURES within
     LOCKOUT_SECONDS locks the form for that visitor until the window passes.
     A visitor is the right-most X-Forwarded-For hop, else the connection's own
@@ -42,7 +44,6 @@ import streamlit as st
 PASSKEY_ENV = "ADMIN_PASSKEY"
 SERVICE_KEY_ENV = "SUPABASE_SERVICE_ROLE_KEY"
 
-MAX_PASSKEY_INPUT_CHARS = 256
 UNLOCK_SECONDS = 30 * 60
 MAX_FAILURES = 5
 LOCKOUT_SECONDS = 5 * 60
@@ -225,7 +226,7 @@ def unlock(passkey: str) -> AdminOutcome:
     if wait:
         return AdminOutcome(False, f"Too many wrong passkeys. Try again in {wait} seconds.")
 
-    typed = (passkey or "").strip()[:MAX_PASSKEY_INPUT_CHARS]
+    typed = (passkey or "").strip()
     if not typed or not hmac.compare_digest(
         typed.encode("utf-8"), _configured_passkey().encode("utf-8")
     ):
